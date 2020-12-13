@@ -1,3 +1,9 @@
-__version__ = '2020.0'
+try:
+    from importlib import metadata
+except ImportError:
+    # Running on pre-3.8 Python; use importlib-metadata package
+    import importlib_metadata as metadata
+
+__version__ = metadata.version('openneuro-py')
 
 from .openneuro import download  # noqa: F401
