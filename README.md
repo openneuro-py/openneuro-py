@@ -1,20 +1,20 @@
 # openneuro-py
 
-A leightweight Python client for accessing [OpenNeuro](https://openneuro.org)
+A Python client for accessing [OpenNeuro](https://openneuro.org)
 datasets.
 
 ## Installation
-
-### via pip
-
-```shell
-pip install openneuro-py
-```
 
 ### via conda
 
 ```shell
 conda install -c conda-forge openneuro-py
+```
+
+### via pip
+
+```shell
+pip install openneuro-py
 ```
 
 ## Basic usage
@@ -32,7 +32,8 @@ To store the downloaded files in a specific directory, use the
 already.
 
 ```shell
-openneuro-py download --dataset=ds000246 --target_dir=data/bids
+openneuro-py download --dataset=ds000246 \
+                      --target_dir=data/bids
 ```
 
 ### Continue an interrupted download
