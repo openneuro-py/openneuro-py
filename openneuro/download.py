@@ -29,11 +29,70 @@ def _get_download_metadata(*,
     return response_json
 
 
+def _download_file(*,
+                   url: str,
+                   remote_file_size: int,
+                   outfile: Path,
+                   verify_hash: bool) -> None:
+    """Download an individual file.
+    """
+    if outfile.exists():
+        local_file_size = outfile.stat().st_size
+    else:
+        local_file_size = 0
+
+    headers = {}
+    # Check if we need to resume a download
+    if outfile.exists() and local_file_size == remote_file_size:
+        # Download complete, skip.
+        tqdm.write(f'Skipping {outfile.name}: already downloaded.')
+        return
+    elif outfile.exists() and local_file_size < remote_file_size:
+        # Download incomplete, resume.
+        desc = f'Resuming {outfile.name}'
+        headers['Range'] = f'bytes={local_file_size}-'
+        mode = 'ab'
+    elif outfile.exists():
+        # Local file is larger than remote – overwrite.
+        desc = f'Re-downloading {outfile.name}: file size mismatch.'
+        mode = 'wb'
+    else:
+        # File doesn't exist locally, download entirely.
+        desc = outfile.name
+        mode = 'wb'
+
+    with httpx.stream('GET', url=url, headers=headers) as response:
+        if response.status_code not in (200, 206):  # OK, Partial Content
+            raise RuntimeError(f'Error {response.status_code} when trying '
+                               f'to download {outfile}.')
+
+        hash = hashlib.sha256()
+        with tqdm.wrapattr(open(outfile, mode=mode),
+                           'write',
+                           miniters=1,
+                           initial=local_file_size,
+                           desc=desc,
+                           dynamic_ncols=True,
+                           total=remote_file_size) as f:
+
+            for chunk in response.iter_bytes():
+                f.write(chunk)
+                if verify_hash:
+                    hash.update(chunk)
+
+            if verify_hash:
+                tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
+
+        # Check the file was completely downloaded.
+        f.flush()
+        assert outfile.stat().st_size == remote_file_size
+
+
 def _download_files(*,
                     target_dir: Path,
                     files: dict,
                     verify_hash: bool) -> None:
-    """Download individual files.
+    """Download files, one by one.
     """
     for file in files:
         filename = Path(file['filename'])
@@ -42,57 +101,8 @@ def _download_files(*,
 
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        headers = {}
-
-        if outfile.exists():
-            local_file_size = outfile.stat().st_size
-        else:
-            local_file_size = 0
-
-        # Check if we need to resume a download
-        if outfile.exists() and local_file_size == file_size:
-            # Download complete, skip.
-            print(f'Skipping {filename.name}: already downloaded.')
-            continue
-        elif outfile.exists() and local_file_size < file_size:
-            # Download incomplete, resume.
-            desc = f'Resuming {filename.name}'
-            headers['Range'] = f'bytes={local_file_size}-'
-            mode = 'ab'
-        elif outfile.exists():
-            # Local file is larger than remote – overwrite.
-            desc = f'Re-downloading {filename.name}: file size mismatch.'
-            mode = 'wb'
-        else:
-            # File doesn't exist locally, download entirely.
-            desc = filename.name
-            mode = 'wb'
-
-        with httpx.stream('GET', url=url, headers=headers) as response:
-            if response.status_code not in (200, 206):  # OK, Partial Content
-                raise RuntimeError(f'Error {response.status_code} when trying '
-                                   f'to download {outfile}.')
-
-            hash = hashlib.sha256()
-            with tqdm.wrapattr(open(outfile, mode=mode),
-                               'write',
-                               miniters=1,
-                               initial=local_file_size,
-                               desc=desc,
-                               dynamic_ncols=True,
-                               total=file_size) as f:
-
-                for chunk in response.iter_bytes():
-                    f.write(chunk)
-                    if verify_hash:
-                        hash.update(chunk)
-
-                if verify_hash:
-                    tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
-
-            # Check the file was completely downloaded.
-            f.flush()
-            assert outfile.stat().st_size == file_size
+        _download_file(url=url, remote_file_size=file_size, outfile=outfile,
+                       verify_hash=verify_hash)
 
 
 @click.command()
