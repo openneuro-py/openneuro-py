@@ -32,7 +32,7 @@ def _get_download_metadata(*,
 def _download_files(*,
                     target_dir: Path,
                     files: dict,
-                    verify_hash: bool):
+                    verify_hash: bool) -> None:
     """Download individual files.
     """
     for file in files:
@@ -52,7 +52,7 @@ def _download_files(*,
         # Check if we need to resume a download
         if outfile.exists() and local_file_size == file_size:
             # Download complete, skip.
-            tqdm.write(f'Skipping {filename.name}: already downloaded.')
+            print(f'Skipping {filename.name}: already downloaded.')
             continue
         elif outfile.exists() and local_file_size < file_size:
             # Download incomplete, resume.
@@ -114,7 +114,7 @@ def download(*,
              target_dir: Optional[str] = None,
              include: Optional[Tuple[str]] = None,
              exclude: Optional[Tuple[str]] = None,
-             verify_hash: bool = False):
+             verify_hash: bool = False) -> None:
     """Download datasets from OpenNeuro.\f
 
     Parameters
@@ -147,7 +147,7 @@ def download(*,
 
     files = []
     for file in metadata['files']:
-        filename: str = file['filename']
+        filename: str = file['filename']  # TODO properly define metadata type
 
         # Always include essential BIDS files.
         if filename in ('dataset_description.json',
@@ -157,10 +157,9 @@ def download(*,
             files.append(file)
             continue
 
-        if ((not include or
-                any(filename.startswith(i) for i in include)) and
+        if ((not include or any(filename.startswith(i) for i in include)) and
                 not any(filename.startswith(e) for e in exclude)):
             files.append(file)
 
-    _download_files(target_dir=target_dir, files=files,
-                    verify_hash=verify_hash)
+        _download_files(target_dir=target_dir, files=files,
+                        verify_hash=verify_hash)

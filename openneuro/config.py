@@ -7,7 +7,7 @@ config_fname = Path('~/.openneuro').expanduser()
 default_base_url = 'https://openneuro.org/'
 
 
-def init_config():
+def init_config() -> None:
     """Initialize a new OpenNeuro configuration file.
     """
     api_key = getpass.getpass('OpenNeuro API key (input hidden): ')
