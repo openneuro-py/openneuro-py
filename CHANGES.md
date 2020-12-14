@@ -3,3 +3,4 @@
 ## 2020.3
 
 - Switch from `requests` to `httpx` library
+- Add `--verify_size` switch disable file size sanity check.

@@ -33,7 +33,8 @@ def _download_file(*,
                    url: str,
                    remote_file_size: int,
                    outfile: Path,
-                   verify_hash: bool) -> None:
+                   verify_hash: bool,
+                   verify_size: bool) -> None:
     """Download an individual file.
     """
     if outfile.exists():
@@ -84,14 +85,20 @@ def _download_file(*,
                 tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
 
         # Check the file was completely downloaded.
-        f.flush()
-        assert outfile.stat().st_size == remote_file_size
+        if verify_size:
+            f.flush()
+            local_file_size = outfile.stat().st_size
+            if not local_file_size == remote_file_size:
+                raise RuntimeError(f'Server claimed file size would be '
+                                   f'{remote_file_size} bytes, but downloaded '
+                                   f'{local_file_size} byes.')
 
 
 def _download_files(*,
                     target_dir: Path,
                     files: dict,
-                    verify_hash: bool) -> None:
+                    verify_hash: bool,
+                    verify_size: bool) -> None:
     """Download files, one by one.
     """
     for file in files:
@@ -102,7 +109,7 @@ def _download_files(*,
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
         _download_file(url=url, remote_file_size=file_size, outfile=outfile,
-                       verify_hash=verify_hash)
+                       verify_hash=verify_hash, verify_size=verify_size)
 
 
 @click.command()
@@ -117,13 +124,17 @@ def _download_files(*,
                    'multiple times.')
 @click.option('--verify_hash', type=bool, default=False, show_default=True,
               help='Whether to print the SHA256 hash of each downloaded file.')
+@click.option('--verify_size', type=bool, default=True, show_default=True,
+              help='Whether to check the downloaded file size matches what '
+                   'the server announced.')
 def download(*,
              dataset: str,
              tag: Optional[str] = None,
              target_dir: Optional[str] = None,
              include: Optional[Tuple[str]] = None,
              exclude: Optional[Tuple[str]] = None,
-             verify_hash: bool = False) -> None:
+             verify_hash: bool = False,
+             verify_size: bool = True) -> None:
     """Download datasets from OpenNeuro.\f
 
     Parameters
@@ -143,6 +154,9 @@ def download(*,
         Files and directories to exclude from downloading.
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
+    verify_size
+        Whether to check if the downloaded file size matches what the server
+        announced.
     """
     if target_dir is None:
         target_dir = Path(dataset)
@@ -170,5 +184,7 @@ def download(*,
                 not any(filename.startswith(e) for e in exclude)):
             files.append(file)
 
-    _download_files(target_dir=target_dir, files=files,
-                    verify_hash=verify_hash)
+    _download_files(target_dir=target_dir,
+                    files=files,
+                    verify_hash=verify_hash,
+                    verify_size=verify_size)
