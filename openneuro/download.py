@@ -1,5 +1,5 @@
 from pathlib import Path
-import requests
+import httpx
 import hashlib
 from typing import Optional, Tuple
 
@@ -20,7 +20,7 @@ def _get_download_metadata(*,
     else:
         url = f'{base_url}crn/datasets/{dataset_id}/snapshots/{tag}/download'
 
-    response = requests.get(url)
+    response = httpx.get(url)
     if response.status_code != 200:
         raise RuntimeError(f'Error {response.status_code} when trying to '
                            f'fetch metadata.')
@@ -68,32 +68,31 @@ def _download_files(*,
             desc = filename.name
             mode = 'wb'
 
-        response = requests.get(url=url, headers=headers, stream=True)
-        if response.status_code not in (200, 206):  # OK, Partial Content
-            raise RuntimeError(f'Error {response.status_code} when trying to '
-                               f'download {outfile}.')
+        with httpx.stream('GET', url=url, headers=headers) as response:
+            if response.status_code not in (200, 206):  # OK, Partial Content
+                raise RuntimeError(f'Error {response.status_code} when trying '
+                                   f'to download {outfile}.')
 
-        hash = hashlib.sha256()
+            hash = hashlib.sha256()
+            with tqdm.wrapattr(open(outfile, mode=mode),
+                               'write',
+                               miniters=1,
+                               initial=local_file_size,
+                               desc=desc,
+                               dynamic_ncols=True,
+                               total=file_size) as f:
 
-        with tqdm.wrapattr(open(outfile, mode=mode),
-                           'write',
-                           miniters=1,
-                           initial=local_file_size,
-                           desc=desc,
-                           dynamic_ncols=True,
-                           total=file_size) as f:
-            chunk_size = 4096
-            for chunk in response.iter_content(chunk_size=chunk_size):
-                f.write(chunk)
+                for chunk in response.iter_bytes():
+                    f.write(chunk)
+                    if verify_hash:
+                        hash.update(chunk)
+
                 if verify_hash:
-                    hash.update(chunk)
+                    tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
 
-            if verify_hash:
-                tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
-
-        # Check the file was completely downloaded.
-        f.flush()
-        assert outfile.stat().st_size == file_size
+            # Check the file was completely downloaded.
+            f.flush()
+            assert outfile.stat().st_size == file_size
 
 
 @click.command()
@@ -161,5 +160,5 @@ def download(*,
                 not any(filename.startswith(e) for e in exclude)):
             files.append(file)
 
-        _download_files(target_dir=target_dir, files=files,
-                        verify_hash=verify_hash)
+    _download_files(target_dir=target_dir, files=files,
+                    verify_hash=verify_hash)
