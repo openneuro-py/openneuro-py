@@ -10,6 +10,8 @@ import click
 from .config import default_base_url
 
 
+# HTTP server responses that indicate hopefully intermittent errors that
+# warrant a retry.
 allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
 
 
