@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 import httpx
 import hashlib
@@ -9,10 +10,15 @@ import click
 from .config import default_base_url
 
 
+allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
+
+
 def _get_download_metadata(*,
                            base_url: str,
                            dataset_id: str,
-                           tag: Optional[str] = None) -> dict:
+                           tag: Optional[str] = None,
+                           max_retries: int,
+                           retry_backoff: float) -> dict:
     """Retrieve dataset metadata required for the download.
     """
     if tag is None:
@@ -21,12 +27,20 @@ def _get_download_metadata(*,
         url = f'{base_url}crn/datasets/{dataset_id}/snapshots/{tag}/download'
 
     response = httpx.get(url)
-    if response.status_code != 200:
+    if 200 <= response.status_code <= 299:
+        response_json = response.json()
+        return response_json
+    elif response.status_code in allowed_retry_codes and max_retries > 0:
+        tqdm.write(f'Error {response.status_code}, retrying …')
+        time.sleep(retry_backoff)
+        max_retries -= 1
+        retry_backoff *= 2
+        _get_download_metadata(base_url=base_url, dataset_id=dataset_id,
+                               tag=tag, max_retries=max_retries,
+                               retry_backoff=retry_backoff)
+    else:
         raise RuntimeError(f'Error {response.status_code} when trying to '
                            f'fetch metadata.')
-
-    response_json = response.json()
-    return response_json
 
 
 def _download_file(*,
@@ -34,7 +48,9 @@ def _download_file(*,
                    remote_file_size: int,
                    outfile: Path,
                    verify_hash: bool,
-                   verify_size: bool) -> None:
+                   verify_size: bool,
+                   max_retries: int,
+                   retry_backoff: float) -> None:
     """Download an individual file.
     """
     if outfile.exists():
@@ -63,9 +79,20 @@ def _download_file(*,
         mode = 'wb'
 
     with httpx.stream('GET', url=url, headers=headers) as response:
-        if response.status_code not in (200, 206):  # OK, Partial Content
+        if 200 <= response.status_code <= 299:
+            pass  # All good!
+        elif response.status_code in allowed_retry_codes and max_retries > 0:
+            tqdm.write(f'Error {response.status_code}, retrying …')
+            time.sleep(retry_backoff)
+            max_retries -= 1
+            retry_backoff *= 2
+            _download_file(url=url, remote_file_size=remote_file_size,
+                           outfile=outfile, verify_hash=verify_hash,
+                           verify_size=verify_size, max_retries=max_retries,
+                           retry_backoff=retry_backoff)
+        else:
             raise RuntimeError(f'Error {response.status_code} when trying '
-                               f'to download {outfile}.')
+                               f'to download {outfile} from {url}')
 
         hash = hashlib.sha256()
         with tqdm.wrapattr(open(outfile, mode=mode),
@@ -98,7 +125,9 @@ def _download_files(*,
                     target_dir: Path,
                     files: dict,
                     verify_hash: bool,
-                    verify_size: bool) -> None:
+                    verify_size: bool,
+                    max_retries: int,
+                    retry_backoff: float) -> None:
     """Download files, one by one.
     """
     for file in files:
@@ -109,7 +138,8 @@ def _download_files(*,
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
         _download_file(url=url, remote_file_size=file_size, outfile=outfile,
-                       verify_hash=verify_hash, verify_size=verify_size)
+                       verify_hash=verify_hash, verify_size=verify_size,
+                       max_retries=max_retries, retry_backoff=retry_backoff)
 
 
 @click.command()
@@ -127,6 +157,9 @@ def _download_files(*,
 @click.option('--verify_size', type=bool, default=True, show_default=True,
               help='Whether to check the downloaded file size matches what '
                    'the server announced.')
+@click.option('--max_retries', type=int, default=5, show_default=True,
+              help='Try the specified number of times to download a file '
+                   'before failing.')
 def download(*,
              dataset: str,
              tag: Optional[str] = None,
@@ -134,7 +167,8 @@ def download(*,
              include: Optional[Tuple[str]] = None,
              exclude: Optional[Tuple[str]] = None,
              verify_hash: bool = False,
-             verify_size: bool = True) -> None:
+             verify_size: bool = True,
+             max_retries: int = 5) -> None:
     """Download datasets from OpenNeuro.\f
 
     Parameters
@@ -157,6 +191,8 @@ def download(*,
     verify_size
         Whether to check if the downloaded file size matches what the server
         announced.
+    max_retries
+        Try the specified number of times to download a file before failing.
     """
     if target_dir is None:
         target_dir = Path(dataset)
@@ -164,9 +200,12 @@ def download(*,
     include = [] if include is None else include
     exclude = [] if exclude is None else exclude
 
+    retry_backoff = 0.5  # seconds
     metadata = _get_download_metadata(base_url=default_base_url,
                                       dataset_id=dataset,
-                                      tag=tag)
+                                      tag=tag,
+                                      max_retries=max_retries,
+                                      retry_backoff=retry_backoff)
 
     files = []
     for file in metadata['files']:
@@ -187,4 +226,6 @@ def download(*,
     _download_files(target_dir=target_dir,
                     files=files,
                     verify_hash=verify_hash,
-                    verify_size=verify_size)
+                    verify_size=verify_size,
+                    max_retries=max_retries,
+                    retry_backoff=retry_backoff)
