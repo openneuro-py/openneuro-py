@@ -68,6 +68,7 @@ def _download_file(*,
     try:
         remote_file_size = int(response.headers['content-length'])
     except KeyError:
+        # TSV and JSON files may not have a Content-Length header set.
         remote_file_size = len(response.content)
 
     headers = {}
