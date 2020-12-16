@@ -65,10 +65,10 @@ def _download_file(*,
     # by the HTTP server. Rely on the sizes reported by the HTTP server.
     with httpx.Client() as client:
         response = client.get(url=url)
-        try:
-            remote_file_size = int(response.headers['content-length'])
-        except KeyError:
-            remote_file_size = len(response.content)
+    try:
+        remote_file_size = int(response.headers['content-length'])
+    except KeyError:
+        remote_file_size = len(response.content)
 
     headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
