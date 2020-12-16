@@ -47,7 +47,7 @@ def _get_download_metadata(*,
 
 def _download_file(*,
                    url: str,
-                   remote_file_size: int,
+                   api_file_size: int,
                    outfile: Path,
                    verify_hash: bool,
                    verify_size: bool,
@@ -60,8 +60,17 @@ def _download_file(*,
     else:
         local_file_size = 0
 
-    headers = {}
     # Check if we need to resume a download
+    # The file sizes provided via the API often do not match the sizes reported
+    # by the HTTP server. Rely on the sizes reported by the HTTP server.
+    with httpx.Client() as client:
+        response = client.get(url=url)
+        try:
+            remote_file_size = int(response.headers['content-length'])
+        except KeyError:
+            remote_file_size = len(response.content)
+
+    headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
         # Download complete, skip.
         tqdm.write(f'Skipping {outfile.name}: already downloaded.')
@@ -134,12 +143,12 @@ def _download_files(*,
     """
     for file in files:
         filename = Path(file['filename'])
-        file_size = file['size']
+        api_file_size = file['size']
         url = file['urls'][0]
 
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        _download_file(url=url, remote_file_size=file_size, outfile=outfile,
+        _download_file(url=url, api_file_size=api_file_size, outfile=outfile,
                        verify_hash=verify_hash, verify_size=verify_size,
                        max_retries=max_retries, retry_backoff=retry_backoff)
 
