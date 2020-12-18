@@ -63,13 +63,13 @@ def _download_file(*,
     # Check if we need to resume a download
     # The file sizes provided via the API often do not match the sizes reported
     # by the HTTP server. Rely on the sizes reported by the HTTP server.
-    with httpx.Client() as client:
-        response = client.get(url=url)
-    try:
-        remote_file_size = int(response.headers['content-length'])
-    except KeyError:
-        # TSV and JSON files may not have a Content-Length header set.
-        remote_file_size = len(response.content)
+    with httpx.stream('GET', url=url) as response:
+        try:
+            remote_file_size = int(response.headers['content-length'])
+        except KeyError:
+            # The server doesn't always set a Conent-Length header.
+            response.read()
+            remote_file_size = len(response.content)
 
     headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
