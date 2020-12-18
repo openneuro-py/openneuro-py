@@ -220,20 +220,35 @@ def download(*,
                                       retry_backoff=retry_backoff)
 
     files = []
+    include_counts = [0] * len(include)  # Keep track of include matches.
     for file in metadata['files']:
         filename: str = file['filename']  # TODO properly define metadata type
 
         # Always include essential BIDS files.
         if filename in ('dataset_description.json',
                         'participants.tsv',
+                        'participants.json',
                         'README',
                         'CHANGES'):
             files.append(file)
+            # Keep track of include matches.
+            if filename in include:
+                include_counts[include.index(filename)] += 1
             continue
 
         if ((not include or any(filename.startswith(i) for i in include)) and
                 not any(filename.startswith(e) for e in exclude)):
             files.append(file)
+            # Keep track of include matches.
+            for i in include:
+                if filename.startswith(i):
+                    include_counts[include.index(i)] += 1
+
+    for idx, count in enumerate(include_counts):
+        if count == 0:
+            raise RuntimeError(f'Could not find paths starting with '
+                               f'{include[idx]} in the dataset. Please '
+                               f'check your includes.')
 
     _download_files(target_dir=target_dir,
                     files=files,
