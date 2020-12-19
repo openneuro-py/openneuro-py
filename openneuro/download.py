@@ -1,9 +1,9 @@
 import time
-from pathlib import Path
-import httpx
 import hashlib
-from typing import Optional, Tuple
+from pathlib import Path
+from typing import Optional, Iterable, Union
 
+import httpx
 from tqdm import tqdm
 import click
 
@@ -98,7 +98,7 @@ def _download_file(*,
             time.sleep(retry_backoff)
             max_retries -= 1
             retry_backoff *= 2
-            _download_file(url=url, remote_file_size=remote_file_size,
+            _download_file(url=url, api_file_size=api_file_size,
                            outfile=outfile, verify_hash=verify_hash,
                            verify_size=verify_size, max_retries=max_retries,
                            retry_backoff=retry_backoff)
@@ -135,7 +135,7 @@ def _download_file(*,
 
 def _download_files(*,
                     target_dir: Path,
-                    files: dict,
+                    files: Iterable,
                     verify_hash: bool,
                     verify_size: bool,
                     max_retries: int,
@@ -175,9 +175,9 @@ def _download_files(*,
 def download(*,
              dataset: str,
              tag: Optional[str] = None,
-             target_dir: Optional[str] = None,
-             include: Optional[Tuple[str]] = None,
-             exclude: Optional[Tuple[str]] = None,
+             target_dir: Optional[Union[Path, str]] = None,
+             include: Optional[Iterable[str]] = None,
+             exclude: Optional[Iterable[str]] = None,
              verify_hash: bool = False,
              verify_size: bool = True,
              max_retries: int = 5) -> None:
@@ -208,9 +208,11 @@ def download(*,
     """
     if target_dir is None:
         target_dir = Path(dataset)
+    else:
+        target_dir = Path(target_dir)
 
-    include = [] if include is None else include
-    exclude = [] if exclude is None else exclude
+    include = [] if include is None else list(include)
+    exclude = [] if exclude is None else list(exclude)
 
     retry_backoff = 0.5  # seconds
     metadata = _get_download_metadata(base_url=default_base_url,
