@@ -66,7 +66,7 @@ async def _download_file(*,
     # The file sizes provided via the API often do not match the sizes reported
     # by the HTTP server. Rely on the sizes reported by the HTTP server.
     async with semaphore:
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient() as client:
             async with client.stream('GET', url=url) as response:
                 try:
                     remote_file_size = int(response.headers['content-length'])
@@ -95,7 +95,7 @@ async def _download_file(*,
         mode = 'wb'
 
     async with semaphore:
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient() as client:
             async with (
                 client.stream('GET', url=url, headers=headers)
             ) as response:
@@ -113,7 +113,8 @@ async def _download_file(*,
                                          verify_hash=verify_hash,
                                          verify_size=verify_size,
                                          max_retries=max_retries,
-                                         retry_backoff=retry_backoff)
+                                         retry_backoff=retry_backoff,
+                                         semaphore=semaphore)
                 else:
                     raise RuntimeError(
                         f'Error {response.status_code} when trying '
