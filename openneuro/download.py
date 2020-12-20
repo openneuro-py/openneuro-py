@@ -120,32 +120,30 @@ async def _download_file(*,
                         f'to download {outfile} from {url}')
 
                 hash = hashlib.sha256()
-                # async with tqdm.wrapattr(aiofiles.open(outfile, mode=mode),
-                #                          'write',
-                #                          miniters=1,
-                #                          initial=local_file_size,
-                #                          desc=desc,
-                #                          dynamic_ncols=True,
-                #                          total=remote_file_size) as f:
-                tqdm.write(desc)
-                async with aiofiles.open(outfile, mode=mode) as f:
-                    async for chunk in response.aiter_bytes():
-                        await f.write(chunk)
+                with (
+                    tqdm(desc=desc, initial=local_file_size,
+                         total=remote_file_size, unit='B', unit_scale=True,
+                         unit_divisor=1024)
+                ) as progress:
+                    async with aiofiles.open(outfile, mode=mode) as f:
+                        async for chunk in response.aiter_bytes():
+                            await f.write(chunk)
+                            progress.update(await f.tell())
+                            if verify_hash:
+                                hash.update(chunk)
+
                         if verify_hash:
-                            hash.update(chunk)
+                            tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
 
-                    if verify_hash:
-                        tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
-
-                    # Check the file was completely downloaded.
-                    if verify_size:
-                        await f.flush()
-                        local_file_size = outfile.stat().st_size
-                        if not local_file_size == remote_file_size:
-                            raise RuntimeError(
-                                f'Server claimed file size would be '
-                                f'{remote_file_size} bytes, but downloaded '
-                                f'{local_file_size} byes.')
+                        # Check the file was completely downloaded.
+                        if verify_size:
+                            await f.flush()
+                            local_file_size = outfile.stat().st_size
+                            if not local_file_size == remote_file_size:
+                                raise RuntimeError(
+                                    f'Server claimed file size would be '
+                                    f'{remote_file_size} bytes, but '
+                                    f'downloaded {local_file_size} byes.')
 
 
 async def _download_files(*,
