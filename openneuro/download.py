@@ -2,10 +2,9 @@ import hashlib
 import asyncio
 from pathlib import Path
 from typing import Optional, Iterable, Union
-from functools import wraps
 
 import httpx
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 import click
 import aiofiles
 
@@ -120,30 +119,32 @@ async def _download_file(*,
                         f'to download {outfile} from {url}')
 
                 hash = hashlib.sha256()
-                with (
-                    tqdm(desc=desc, initial=local_file_size,
-                         total=remote_file_size, unit='B', unit_scale=True,
-                         unit_divisor=1024)
-                ) as progress:
-                    async with aiofiles.open(outfile, mode=mode) as f:
-                        async for chunk in response.aiter_bytes():
-                            await f.write(chunk)
-                            progress.update(await f.tell())
-                            if verify_hash:
-                                hash.update(chunk)
+                tqdm.write(f'{local_file_size}, {remote_file_size}')
 
+                progress = tqdm(desc=desc, initial=local_file_size,
+                                total=remote_file_size, unit='B',
+                                unit_scale=True,
+                                unit_divisor=1024)
+
+                async with aiofiles.open(outfile, mode=mode) as f:
+                    async for chunk in response.aiter_bytes():
+                        await f.write(chunk)
+                        progress.update(len(chunk))
                         if verify_hash:
-                            tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
+                            hash.update(chunk)
 
-                        # Check the file was completely downloaded.
-                        if verify_size:
-                            await f.flush()
-                            local_file_size = outfile.stat().st_size
-                            if not local_file_size == remote_file_size:
-                                raise RuntimeError(
-                                    f'Server claimed file size would be '
-                                    f'{remote_file_size} bytes, but '
-                                    f'downloaded {local_file_size} byes.')
+                    if verify_hash:
+                        tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
+
+                    # Check the file was completely downloaded.
+                    if verify_size:
+                        await f.flush()
+                        local_file_size = outfile.stat().st_size
+                        if not local_file_size == remote_file_size:
+                            raise RuntimeError(
+                                f'Server claimed file size would be '
+                                f'{remote_file_size} bytes, but '
+                                f'downloaded {local_file_size} byes.')
 
 
 async def _download_files(*,
