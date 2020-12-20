@@ -65,14 +65,15 @@ async def _download_file(*,
     # Check if we need to resume a download
     # The file sizes provided via the API often do not match the sizes reported
     # by the HTTP server. Rely on the sizes reported by the HTTP server.
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream('GET', url=url) as response:
-            try:
-                remote_file_size = int(response.headers['content-length'])
-            except KeyError:
-                # The server doesn't always set a Conent-Length header.
-                response_content = await response.aread()
-                remote_file_size = len(response_content)
+    async with semaphore:
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream('GET', url=url) as response:
+                try:
+                    remote_file_size = int(response.headers['content-length'])
+                except KeyError:
+                    # The server doesn't always set a Conent-Length header.
+                    response_content = await response.aread()
+                    remote_file_size = len(response_content)
 
     headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
