@@ -8,7 +8,7 @@ from tqdm.asyncio import tqdm
 import click
 import aiofiles
 
-from .config import default_base_url, max_concurrent_downloads
+from .config import default_base_url
 
 
 # HTTP server responses that indicate hopefully intermittent errors that
@@ -151,7 +151,8 @@ async def _download_files(*,
                           verify_hash: bool,
                           verify_size: bool,
                           max_retries: int,
-                          retry_backoff: float) -> None:
+                          retry_backoff: float,
+                          max_concurrent_downloads: int) -> None:
     """Download files, one by one.
     """
     # Sempahore (counter) to limit maximum number of concurrent download
@@ -184,7 +185,8 @@ def download(*,
              exclude: Optional[Iterable[str]] = None,
              verify_hash: bool = False,
              verify_size: bool = True,
-             max_retries: int = 5) -> None:
+             max_retries: int = 5,
+             max_concurrent_downloads: int = 5) -> None:
     """Download datasets from OpenNeuro.
 
     Parameters
@@ -209,6 +211,8 @@ def download(*,
         announced.
     max_retries
         Try the specified number of times to download a file before failing.
+    max_concurrent_downloads
+        The maximum number of downloads to run in parallel.
     """
     if target_dir is None:
         target_dir = Path(dataset)
@@ -256,12 +260,15 @@ def download(*,
                                f'{include[idx]} in the dataset. Please '
                                f'check your includes.')
 
-    asyncio.run(_download_files(target_dir=target_dir,
-                                files=files,
-                                verify_hash=verify_hash,
-                                verify_size=verify_size,
-                                max_retries=max_retries,
-                                retry_backoff=retry_backoff))
+    asyncio.run(_download_files(
+        target_dir=target_dir,
+        files=files,
+        verify_hash=verify_hash,
+        verify_size=verify_size,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+        max_concurrent_downloads=max_concurrent_downloads)
+    )
 
 
 @click.command()
@@ -282,6 +289,9 @@ def download(*,
 @click.option('--max_retries', type=int, default=5, show_default=True,
               help='Try the specified number of times to download a file '
                    'before failing.')
+@click.option('--max_concurrent_downloads', type=int, default=5,
+              show_default=True,
+              help='The maximum number of downloads to run in parallel.')
 def download_cli(**kwargs):
     """Download datasets from OpenNeuro."""
     download(**kwargs)

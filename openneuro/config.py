@@ -5,7 +5,6 @@ import getpass
 
 config_fname = Path('~/.openneuro').expanduser()
 default_base_url = 'https://openneuro.org/'
-max_concurrent_downloads = 5
 
 
 def init_config() -> None:
