@@ -120,18 +120,16 @@ async def _download_file(*,
 
                 hash = hashlib.sha256()
 
-                progress = tqdm(desc=desc, initial=local_file_size,
-                                total=remote_file_size, unit='B',
-                                unit_scale=True, unit_divisor=1024,
-                                leave=False)
-
                 async with aiofiles.open(outfile, mode=mode) as f:
-                    async for chunk in response.aiter_bytes():
-                        await f.write(chunk)
-                        progress.update(len(chunk))
-                        if verify_hash:
-                            hash.update(chunk)
-                    progress.close()
+                    with tqdm(desc=desc, initial=local_file_size,
+                              total=remote_file_size, unit='B',
+                              unit_scale=True, unit_divisor=1024,
+                              leave=False) as progress:
+                        async for chunk in response.aiter_bytes():
+                            await f.write(chunk)
+                            progress.update(len(chunk))
+                            if verify_hash:
+                                hash.update(chunk)
 
                     if verify_hash:
                         tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
