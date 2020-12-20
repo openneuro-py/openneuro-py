@@ -137,15 +137,15 @@ async def _download_file(*,
                     if verify_hash:
                         tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
 
-                # Check the file was completely downloaded.
-                if verify_size:
-                    f.flush()
-                    local_file_size = outfile.stat().st_size
-                    if not local_file_size == remote_file_size:
-                        raise RuntimeError(
-                            f'Server claimed file size would be '
-                            f'{remote_file_size} bytes, but downloaded '
-                            f'{local_file_size} byes.')
+                    # Check the file was completely downloaded.
+                    if verify_size:
+                        await f.flush()
+                        local_file_size = outfile.stat().st_size
+                        if not local_file_size == remote_file_size:
+                            raise RuntimeError(
+                                f'Server claimed file size would be '
+                                f'{remote_file_size} bytes, but downloaded '
+                                f'{local_file_size} byes.')
 
 
 async def _download_files(*,
