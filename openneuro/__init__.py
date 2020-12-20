@@ -6,4 +6,4 @@ except ImportError:
 
 __version__ = metadata.version('openneuro-py')
 
-from .openneuro import download  # noqa: F401
+from .download import download  # noqa: F401

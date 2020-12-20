@@ -7,7 +7,7 @@ Richard Höchenberger <richard.hoechenberger@gmail.com>
 
 import click
 
-from .download import download
+from .download import download_cli
 from . import __version__
 
 
@@ -19,4 +19,4 @@ def cli() -> None:
     pass
 
 
-cli.add_command(download)
+cli.add_command(download_cli, name='download')
