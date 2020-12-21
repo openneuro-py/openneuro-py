@@ -3,7 +3,7 @@
 A Python client for accessing [OpenNeuro](https://openneuro.org)
 datasets.
 
-![openneuro-py in action](openneuro-py.gif)
+![openneuro-py in action](https://raw.githubusercontent.com/hoechenberger/openneuro-py/main/openneuro-py.gif)
 
 ## Installation
 
