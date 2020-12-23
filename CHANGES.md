@@ -1,5 +1,11 @@
 # Changelog
 
+## 2020.6
+
+- Ensure we can operate on Python 3.6.
+- Ensure non-Unicode terminals (Windows `cmd`, I'm looking at you!) can be
+  used too.
+
 ## 2020.5
 
 - Raise an exception if user `--include`s a path that doesn't exist in the

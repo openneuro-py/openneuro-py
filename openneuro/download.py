@@ -1,3 +1,4 @@
+import sys
 import hashlib
 import asyncio
 from pathlib import Path
@@ -9,6 +10,14 @@ import click
 import aiofiles
 
 from .config import default_base_url
+
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    stdout_unicode = True
+except AttributeError:
+    # Python 3.6
+    stdout_unicode = False
 
 
 # HTTP server responses that indicate hopefully intermittent errors that
@@ -38,9 +47,9 @@ def _get_download_metadata(*,
         asyncio.sleep(retry_backoff)
         max_retries -= 1
         retry_backoff *= 2
-        _get_download_metadata(base_url=base_url, dataset_id=dataset_id,
-                               tag=tag, max_retries=max_retries,
-                               retry_backoff=retry_backoff)
+        return _get_download_metadata(base_url=base_url, dataset_id=dataset_id,
+                                      tag=tag, max_retries=max_retries,
+                                      retry_backoff=retry_backoff)
     else:
         raise RuntimeError(f'Error {response.status_code} when trying to '
                            f'fetch metadata.')
@@ -223,7 +232,12 @@ def download(*,
     max_concurrent_downloads
         The maximum number of downloads to run in parallel.
     """
-    tqdm.write(f'🌍 Preparing to download {dataset} …')
+    msg = f'Preparing to download {dataset}'
+    if stdout_unicode:
+        msg = f'🌍 {msg} …'
+    else:
+        msg += ' ...'
+    tqdm.write(msg)
 
     if target_dir is None:
         target_dir = Path(dataset)
@@ -271,18 +285,30 @@ def download(*,
                                f'{include[idx]} in the dataset. Please '
                                f'check your includes.')
 
-    tqdm.write(f'👉 Retrieving up to {len(files)} files '
-               f'({max_concurrent_downloads} concurrent downloads).')
-    asyncio.run(_download_files(
-        target_dir=target_dir,
-        files=files,
-        verify_hash=verify_hash,
-        verify_size=verify_size,
-        max_retries=max_retries,
-        retry_backoff=retry_backoff,
-        max_concurrent_downloads=max_concurrent_downloads)
-    )
-    tqdm.write(f'✅ Finished downloading {dataset}.')
+    msg = (f'Retrieving up to {len(files)} files '
+           f'({max_concurrent_downloads} concurrent downloads).')
+    if stdout_unicode:
+        msg = f'👉 {msg}'
+    tqdm.write(msg)
+
+    # Pre-Python-3.7 compat. Once we drop support for Python 3.6, simply
+    # replace this with: asyncio.run(_download_files(...))
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(asyncio.wait(
+        [_download_files(
+            target_dir=target_dir,
+            files=files,
+            verify_hash=verify_hash,
+            verify_size=verify_size,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+            max_concurrent_downloads=max_concurrent_downloads)]
+    ))
+
+    msg = f'Finished downloading {dataset}.'
+    if stdout_unicode:
+        msg = f'✅ {msg}'
+    tqdm.write(msg)
 
 
 @click.command()
