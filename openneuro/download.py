@@ -78,7 +78,14 @@ async def _download_file(*,
     headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
         # Download complete, skip.
-        tqdm.write(f'Skipping {outfile.name}: already downloaded.')
+        desc = f'Skipping {outfile.name}: already downloaded.'
+        t = tqdm(iterable=response.aiter_bytes(),
+                 desc=desc,
+                 initial=local_file_size,
+                 total=remote_file_size, unit='B',
+                 unit_scale=True,
+                 unit_divisor=1024, leave=False)
+        t.close()
         return
     elif outfile.exists() and local_file_size < remote_file_size:
         # Download incomplete, resume.
