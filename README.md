@@ -19,7 +19,14 @@ conda install -c conda-forge openneuro-py
 pip install openneuro-py
 ```
 
-## Basic usage
+## Basic usage – Python interface
+
+```python
+import openneuro as on
+on.download(dataset='ds000246', target_dir='data/bids')
+```
+
+## Basic usage – command line interface
 
 ### Download an entire dataset
 
@@ -43,7 +50,7 @@ openneuro-py download --dataset=ds000246 \
 Interrupted downloads will resume where they left off when you run the command
 again.
 
-## Advanced usage
+## Advanced usage – command line interface
 ### Exclude a directory from the download
 
 ```shell
