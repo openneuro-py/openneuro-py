@@ -223,6 +223,8 @@ def download(*,
     max_concurrent_downloads
         The maximum number of downloads to run in parallel.
     """
+    tqdm.write(f'🌍 Preparing to download {dataset} …')
+
     if target_dir is None:
         target_dir = Path(dataset)
     else:
@@ -269,6 +271,8 @@ def download(*,
                                f'{include[idx]} in the dataset. Please '
                                f'check your includes.')
 
+    tqdm.write(f'👉 Retrieving up to {len(files)} files '
+               f'({max_concurrent_downloads} concurrent downloads).')
     asyncio.run(_download_files(
         target_dir=target_dir,
         files=files,
@@ -278,6 +282,7 @@ def download(*,
         retry_backoff=retry_backoff,
         max_concurrent_downloads=max_concurrent_downloads)
     )
+    tqdm.write(f'✅ Finished downloading {dataset}.')
 
 
 @click.command()
