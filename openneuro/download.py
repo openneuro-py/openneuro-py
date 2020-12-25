@@ -143,9 +143,13 @@ async def _download_file(*,
                               total=remote_file_size, unit='B',
                               unit_scale=True, unit_divisor=1024,
                               leave=False) as progress:
+                        num_bytes_downloaded = response.num_bytes_downloaded
                         async for chunk in response.aiter_bytes():
                             await f.write(chunk)
-                            progress.update(len(chunk))
+                            progress.update(response.num_bytes_downloaded -
+                                            num_bytes_downloaded)
+                            num_bytes_downloaded = (response
+                                                    .num_bytes_downloaded)
                             if verify_hash:
                                 hash.update(chunk)
 
