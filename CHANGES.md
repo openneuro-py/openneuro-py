@@ -3,7 +3,7 @@
 ## 2020.7
 
 - Performance improvements.
-- Verify file hases by default whenever possible.
+- Verify file hahses by default whenever possible.
 
 ## 2020.6
 
