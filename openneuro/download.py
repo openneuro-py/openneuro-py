@@ -79,6 +79,15 @@ async def _download_file(*,
             async with client.stream('HEAD', url=url) as response:
                 headers = response.headers
 
+            # Try to get the S3 MD5 hash for the file.
+            try:
+                remote_file_hash = headers['etag'].strip('"')
+                if len(remote_file_hash) != 32:  # It's not an MD5 hash.
+                    remote_file_hash = None
+            except KeyError:
+                remote_file_hash = None
+
+            # Get the Content-Length.
             try:
                 remote_file_size = int(response.headers['content-length'])
             except KeyError:
@@ -89,16 +98,33 @@ async def _download_file(*,
 
     headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
-        # Download complete, skip.
-        desc = f'Skipping {outfile.name}: already downloaded.'
-        t = tqdm(iterable=response.aiter_bytes(),
-                 desc=desc,
-                 initial=local_file_size,
-                 total=remote_file_size, unit='B',
-                 unit_scale=True,
-                 unit_divisor=1024, leave=False)
-        t.close()
-        return
+        if verify_hash and remote_file_hash is not None:
+            hash = hashlib.md5()
+            async with aiofiles.open(outfile, 'rb') as f:
+                while True:
+                    data = await f.read(65536)
+                    if not data:
+                        break
+                    hash.update(data)
+
+        if (verify_hash and
+                remote_file_hash is not None and
+                hash.hexdigest() != remote_file_hash):
+            desc = f'Re-downloading {outfile.name}: file hash mismatch.'
+            mode = 'wb'
+            outfile.unlink()
+            local_file_size = 0
+        else:
+            # Download complete, skip.
+            desc = f'Skipping {outfile.name}: already downloaded.'
+            t = tqdm(iterable=response.aiter_bytes(),
+                     desc=desc,
+                     initial=local_file_size,
+                     total=remote_file_size, unit='B',
+                     unit_scale=True,
+                     unit_divisor=1024, leave=False)
+            t.close()
+            return
     elif outfile.exists() and local_file_size < remote_file_size:
         # Download incomplete, resume.
         desc = f'Resuming {outfile.name}'
@@ -108,6 +134,8 @@ async def _download_file(*,
         # Local file is larger than remote – overwrite.
         desc = f'Re-downloading {outfile.name}: file size mismatch.'
         mode = 'wb'
+        outfile.unlink()
+        local_file_size = 0
     else:
         # File doesn't exist locally, download entirely.
         desc = outfile.name
@@ -139,7 +167,18 @@ async def _download_file(*,
                         f'Error {response.status_code} when trying '
                         f'to download {outfile} from {url}')
 
-                hash = hashlib.sha256()
+                hash = hashlib.md5()
+
+                # If we're resuming a download, ensure the already-downloaded
+                # parts of the file are fed into the hash function before
+                # we continue.
+                if verify_hash and local_file_size > 0:
+                    async with aiofiles.open(outfile, 'rb') as f:
+                        while True:
+                            data = await f.read(65536)
+                            if not data:
+                                break
+                            hash.update(data)
 
                 async with aiofiles.open(outfile, mode=mode) as f:
                     with tqdm(desc=desc, initial=local_file_size,
@@ -156,8 +195,8 @@ async def _download_file(*,
                             if verify_hash:
                                 hash.update(chunk)
 
-                    if verify_hash:
-                        tqdm.write(f'SHA256 hash: {hash.hexdigest()}')
+                    if verify_hash and remote_file_hash is not None:
+                        assert hash.hexdigest() == remote_file_hash
 
                     # Check the file was completely downloaded.
                     if verify_size:
@@ -208,7 +247,7 @@ def download(*,
              target_dir: Optional[Union[Path, str]] = None,
              include: Optional[Iterable[str]] = None,
              exclude: Optional[Iterable[str]] = None,
-             verify_hash: bool = False,
+             verify_hash: bool = True,
              verify_size: bool = True,
              max_retries: int = 5,
              max_concurrent_downloads: int = 5) -> None:
@@ -328,7 +367,7 @@ def download(*,
 @click.option('--exclude', multiple=True,
               help='Exclude the specified file or directory. Can be passed '
                    'multiple times.')
-@click.option('--verify_hash', type=bool, default=False, show_default=True,
+@click.option('--verify_hash', type=bool, default=True, show_default=True,
               help='Whether to print the SHA256 hash of each downloaded file.')
 @click.option('--verify_size', type=bool, default=True, show_default=True,
               help='Whether to check the downloaded file size matches what '

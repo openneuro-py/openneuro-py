@@ -1,5 +1,9 @@
 # Changelog
 
+## 2020.7
+
+- Verify file hases by default whenever possible.
+
 ## 2020.6
 
 - Ensure we can operate on Python 3.6.
