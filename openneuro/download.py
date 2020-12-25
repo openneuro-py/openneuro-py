@@ -76,11 +76,14 @@ async def _download_file(*,
     # by the HTTP server. Rely on the sizes reported by the HTTP server.
     async with semaphore:
         async with httpx.AsyncClient() as client:
-            async with client.stream('GET', url=url) as response:
-                try:
-                    remote_file_size = int(response.headers['content-length'])
-                except KeyError:
-                    # The server doesn't always set a Conent-Length header.
+            async with client.stream('HEAD', url=url) as response:
+                headers = response.headers
+
+            try:
+                remote_file_size = int(response.headers['content-length'])
+            except KeyError:
+                # The server doesn't always set a Conent-Length header.
+                async with client.stream('GET', url=url) as response:
                     response_content = await response.aread()
                     remote_file_size = len(response_content)
 
