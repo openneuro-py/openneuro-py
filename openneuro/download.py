@@ -39,7 +39,7 @@ def _get_download_metadata(*,
         url = f'{base_url}crn/datasets/{dataset_id}/snapshots/{tag}/download'
 
     response = httpx.get(url)
-    if 200 <= response.status_code <= 299:
+    if not response.is_error:
         response_json = response.json()
         return response_json
     elif response.status_code in allowed_retry_codes and max_retries > 0:
@@ -146,7 +146,7 @@ async def _download_file(*,
             async with (
                 client.stream('GET', url=url, headers=headers)
             ) as response:
-                if 200 <= response.status_code <= 299:
+                if not response.is_error:
                     pass  # All good!
                 elif (response.status_code in allowed_retry_codes and
                       max_retries > 0):
