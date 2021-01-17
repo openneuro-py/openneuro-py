@@ -9,6 +9,7 @@ from tqdm.asyncio import tqdm
 import click
 import aiofiles
 
+from . import __version__
 from .config import default_base_url
 
 
@@ -278,6 +279,14 @@ def download(*,
     max_concurrent_downloads
         The maximum number of downloads to run in parallel.
     """
+
+    msg_problems = 'problems 🤯' if stdout_unicode else 'problems'
+    msg_bugs = 'bugs 🪲 ' if stdout_unicode else 'bugs'
+    msg = (f'\n👋 Hello! This is openneuro-py {__version__}. Great to see you! 🤗\n\n'
+           f'   👉 Please report {msg_problems} and {msg_bugs} at\n'
+           f'      https://github.com/hoechenberger/openneuro-py/issues\n')
+    tqdm.write(msg)
+
     msg = f'Preparing to download {dataset}'
     if stdout_unicode:
         msg = f'🌍 {msg} …'
@@ -351,10 +360,16 @@ def download(*,
             max_concurrent_downloads=max_concurrent_downloads)]
     ))
 
-    msg = f'Finished downloading {dataset}.'
+    msg_finished = f'Finished downloading {dataset}.'
     if stdout_unicode:
-        msg = f'✅ {msg}'
-    tqdm.write(msg)
+        msg_finished = f'✅ {msg_finished}'
+    tqdm.write(msg_finished)
+
+    msg_enjoy = '\nPlease enjoy your brains.'
+    if stdout_unicode:
+        msg_enjoy = f' 🧠 {msg_enjoy}'
+    msg_enjoy += '\n'
+    tqdm.write(msg_enjoy)
 
 
 @click.command()
