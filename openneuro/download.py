@@ -2,7 +2,11 @@ import sys
 import hashlib
 import asyncio
 from pathlib import Path
-from typing import Optional, Iterable, Union, Literal
+from typing import Optional, Iterable, Union
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 import httpx
 from tqdm.asyncio import tqdm
