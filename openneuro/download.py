@@ -381,11 +381,17 @@ def download(*,
     max_concurrent_downloads
         The maximum number of downloads to run in parallel.
     """
-
     msg_problems = 'problems 🤯' if stdout_unicode else 'problems'
     msg_bugs = 'bugs 🪲' if stdout_unicode else 'bugs'
-    msg = (f'\n👋 Hello! This is openneuro-py {__version__}. Great to see you! 🤗\n\n'
-           f'   👉 Please report {msg_problems} and {msg_bugs} at\n'
+    msg_hello = '👋 Hello!' if stdout_unicode else 'Hello!'
+    msg_great_to_see_you = 'Great to see you!'
+    if stdout_unicode:
+        msg_great_to_see_you += ' 🤗'
+    msg_please = '👉 Please' if stdout_unicode else '   Please'
+        
+    msg = (f'\n{msg_hello} This is openneuro-py {__version__}. '
+           f'{msg_great_to_see_you}\n\n'
+           f'   {msg_please} report {msg_problems} and {msg_bugs} at\n'
            f'      https://github.com/hoechenberger/openneuro-py/issues\n')
     tqdm.write(msg)
 

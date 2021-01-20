@@ -1,5 +1,9 @@
 # Changelog
 
+## 2021.2
+
+- Fixes Windows.
+
 ## 2021.1
 
 - Fixes for Python <3.8.
