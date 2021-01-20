@@ -1,5 +1,9 @@
 # Changelog
 
+## 2021.1
+
+- Fixes for Python <3.8.
+
 ## 2021.0
 
 - Improved handling of connection timeouts.
