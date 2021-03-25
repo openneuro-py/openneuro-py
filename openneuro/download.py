@@ -1,5 +1,5 @@
 import sys
-import re
+import fnmatch
 import hashlib
 import asyncio
 from pathlib import Path
@@ -369,9 +369,13 @@ def download(*,
         directory.
     include
         Files and directories to download. **Only** these files and directories
-        will be retrieved.
+        will be retrieved. Uses Unix path expansion (* for any number of
+        wildcard characters and ? for one wildcard character;
+        e.g. 'sub-1_task-*.fif')
     exclude
         Files and directories to exclude from downloading.
+        Uses Unix path expansion (* for any number of wildcard characters and
+        ? for one wildcard character; e.g. 'sub-1_task-*.fif')
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
@@ -437,12 +441,13 @@ def download(*,
                 include_counts[include.index(filename)] += 1
             continue
 
-        if ((not include or any(re.search(i, filename) for i in include)) and
-                not any(re.search(e, filename) for e in exclude)):
+        keep = any(fnmatch.fnmatch(filename, i) for i in include)
+        remove = any(fnmatch.fnmatch(filename, e) for e in exclude)
+        if (not include or keep) and not remove:
             files.append(file)
             # Keep track of include matches.
             for i in include:
-                if re.search(i, filename):
+                if fnmatch.fnmatch(filename, i):
                     include_counts[include.index(i)] += 1
 
     for idx, count in enumerate(include_counts):
