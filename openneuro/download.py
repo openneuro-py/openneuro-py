@@ -367,10 +367,10 @@ def download(*,
         create a subdirectory with the dataset name in the current working
         directory.
     include
-        Files and directories to download. **Only** these files and directories
-        will be retrieved.
+        A list of files and directories to download.
+        **Only** these files and directories will be retrieved.
     exclude
-        Files and directories to exclude from downloading.
+        A list of files and directories to exclude from downloading.
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
@@ -388,7 +388,7 @@ def download(*,
     if stdout_unicode:
         msg_great_to_see_you += ' 🤗'
     msg_please = '👉 Please' if stdout_unicode else '   Please'
-        
+
     msg = (f'\n{msg_hello} This is openneuro-py {__version__}. '
            f'{msg_great_to_see_you}\n\n'
            f'   {msg_please} report {msg_problems} and {msg_bugs} at\n'
