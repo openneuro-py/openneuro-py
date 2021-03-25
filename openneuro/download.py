@@ -367,10 +367,10 @@ def download(*,
         create a subdirectory with the dataset name in the current working
         directory.
     include
-        A list of files and directories to download.
-        **Only** these files and directories will be retrieved.
+        Files and directories to download. **Only** these files and directories
+        will be retrieved.
     exclude
-        A list of files and directories to exclude from downloading.
+        Files and directories to exclude from downloading.
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
@@ -407,6 +407,8 @@ def download(*,
     else:
         target_dir = Path(target_dir)
 
+    include = [include] if isinstance(include, str) else include
+    exclude = [exclude] if isinstance(include, str) else exclude
     include = [] if include is None else list(include)
     exclude = [] if exclude is None else list(exclude)
 
