@@ -1,4 +1,5 @@
 import sys
+import re
 import hashlib
 import asyncio
 from pathlib import Path
@@ -436,17 +437,17 @@ def download(*,
                 include_counts[include.index(filename)] += 1
             continue
 
-        if ((not include or any(filename.startswith(i) for i in include)) and
-                not any(filename.startswith(e) for e in exclude)):
+        if ((not include or any(re.search(i, filename) for i in include)) and
+                not any(re.search(e, filename) for e in exclude)):
             files.append(file)
             # Keep track of include matches.
             for i in include:
-                if filename.startswith(i):
+                if re.search(i, filename):
                     include_counts[include.index(i)] += 1
 
     for idx, count in enumerate(include_counts):
         if count == 0:
-            raise RuntimeError(f'Could not find paths starting with '
+            raise RuntimeError(f'Could not find paths with regular expression'
                                f'{include[idx]} in the dataset. Please '
                                f'check your includes.')
 
