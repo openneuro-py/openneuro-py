@@ -441,14 +441,15 @@ def download(*,
                 include_counts[include.index(filename)] += 1
             continue
 
-        keep = any(fnmatch.fnmatch(filename, i) for i in include)
-        remove = any(fnmatch.fnmatch(filename, e) for e in exclude)
-        if (not include or keep) and not remove:
+        matches_keep = [filename.startswith(i) or fnmatch.fnmatch(filename, i)
+                        for i in include]
+        matches_remove = \
+            [filename.startswith(e) or fnmatch.fnmatch(filename, e)
+             for e in exclude]
+        if (not include or any(matches_keep)) and not any(matches_remove):
             files.append(file)
             # Keep track of include matches.
-            for i in include:
-                if fnmatch.fnmatch(filename, i):
-                    include_counts[include.index(i)] += 1
+            include_counts[matches_keep.index(True)] += 1
 
     for idx, count in enumerate(include_counts):
         if count == 0:
