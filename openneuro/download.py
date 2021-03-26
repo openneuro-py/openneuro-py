@@ -452,7 +452,7 @@ def download(*,
 
     for idx, count in enumerate(include_counts):
         if count == 0:
-            raise RuntimeError(f'Could not find paths with regular expression'
+            raise RuntimeError(f'Could not find path '
                                f'{include[idx]} in the dataset. Please '
                                f'check your includes.')
 
