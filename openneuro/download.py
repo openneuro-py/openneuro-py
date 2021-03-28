@@ -369,9 +369,9 @@ def download(*,
         directory.
     include
         Files and directories to download. **Only** these files and directories
-        will be retrieved. Uses Unix path expansion (* for any number of
-        wildcard characters and ? for one wildcard character;
-        e.g. 'sub-1_task-*.fif')
+        will be retrieved. Uses Unix path expansion (``*`` for any number of
+        wildcard characters and ``?`` for one wildcard character;
+        e.g. ``'sub-1_task-*.fif'``)
     exclude
         Files and directories to exclude from downloading.
         Uses Unix path expansion (* for any number of wildcard characters and
