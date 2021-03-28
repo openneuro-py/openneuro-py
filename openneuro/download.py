@@ -443,9 +443,9 @@ def download(*,
 
         matches_keep = [filename.startswith(i) or fnmatch.fnmatch(filename, i)
                         for i in include]
-        matches_remove = \
-            [filename.startswith(e) or fnmatch.fnmatch(filename, e)
-             for e in exclude]
+        matches_remove = [filename.startswith(e) or
+                          fnmatch.fnmatch(filename, e)
+                          for e in exclude]
         if (not include or any(matches_keep)) and not any(matches_remove):
             files.append(file)
             # Keep track of include matches.
