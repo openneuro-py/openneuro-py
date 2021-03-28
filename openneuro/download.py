@@ -374,8 +374,8 @@ def download(*,
         e.g. ``'sub-1_task-*.fif'``)
     exclude
         Files and directories to exclude from downloading.
-        Uses Unix path expansion (* for any number of wildcard characters and
-        ? for one wildcard character; e.g. 'sub-1_task-*.fif')
+        Uses Unix path expansion (``*`` for any number of wildcard characters and
+        ``?`` for one wildcard character; e.g. ``'sub-1_task-*.fif'``)
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
