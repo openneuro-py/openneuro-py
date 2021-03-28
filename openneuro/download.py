@@ -369,13 +369,13 @@ def download(*,
         directory.
     include
         Files and directories to download. **Only** these files and directories
-        will be retrieved. Uses Unix path expansion (* for any number of
-        wildcard characters and ? for one wildcard character;
-        e.g. 'sub-1_task-*.fif')
+        will be retrieved. Uses Unix path expansion (``*`` for any number of
+        wildcard characters and ``?`` for one wildcard character;
+        e.g. ``'sub-1_task-*.fif'``)
     exclude
         Files and directories to exclude from downloading.
-        Uses Unix path expansion (* for any number of wildcard characters and
-        ? for one wildcard character; e.g. 'sub-1_task-*.fif')
+        Uses Unix path expansion (``*`` for any number of wildcard characters and
+        ``?`` for one wildcard character; e.g. ``'sub-1_task-*.fif'``)
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
@@ -443,9 +443,9 @@ def download(*,
 
         matches_keep = [filename.startswith(i) or fnmatch.fnmatch(filename, i)
                         for i in include]
-        matches_remove = \
-            [filename.startswith(e) or fnmatch.fnmatch(filename, e)
-             for e in exclude]
+        matches_remove = [filename.startswith(e) or
+                          fnmatch.fnmatch(filename, e)
+                          for e in exclude]
         if (not include or any(matches_keep)) and not any(matches_remove):
             files.append(file)
             # Keep track of include matches.
