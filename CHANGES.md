@@ -1,5 +1,9 @@
 # Changelog
 
+## 2021.3
+
+- Add Unix path expansion for `openneuro.download()`.
+
 ## 2021.2
 
 - Fixes Windows.
