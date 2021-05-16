@@ -102,13 +102,14 @@ def _get_download_metadata(*,
     elif request_timed_out:
         raise RuntimeError('Timeout when trying to fetch metadata.')
 
-    if response_json is not None and 'errors' in response_json:
-        raise RuntimeError(f'Query failed: '
-                           f'"{response_json["errors"][0]["message"]}"')
-    elif response_json is not None and tag is None:
-        return response_json['data']['dataset']['latestSnapshot']
-    elif response_json is not None and tag is not None:
-        return response_json['data']['snapshot']
+    if response_json is not None:
+        if 'errors' in response_json:
+            raise RuntimeError(f'Query failed: '
+                               f'"{response_json["errors"][0]["message"]}"')
+        elif tag is None:
+            return response_json['data']['dataset']['latestSnapshot']
+        else:
+            return response_json['data']['snapshot']
     else:
         raise RuntimeError('Error when trying to fetch metadata.')
 
