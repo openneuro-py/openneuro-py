@@ -5,9 +5,14 @@ name: Unit tests
 
 on:
   push:
-    branches: [ main ]
+    branches: ['**']
   pull_request:
-    branches: [ main ]
+    branches: ['**']
+  create:
+    branches: [main]
+    tags: ['**']
+  schedule:
+    - cron: "0 4 * * *"
 
 jobs:
   build:
