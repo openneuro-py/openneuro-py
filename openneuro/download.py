@@ -3,16 +3,19 @@ import fnmatch
 import hashlib
 import asyncio
 from pathlib import Path
+import string
 from typing import Optional, Iterable, Union
 if sys.version_info >= (3, 8):
     from typing import Literal
 else:
     from typing_extensions import Literal
 
+import requests
 import httpx
 from tqdm.asyncio import tqdm
 import click
 import aiofiles
+from sgqlc.endpoint.requests import RequestsEndpoint
 
 from . import __version__
 from .config import default_base_url
@@ -29,7 +32,39 @@ except AttributeError:
 # HTTP server responses that indicate hopefully intermittent errors that
 # warrant a retry.
 allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
-allowed_retry_exceptions = (httpx.ConnectTimeout, httpx.ReadTimeout)
+allowed_retry_exceptions = (httpx.ConnectTimeout, httpx.ReadTimeout,
+                            requests.exceptions.ConnectTimeout,
+                            requests.exceptions.ReadTimeout)
+
+# GraphQL endpoint and queries.
+
+gql_url = 'https://openneuro.org/crn/graphql'
+
+dataset_query_template = string.Template("""
+    query {
+        dataset(id: "$dataset_id") {
+            latestSnapshot {
+                files(prefix: null) {
+                    filename
+                    urls
+                    size
+                }
+            }
+        }
+    }
+""")
+
+snapshot_query_template = string.Template("""
+    query {
+        snapshot(datasetId: "$dataset_id", tag: "$tag") {
+            files(prefix: null) {
+                filename
+                urls
+                size
+            }
+        }
+    }
+""")
 
 
 def _get_download_metadata(*,
@@ -41,15 +76,20 @@ def _get_download_metadata(*,
     """Retrieve dataset metadata required for the download.
     """
     if tag is None:
-        url = f'{base_url}crn/datasets/{dataset_id}/download'
+        query = dataset_query_template.substitute(dataset_id=dataset_id)
     else:
-        url = f'{base_url}crn/datasets/{dataset_id}/snapshots/{tag}/download'
+        query = snapshot_query_template.substitute(dataset_id=dataset_id,
+                                                   tag=tag)
 
-    try:
-        response = httpx.get(url)
-        request_timed_out = False
-    except allowed_retry_exceptions:
-        request_timed_out = True
+    with requests.Session() as session:
+        gql_endpoint = RequestsEndpoint(url=gql_url, session=session)
+
+        try:
+            response_json = gql_endpoint(query=query)
+            request_timed_out = False
+        except allowed_retry_exceptions:
+            response_json = None
+            request_timed_out = True
 
     if request_timed_out and max_retries > 0:
         tqdm.write(f'Request timed out, retrying …')
@@ -61,21 +101,11 @@ def _get_download_metadata(*,
                                       retry_backoff=retry_backoff)
     elif request_timed_out:
         raise RuntimeError('Timeout when trying to fetch metadata.')
-    
-    if not response.is_error:
-        response_json = response.json()
-        return response_json
-    elif response.status_code in allowed_retry_codes and max_retries > 0:
-        tqdm.write(f'Error {response.status_code}, retrying …')
-        asyncio.sleep(retry_backoff)
-        max_retries -= 1
-        retry_backoff *= 2
-        return _get_download_metadata(base_url=base_url, dataset_id=dataset_id,
-                                      tag=tag, max_retries=max_retries,
-                                      retry_backoff=retry_backoff)
+
+    if response_json is not None:
+        return response_json['data']['dataset']['latestSnapshot']
     else:
-        raise RuntimeError(f'Error {response.status_code} when trying to '
-                           f'fetch metadata.')
+        raise RuntimeError(f'Error when trying to fetch metadata.')
 
 
 async def _download_file(*,

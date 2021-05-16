@@ -3,6 +3,7 @@
 ## 2021.3
 
 - Add Unix path expansion for `openneuro.download()`.
+- Support OpenNeuro GraphQL API. New dependencies: `sqglc` and `requests`.
 
 ## 2021.2
 
