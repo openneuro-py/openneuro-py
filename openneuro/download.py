@@ -92,7 +92,7 @@ def _get_download_metadata(*,
             request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        tqdm.write(f'Request timed out, retrying …')
+        tqdm.write('Request timed out, retrying …')
         asyncio.sleep(retry_backoff)
         max_retries -= 1
         retry_backoff *= 2
@@ -110,7 +110,7 @@ def _get_download_metadata(*,
     elif response_json is not None:
         return response_json['data']['snapshot']
     else:
-        raise RuntimeError(f'Error when trying to fetch metadata.')
+        raise RuntimeError('Error when trying to fetch metadata.')
 
 
 async def _download_file(*,
@@ -148,7 +148,7 @@ async def _download_file(*,
                     return
                 else:
                     raise RuntimeError(f'Timeout when trying to download '
-                                        f'{outfile}.')
+                                       f'{outfile}.')
 
             # Try to get the S3 MD5 hash for the file.
             try:
@@ -178,7 +178,7 @@ async def _download_file(*,
                         return
                     else:
                         raise RuntimeError(f'Timeout when trying to download '
-                                            f'{outfile}.')
+                                           f'{outfile}.')
 
     headers = {}
     if outfile.exists() and local_file_size == remote_file_size:
@@ -235,7 +235,7 @@ async def _download_file(*,
                     if not response.is_error:
                         pass  # All good!
                     elif (response.status_code in allowed_retry_codes and
-                        max_retries > 0):
+                          max_retries > 0):
                         await _retry_download(
                             url=url, outfile=outfile,
                             api_file_size=api_file_size,
@@ -268,6 +268,7 @@ async def _download_file(*,
                     raise RuntimeError(f'Timeout when trying to download '
                                        f'{outfile}.')
 
+
 async def _retry_download(
     *,
     url: str,
@@ -284,13 +285,13 @@ async def _retry_download(
     max_retries -= 1
     retry_backoff *= 2
     await _download_file(url=url,
-                        api_file_size=api_file_size,
-                        outfile=outfile,
-                        verify_hash=verify_hash,
-                        verify_size=verify_size,
-                        max_retries=max_retries,
-                        retry_backoff=retry_backoff,
-                        semaphore=semaphore)
+                         api_file_size=api_file_size,
+                         outfile=outfile,
+                         verify_hash=verify_hash,
+                         verify_size=verify_size,
+                         max_retries=max_retries,
+                         retry_backoff=retry_backoff,
+                         semaphore=semaphore)
 
 
 async def _retrieve_and_write_to_disk(
@@ -320,9 +321,9 @@ async def _retrieve_and_write_to_disk(
 
     async with aiofiles.open(outfile, mode=mode) as f:
         with tqdm(desc=desc, initial=local_file_size,
-                    total=remote_file_size, unit='B',
-                    unit_scale=True, unit_divisor=1024,
-                    leave=False) as progress:
+                  total=remote_file_size, unit='B',
+                  unit_scale=True, unit_divisor=1024,
+                  leave=False) as progress:
             num_bytes_downloaded = response.num_bytes_downloaded
 
             # TODO Add timeout handling here, too.
@@ -409,8 +410,8 @@ def download(*,
         e.g. ``'sub-1_task-*.fif'``)
     exclude
         Files and directories to exclude from downloading.
-        Uses Unix path expansion (``*`` for any number of wildcard characters and
-        ``?`` for one wildcard character; e.g. ``'sub-1_task-*.fif'``)
+        Uses Unix path expansion (``*`` for any number of wildcard characters
+        and ``?`` for one wildcard character; e.g. ``'sub-1_task-*.fif'``)
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
@@ -491,8 +492,8 @@ def download(*,
         for idx, count in enumerate(include_counts):
             if count == 0:
                 raise RuntimeError(f'Could not find path '
-                                f'{include[idx]} in the dataset. Please '
-                                f'check your includes.')
+                                   f'{include[idx]} in the dataset. Please '
+                                   f'check your includes.')
 
     msg = (f'Retrieving up to {len(files)} files '
            f'({max_concurrent_downloads} concurrent downloads).')
