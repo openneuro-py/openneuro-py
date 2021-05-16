@@ -102,7 +102,7 @@ def _check_snapshot_exists(*,
                                       max_retries=max_retries,
                                       retry_backoff=retry_backoff)
     elif request_timed_out:
-        raise RuntimeError('Timeout when trying to fetch list of snapshops.')
+        raise RuntimeError('Timeout when trying to fetch list of snapshots.')
 
     snapshots = response_json['data']['dataset']['snapshots']
     snapshot_ids = [s['id'].replace(f'{dataset_id}:', '')
