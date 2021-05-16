@@ -105,13 +105,13 @@ def _check_snapshot_exists(*,
         raise RuntimeError('Timeout when trying to fetch list of snapshots.')
 
     snapshots = response_json['data']['dataset']['snapshots']
-    snapshot_ids = [s['id'].replace(f'{dataset_id}:', '')
-                    for s in snapshots]
+    tags = [s['id'].replace(f'{dataset_id}:', '')
+            for s in snapshots]
 
-    if tag not in snapshot_ids:
+    if tag not in tags:
         raise RuntimeError(f'The requested snapshot with the tag "{tag}" '
                            f'does not exist for dataset {dataset_id}. '
-                           f'Existing tags: {", ".join(snapshot_ids)}')
+                           f'Existing tags: {", ".join(tags)}')
 
 
 def _get_download_metadata(*,
