@@ -479,13 +479,15 @@ def download(*,
         if (not include or any(matches_keep)) and not any(matches_remove):
             files.append(file)
             # Keep track of include matches.
-            include_counts[matches_keep.index(True)] += 1
+            if any(matches_keep):
+                include_counts[matches_keep.index(True)] += 1
 
-    for idx, count in enumerate(include_counts):
-        if count == 0:
-            raise RuntimeError(f'Could not find path '
-                               f'{include[idx]} in the dataset. Please '
-                               f'check your includes.')
+    if include:
+        for idx, count in enumerate(include_counts):
+            if count == 0:
+                raise RuntimeError(f'Could not find path '
+                                f'{include[idx]} in the dataset. Please '
+                                f'check your includes.')
 
     msg = (f'Retrieving up to {len(files)} files '
            f'({max_concurrent_downloads} concurrent downloads).')

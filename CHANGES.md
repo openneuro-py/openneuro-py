@@ -4,6 +4,7 @@
 
 - Add Unix path expansion for `openneuro.download()`.
 - Support OpenNeuro GraphQL API. New dependencies: `sqglc` and `requests`.
+- Fix crash when not passing any `include`s.
 
 ## 2021.2
 
