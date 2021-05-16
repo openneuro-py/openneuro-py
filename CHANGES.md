@@ -21,7 +21,7 @@
 ## 2020.7
 
 - Performance improvements.
-- Verify file hahses by default whenever possible.
+- Verify file hashes by default whenever possible.
 
 ## 2020.6
 
@@ -33,7 +33,7 @@
 
 - Raise an exception if user `--include`s a path that doesn't exist in the
   dataset. Previously, we would silently ignore this issue.
-- Optimze checks whether we need to resume a download or not.
+- Optimize checks whether we need to resume a download or not.
 - Enable simultaneous downloads (defaults to up to 5 concurrent downloads).
 - `openneuro.download()` can now be called from Python scripts directly.
 

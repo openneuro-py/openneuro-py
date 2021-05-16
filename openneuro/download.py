@@ -163,7 +163,7 @@ async def _download_file(*,
             try:
                 remote_file_size = int(response.headers['content-length'])
             except KeyError:
-                # The server doesn't always set a Conent-Length header.
+                # The server doesn't always set a Content-Length header.
                 try:
                     async with client.stream('GET', url=url) as response:
                         response_content = await response.aread()
