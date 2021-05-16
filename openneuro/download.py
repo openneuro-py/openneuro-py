@@ -105,8 +105,10 @@ def _get_download_metadata(*,
     if response_json is not None and 'errors' in response_json:
         raise RuntimeError(f'Query failed: '
                            f'"{response_json["errors"][0]["message"]}"')
-    elif response_json is not None:
+    elif response_json is not None and tag is None:
         return response_json['data']['dataset']['latestSnapshot']
+    elif response_json is not None:
+        return response_json['data']['snapshot']
     else:
         raise RuntimeError(f'Error when trying to fetch metadata.')
 
