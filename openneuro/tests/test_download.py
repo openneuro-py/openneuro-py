@@ -13,6 +13,11 @@ def tag():
 
 
 @pytest.fixture
+def invalid_tag():
+    return 'abcdefg'
+
+
+@pytest.fixture
 def include():
     return 'sub-0001/anat'
 
@@ -20,3 +25,9 @@ def include():
 def test_download(tmp_path, dataset_id, tag, include):
     """Test downloading some files."""
     download(dataset=dataset_id, tag=tag, target_dir=tmp_path, include=include)
+
+
+def test_download_invalid_tag(tmp_path, dataset_id, invalid_tag):
+    """Test handling of a non-existent tag."""
+    with pytest.raises(RuntimeError, match='snapshot.*does not exist'):
+        download(dataset=dataset_id, tag=invalid_tag, target_dir=tmp_path)

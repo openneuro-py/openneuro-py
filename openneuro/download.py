@@ -54,6 +54,16 @@ dataset_query_template = string.Template("""
     }
 """)
 
+all_snapshots_query_template = string.Template("""
+    query {
+        dataset(id: "$dataset_id") {
+            snapshots {
+                id
+            }
+        }
+    }
+""")
+
 snapshot_query_template = string.Template("""
     query {
         snapshot(datasetId: "$dataset_id", tag: "$tag") {
@@ -67,6 +77,43 @@ snapshot_query_template = string.Template("""
 """)
 
 
+def _check_snapshot_exists(*,
+                           dataset_id: str,
+                           tag: str,
+                           max_retries: int,
+                           retry_backoff: float):
+    with requests.Session() as session:
+        gql_endpoint = RequestsEndpoint(url=gql_url, session=session)
+        query = all_snapshots_query_template.substitute(dataset_id=dataset_id)
+
+        try:
+            response_json = gql_endpoint(query=query)
+            request_timed_out = False
+        except allowed_retry_exceptions:
+            response_json = None
+            request_timed_out = True
+
+    if request_timed_out and max_retries > 0:
+        tqdm.write('Request timed out, retrying …')
+        asyncio.sleep(retry_backoff)
+        max_retries -= 1
+        retry_backoff *= 2
+        return _check_snapshot_exists(dataset_id=dataset_id, tag=tag,
+                                      max_retries=max_retries,
+                                      retry_backoff=retry_backoff)
+    elif request_timed_out:
+        raise RuntimeError('Timeout when trying to fetch list of snapshops.')
+
+    snapshots = response_json['data']['dataset']['snapshots']
+    snapshot_ids = [s['id'].replace(f'{dataset_id}:', '')
+                    for s in snapshots]
+
+    if tag not in snapshot_ids:
+        raise RuntimeError(f'The requested snapshot with the tag "{tag}" '
+                           f'does not exist for dataset {dataset_id}. '
+                           f'Existing tags: {", ".join(snapshot_ids)}')
+
+
 def _get_download_metadata(*,
                            base_url: str,
                            dataset_id: str,
@@ -78,6 +125,9 @@ def _get_download_metadata(*,
     if tag is None:
         query = dataset_query_template.substitute(dataset_id=dataset_id)
     else:
+        _check_snapshot_exists(dataset_id=dataset_id, tag=tag,
+                               max_retries=max_retries,
+                               retry_backoff=retry_backoff)
         query = snapshot_query_template.substitute(dataset_id=dataset_id,
                                                    tag=tag)
 
