@@ -450,8 +450,9 @@ def download(*,
         target_dir = Path(target_dir)
 
     include = [include] if isinstance(include, str) else include
-    exclude = [exclude] if isinstance(include, str) else exclude
     include = [] if include is None else list(include)
+
+    exclude = [exclude] if isinstance(exclude, str) else exclude
     exclude = [] if exclude is None else list(exclude)
 
     retry_backoff = 0.5  # seconds
