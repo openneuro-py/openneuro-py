@@ -17,7 +17,7 @@ on:
 jobs:
   lint:
 
-    concurrency: test_job
+    concurrency: lint_job
     cancel-in-progress: true
 
     runs-on: ubuntu-latest
