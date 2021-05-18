@@ -133,7 +133,7 @@ def _get_download_metadata(*,
 
     with requests.Session() as session:
         gql_endpoint = RequestsEndpoint(url=gql_url, session=session,
-                                        timeout=30)
+                                        timeout=60)
 
         try:
             response_json = gql_endpoint(query=query)
@@ -190,7 +190,7 @@ async def _download_file(*,
     # The OpenNeuro servers are sometimes very slow to respond, so use a
     # gigantic timeout for those.
     if url.startswith('https://openneuro.org/crn/'):
-        timeout = 30
+        timeout = 60
     else:
         timeout = 5
 
