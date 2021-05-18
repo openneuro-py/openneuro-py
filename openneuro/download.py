@@ -141,6 +141,12 @@ def _get_download_metadata(*,
             response_json = None
             request_timed_out = True
 
+    # Sometimes we do get a response, but it contains a gateway timeout error
+    # messsage (504 status code)
+    if (response_json is not None and 'errors' in response_json and
+            response_json['errors'][0]['message'].startswith('504')):
+        request_timed_out = True
+
     if request_timed_out and max_retries > 0:
         tqdm.write('Request timed out while fetching metadata, retrying …')
         asyncio.sleep(retry_backoff)
