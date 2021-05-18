@@ -1,5 +1,9 @@
 # Changelog
 
+## 2021.4
+
+- Avoid timeouts that would occur in certain situations.
+
 ## 2021.3
 
 - Add Unix path expansion for `openneuro.download()`.

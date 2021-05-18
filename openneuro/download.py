@@ -94,7 +94,8 @@ def _check_snapshot_exists(*,
             request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        tqdm.write('Request timed out, retrying …')
+        tqdm.write('Request timed out while fetching list of snapshots, '
+                   'retrying …')
         asyncio.sleep(retry_backoff)
         max_retries -= 1
         retry_backoff *= 2
@@ -142,7 +143,7 @@ def _get_download_metadata(*,
             request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        tqdm.write('Request timed out, retrying …')
+        tqdm.write('Request timed out while fetching metadata, retrying …')
         asyncio.sleep(retry_backoff)
         max_retries -= 1
         retry_backoff *= 2
@@ -186,8 +187,8 @@ async def _download_file(*,
     async with semaphore:
         async with httpx.AsyncClient() as client:
             try:
-                async with client.stream('HEAD', url=url) as response:
-                    headers = response.headers
+                response = await client.head(url)
+                headers = response.headers
             except allowed_retry_exceptions:
                 if max_retries > 0:
                     await _retry_download(
@@ -331,7 +332,7 @@ async def _retry_download(
     retry_backoff: float,
     semaphore: asyncio.Semaphore
 ) -> None:
-    tqdm.write('Request timed out, retrying …')
+    tqdm.write('Request timed out while downloading, retrying …')
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
     retry_backoff *= 2
