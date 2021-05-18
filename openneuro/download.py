@@ -292,7 +292,7 @@ async def _download_file(*,
         mode = 'wb'
 
     async with semaphore:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 async with (
                     client.stream('GET', url=url, headers=headers)
