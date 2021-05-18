@@ -132,7 +132,8 @@ def _get_download_metadata(*,
                                                    tag=tag)
 
     with requests.Session() as session:
-        gql_endpoint = RequestsEndpoint(url=gql_url, session=session)
+        gql_endpoint = RequestsEndpoint(url=gql_url, session=session,
+                                        timeout=30)
 
         try:
             response_json = gql_endpoint(query=query)
