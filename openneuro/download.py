@@ -397,8 +397,8 @@ async def _retrieve_and_write_to_disk(
                   total=remote_file_size, unit='B',
                   unit_scale=True, unit_divisor=1024,
                   leave=False) as progress:
+            
             num_bytes_downloaded = response.num_bytes_downloaded
-
             # TODO Add timeout handling here, too.
             async for chunk in response.aiter_bytes():
                 await f.write(chunk)
@@ -418,8 +418,9 @@ async def _retrieve_and_write_to_disk(
             local_file_size = outfile.stat().st_size
             if not local_file_size == remote_file_size:
                 raise RuntimeError(
-                    f'Server claimed file size would be {remote_file_size} '
-                    f'bytes, but downloaded {local_file_size} byes.')
+                    f'Server claimed size of {outfile }would be '
+                    f'{remote_file_size} bytes, but downloaded '
+                    f'{local_file_size} byes.')
 
 
 async def _download_files(*,
