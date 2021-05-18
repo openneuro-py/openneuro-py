@@ -31,9 +31,15 @@ except AttributeError:
 # HTTP server responses that indicate hopefully intermittent errors that
 # warrant a retry.
 allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
-allowed_retry_exceptions = (httpx.ConnectTimeout, httpx.ReadTimeout,
-                            requests.exceptions.ConnectTimeout,
-                            requests.exceptions.ReadTimeout)
+allowed_retry_exceptions = (
+    httpx.ConnectTimeout, httpx.ReadTimeout,
+    requests.exceptions.ConnectTimeout,
+    requests.exceptions.ReadTimeout,
+
+    # "peer closed connection without sending complete message body 
+    #  (incomplete chunked read)"
+    httpx.RemoteProtocolError  
+)
 
 # GraphQL endpoint and queries.
 
