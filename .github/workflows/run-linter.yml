@@ -4,8 +4,8 @@
 name: Linter
 
 on:
-  push:
-    branches: ['**']
+  # push:
+  #   branches: ['**']
   pull_request:
     branches: ['**']
   create:
