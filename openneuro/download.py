@@ -332,10 +332,12 @@ async def _retry_download(
     retry_backoff: float,
     semaphore: asyncio.Semaphore
 ) -> None:
-    tqdm.write('Request timed out while downloading, retrying …')
+    tqdm.write(f'Request timed out while downloading {outfile}, retrying in '
+               f'{retry_backoff} sec …')
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
     retry_backoff *= 2
+    semaphore.release()
     await _download_file(url=url,
                          api_file_size=api_file_size,
                          outfile=outfile,

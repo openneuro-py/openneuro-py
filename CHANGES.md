@@ -3,6 +3,7 @@
 ## 2021.4
 
 - Avoid timeouts that would occur in certain situations.
+- Don't stall in situations where a download should be retried.
 
 ## 2021.3
 
