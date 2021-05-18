@@ -24,7 +24,8 @@ def test_download(tmp_path, dataset_id, tag, include):
     download(dataset=dataset_id, tag=tag, target_dir=tmp_path, include=include)
 
 
-def test_download_invalid_tag(tmp_path, dataset_id, invalid_tag):
+def test_download_invalid_tag(tmp_path, dataset_id=dataset_id_aws,
+                              invalid_tag=invalid_tag):
     """Test handling of a non-existent tag."""
     with pytest.raises(RuntimeError, match='snapshot.*does not exist'):
         download(dataset=dataset_id, tag=invalid_tag, target_dir=tmp_path)
