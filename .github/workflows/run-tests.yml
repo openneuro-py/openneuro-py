@@ -4,8 +4,8 @@
 name: Unit tests
 
 on:
-  push:
-    branches: ['**']
+  # push:
+  #   branches: ['**']
   pull_request:
     branches: ['**']
   create:
@@ -15,7 +15,9 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
-  build:
+  test:
+
+    concurrency: test_job
 
     runs-on: ubuntu-latest
     strategy:

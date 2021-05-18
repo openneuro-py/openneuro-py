@@ -15,7 +15,7 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
-  build:
+  lint:
 
     runs-on: ubuntu-latest
     strategy:
