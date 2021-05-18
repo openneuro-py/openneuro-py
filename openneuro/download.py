@@ -25,7 +25,6 @@ try:
     sys.stdout.reconfigure(encoding='utf-8')
     stdout_unicode = True
 except AttributeError:
-    # Python 3.6
     stdout_unicode = False
 
 
@@ -556,19 +555,14 @@ def download(*,
         msg = f'👉 {msg}'
     tqdm.write(msg)
 
-    # Pre-Python-3.7 compat. Once we drop support for Python 3.6, simply
-    # replace this with: asyncio.run(_download_files(...))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(asyncio.wait(
-        [_download_files(
-            target_dir=target_dir,
-            files=files,
-            verify_hash=verify_hash,
-            verify_size=verify_size,
-            max_retries=max_retries,
-            retry_backoff=retry_backoff,
-            max_concurrent_downloads=max_concurrent_downloads)]
-    ))
+    kwargs = dict(target_dir=target_dir,
+                  files=files,
+                  verify_hash=verify_hash,
+                  verify_size=verify_size,
+                  max_retries=max_retries,
+                  retry_backoff=retry_backoff,
+                  max_concurrent_downloads=max_concurrent_downloads)
+    asyncio.run(_download_files(**kwargs))
 
     msg_finished = f'Finished downloading {dataset}.'
     if stdout_unicode:
