@@ -252,6 +252,8 @@ async def _download_file(*,
                                            f'{outfile}.')
 
     headers = {}
+    headers['Accept-Encoding'] = ''  # Disable compression
+
     if outfile.exists() and local_file_size == remote_file_size:
         hash = hashlib.md5()
 

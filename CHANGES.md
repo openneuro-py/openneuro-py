@@ -1,5 +1,10 @@
 # Changelog
 
+## 2021.6
+
+- Disable transfer encoding (i.e., compression). This allows for an easier
+  check whether a file has been completely downloaded.
+
 ## 2021.5
 
 - Ramp up timeouts from 5 to 30 seconds for downloads from `openneuro.org`.
