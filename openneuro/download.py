@@ -180,11 +180,18 @@ async def _download_file(*,
     else:
         local_file_size = 0
 
+    # The OpenNeuro servers are sometimes very slow to respond, so use a
+    # gigantic timeout for those.
+    if url.startswith('https://openneuro.org/crn/'):
+        timeout = 30
+    else:
+        timeout = 5
+
     # Check if we need to resume a download
     # The file sizes provided via the API often do not match the sizes reported
     # by the HTTP server. Rely on the sizes reported by the HTTP server.
     async with semaphore:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 response = await client.head(url)
                 headers = response.headers

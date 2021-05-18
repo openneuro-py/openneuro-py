@@ -2,26 +2,23 @@ import pytest
 from openneuro import download
 
 
-@pytest.fixture
-def dataset_id():
-    return 'ds000246'
+dataset_id_aws = 'ds000246'
+tag_aws = '1.0.0'
+include_aws = 'sub-0001/anat'
+
+dataset_id_on = 'ds000117'
+include_on = 'sub-16/ses-meg'
+
+invalid_tag = 'abcdefg'
 
 
-@pytest.fixture
-def tag():
-    return '1.0.0'
-
-
-@pytest.fixture
-def invalid_tag():
-    return 'abcdefg'
-
-
-@pytest.fixture
-def include():
-    return 'sub-0001/anat'
-
-
+@pytest.mark.parametrize(
+    ('dataset_id', 'tag', 'include'),
+    [
+        (dataset_id_aws, tag_aws, include_aws),
+        (dataset_id_on, None, include_on)
+    ]
+)
 def test_download(tmp_path, dataset_id, tag, include):
     """Test downloading some files."""
     download(dataset=dataset_id, tag=tag, target_dir=tmp_path, include=include)

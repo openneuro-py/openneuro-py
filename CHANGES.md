@@ -1,5 +1,11 @@
 # Changelog
 
+## 2021.5
+
+- Ramp up timeouts from 5 to 30 seconds for downloads from `openneuro.org`.
+- Drop support for Python 3.6. `openneuro-py` now requires Python 3.7 or newer.
+  This change makes development easier.
+
 ## 2021.4
 
 - Avoid timeouts that would occur in certain situations.
