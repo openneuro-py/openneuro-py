@@ -4,6 +4,7 @@ import hashlib
 import asyncio
 from pathlib import Path
 import string
+import json
 from typing import Optional, Iterable, Union
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -32,7 +33,11 @@ except AttributeError:
 # warrant a retry.
 allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
 allowed_retry_exceptions = (
-    httpx.ConnectTimeout, httpx.ReadTimeout,
+    # For file downloads
+    httpx.ConnectTimeout,
+    httpx.ReadTimeout,
+
+    # For GraphQL requests via sgqlc (doesn't support httpx)
     requests.exceptions.ConnectTimeout,
     requests.exceptions.ReadTimeout,
 
@@ -49,6 +54,7 @@ dataset_query_template = string.Template("""
     query {
         dataset(id: "$dataset_id") {
             latestSnapshot {
+                id
                 files(prefix: null) {
                     filename
                     urls
@@ -72,6 +78,7 @@ all_snapshots_query_template = string.Template("""
 snapshot_query_template = string.Template("""
     query {
         snapshot(datasetId: "$dataset_id", tag: "$tag") {
+            id
             files(prefix: null) {
                 filename
                 urls
@@ -457,6 +464,30 @@ async def _download_files(*,
     await asyncio.gather(*download_tasks)
 
 
+def _get_local_tag(
+    *,
+    dataset_id: str,
+    dataset_dir: Path
+) -> Optional[str]:
+    """Get the local dataset revision.
+    """
+    local_json_path = dataset_dir / 'dataset_description.json'
+    if not local_json_path.exists():
+        return None
+
+    with local_json_path.open('r', encoding='utf-8') as f:
+        local_json = json.load(f)
+
+    if 'DatasetDOI' not in local_json:
+        raise RuntimeError('Local "dataset_description.json" does not contain '
+                           '"DatasetDOI" field. Are you sure this is the '
+                           'correct directory?')
+
+    local_version = (local_json['DatasetDOI']
+                     .replace(f'10.18112/openneuro.{dataset_id}.v', ''))
+    return local_version
+
+
 def download(*,
              dataset: str,
              tag: Optional[str] = None,
@@ -536,6 +567,26 @@ def download(*,
                                       tag=tag,
                                       max_retries=max_retries,
                                       retry_backoff=retry_backoff)
+    if target_dir.exists():
+        target_dir_empty = len(list(target_dir.rglob('*'))) == 0
+
+        if not target_dir_empty:
+            local_tag = _get_local_tag(dataset_id=dataset,
+                                       dataset_dir=target_dir)
+            remote_tag = metadata['id'].replace(f'{dataset}:', '')
+
+            if local_tag is None:
+                tqdm.write('Cannot determine local revision of the dataset ,'
+                           'and the target directory is not empty. If the '
+                           'download fails, you may want to try again with a '
+                           'fresh (empty) target directory.')
+            elif local_tag != remote_tag:
+                raise FileExistsError(
+                    f'You requested to download revision {remote_tag}, but '
+                    f'revision {local_tag} exists locally in the designated '
+                    f'target directory. Please either remove this dataset or '
+                    f'specify a different target directory, and try again.'
+                )
 
     files = []
     include_counts = [0] * len(include)  # Keep track of include matches.
