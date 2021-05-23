@@ -241,22 +241,7 @@ async def _download_file(*,
                 remote_file_size = int(response.headers['content-length'])
             except KeyError:
                 # The server doesn't always set a Content-Length header.
-                try:
-                    async with client.stream('GET', url=url) as response:
-                        response_content = await response.aread()
-                        remote_file_size = len(response_content)
-                except allowed_retry_exceptions:
-                    if max_retries > 0:
-                        await _retry_download(
-                            url=url, outfile=outfile,
-                            api_file_size=api_file_size,
-                            verify_hash=verify_hash, verify_size=verify_size,
-                            max_retries=max_retries,
-                            retry_backoff=retry_backoff, semaphore=semaphore)
-                        return
-                    else:
-                        raise RuntimeError(f'Timeout when trying to download '
-                                           f'{outfile}.')
+                remote_file_size = None
 
     headers = {}
     headers['Accept-Encoding'] = ''  # Disable compression
@@ -290,7 +275,9 @@ async def _download_file(*,
                      unit_divisor=1024, leave=False)
             t.close()
             return
-    elif outfile.exists() and local_file_size < remote_file_size:
+    elif (outfile.exists() and
+            remote_file_size is not None and
+            local_file_size < remote_file_size):
         # Download incomplete, resume.
         desc = f'Resuming {outfile.name}'
         headers['Range'] = f'bytes={local_file_size}-'
@@ -383,7 +370,7 @@ async def _retrieve_and_write_to_disk(
     mode: Literal['ab', 'wb'],
     desc: str,
     local_file_size: int,
-    remote_file_size: int,
+    remote_file_size: Optional[int],
     remote_file_hash: Optional[str],
     verify_hash: bool,
     verify_size: bool
@@ -425,7 +412,8 @@ async def _retrieve_and_write_to_disk(
         if verify_size:
             await f.flush()
             local_file_size = outfile.stat().st_size
-            if not local_file_size == remote_file_size:
+            if (remote_file_size is not None and
+                    not local_file_size == remote_file_size):
                 raise RuntimeError(
                     f'Server claimed size of {outfile }would be '
                     f'{remote_file_size} bytes, but downloaded '

@@ -5,6 +5,15 @@
 - Before resuming a download, check if local and remote datasets actually
   match.
 
+- If neither the API nor the HTTP server provide the file size, don't download
+  the file just for size determination. This won't allow us to display progress
+  bars anymore in this case, but it will avoid downloading the same file twice.
+  Unfortunately, resuming such downloads will be impossible, too: we'll simply
+  re-download the files. Note that this only applies to files hosted on
+  OpenNeuro.org for which we cannot determine the file size.
+
+- Massively reduce memory footprint (by 2 orders of magnitude).
+
 ## 2021.6
 
 - Disable transfer encoding (i.e., compression). This allows for an easier

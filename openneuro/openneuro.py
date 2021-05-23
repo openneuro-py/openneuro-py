@@ -1,5 +1,5 @@
 """
-openneuro-py is a leightweight client for accessing OpenNeuro datasets.
+openneuro-py is a lightweight client for accessing OpenNeuro datasets.
 
 Created and maintained by
 Richard Höchenberger <richard.hoechenberger@gmail.com>
