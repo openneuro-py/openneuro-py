@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from openneuro import download
 
@@ -19,13 +22,58 @@ invalid_tag = 'abcdefg'
         (dataset_id_on, None, include_on)
     ]
 )
-def test_download(tmp_path, dataset_id, tag, include):
+def test_download(tmp_path: Path, dataset_id, tag, include):
     """Test downloading some files."""
     download(dataset=dataset_id, tag=tag, target_dir=tmp_path, include=include)
 
 
-def test_download_invalid_tag(tmp_path, dataset_id=dataset_id_aws,
+def test_download_invalid_tag(tmp_path: Path, dataset_id=dataset_id_aws,
                               invalid_tag=invalid_tag):
     """Test handling of a non-existent tag."""
     with pytest.raises(RuntimeError, match='snapshot.*does not exist'):
         download(dataset=dataset_id, tag=invalid_tag, target_dir=tmp_path)
+
+
+def test_resume_download(tmp_path: Path):
+    """Test resuming of a dataset download."""
+    dataset = 'ds000246'
+    tag = '1.0.0'
+    include = ['CHANGES']
+    download(dataset=dataset, tag=tag, target_dir=tmp_path,
+             include=include)
+
+    # Download some more files
+    include = ['sub-0001/meg/*.jpg']
+    download(dataset=dataset, tag=tag, target_dir=tmp_path,
+             include=include)
+
+    # Download from a different revision / tag
+    new_tag = '00001'
+    with pytest.raises(FileExistsError, match=f'revision {tag} exists'):
+        download(dataset=dataset, tag=new_tag, target_dir=tmp_path)
+
+    # Try to "resume" from a different dataset
+    new_dataset = 'ds000117'
+    with pytest.raises(RuntimeError,
+                       match='existing dataset.*appears to be different'):
+        download(dataset=new_dataset, target_dir=tmp_path)
+
+    # Remove "DatasetDOI" from JSON
+    json_path = tmp_path / 'dataset_description.json'
+    with json_path.open('r', encoding='utf-8') as f:
+        dataset_json = json.load(f)
+
+    del dataset_json['DatasetDOI']
+    with json_path.open('w', encoding='utf-8') as f:
+        json.dump(dataset_json, f)
+
+    with pytest.raises(RuntimeError,
+                       match=r'does not contain "DatasetDOI"'):
+        download(dataset=dataset, target_dir=tmp_path)
+
+    # We should be able to resume a download even if "datset_description.jon"
+    # is missing
+    json_path.unlink()
+    include = ['sub-0001/meg/sub-0001_coordsystem.json']
+    download(dataset=dataset, tag=tag, target_dir=tmp_path,
+             include=include)
