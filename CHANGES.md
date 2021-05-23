@@ -4,6 +4,8 @@
 
 - Disable transfer encoding (i.e., compression). This allows for an easier
   check whether a file has been completely downloaded.
+- Before resuming a download, check if local and remote datasets actually
+  match.
 
 ## 2021.5
 
