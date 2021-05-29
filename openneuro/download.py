@@ -36,6 +36,7 @@ allowed_retry_exceptions = (
     # For file downloads
     httpx.ConnectTimeout,
     httpx.ReadTimeout,
+    httpx.ReadError,
 
     # For GraphQL requests via sgqlc (doesn't support httpx)
     requests.exceptions.ConnectTimeout,

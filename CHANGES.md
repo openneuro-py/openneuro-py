@@ -1,5 +1,9 @@
 # Changelog
 
+## 2021.8
+
+- Retry downloads if a `ReadError` has occurred.
+
 ## 2021.7
 
 - Before resuming a download, check if local and remote datasets actually
