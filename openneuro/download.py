@@ -634,7 +634,18 @@ def download(*,
                   max_retries=max_retries,
                   retry_backoff=retry_backoff,
                   max_concurrent_downloads=max_concurrent_downloads)
-    asyncio.run(_download_files(**kwargs))
+
+    # Try to re-use event loop if it already exists. This is required e.g.
+    # for use in Jupyter notebooks.
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop:
+        loop.create_task(_download_files(**kwargs))
+    else:
+        asyncio.run(_download_files(**kwargs))
 
     msg_finished = f'Finished downloading {dataset}.'
     if stdout_unicode:
