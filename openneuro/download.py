@@ -1,4 +1,5 @@
 import sys
+import os
 import fnmatch
 import hashlib
 import asyncio
@@ -13,7 +14,14 @@ else:
 
 import requests
 import httpx
-from tqdm.asyncio import tqdm
+
+# Manually "enforce" notebook mode in VS Code to get progress bar widgets
+# Can be removed once https://github.com/tqdm/tqdm/issues/1213 has been merged
+if 'VSCODE_PID' in os.environ:
+    from tqdm.notebook import tqdm
+else:
+    from tqdm.auto import tqdm
+
 import click
 import aiofiles
 from sgqlc.endpoint.requests import RequestsEndpoint
