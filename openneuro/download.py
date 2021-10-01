@@ -22,11 +22,14 @@ from . import __version__
 from .config import default_base_url
 
 
-try:
-    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stdout.encoding.lower() == 'utf-8':
     stdout_unicode = True
-except AttributeError:
-    stdout_unicode = False
+else:
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        stdout_unicode = True
+    except AttributeError:
+        stdout_unicode = False
 
 
 # HTTP server responses that indicate hopefully intermittent errors that
