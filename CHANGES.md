@@ -5,6 +5,9 @@
 - Add basic support for running Jupyter Notebooks / Jupyter Lab, interactive
   IPython sessions, and in the VS Code interactive Jupyter window.
 
+- Don't crash if the local `dataset_description.json` file is empty when trying
+  to resume an aborted download.
+
 ## 2021.8
 
 - Retry downloads if a `ReadError` has occurred.

@@ -475,8 +475,11 @@ def _get_local_tag(
     if not local_json_path.exists():
         return None
 
-    with local_json_path.open('r', encoding='utf-8') as f:
-        local_json = json.load(f)
+    local_json_file_content = local_json_path.read_text(encoding='utf-8')
+    if not local_json_file_content:
+        return None
+
+    local_json = json.loads(local_json_file_content)
 
     if 'DatasetDOI' not in local_json:
         raise RuntimeError('Local "dataset_description.json" does not contain '
