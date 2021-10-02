@@ -77,3 +77,13 @@ def test_resume_download(tmp_path: Path):
     include = ['sub-0001/meg/sub-0001_coordsystem.json']
     download(dataset=dataset, tag=tag, target_dir=tmp_path,
              include=include)
+
+
+def test_ds000248(tmp_path: Path):
+    """Test a dataset for that we ship default excludes."""
+    dataset = 'ds000248'
+    download(
+        dataset=dataset,
+        include=['participants.tsv'],
+        target_dir=tmp_path
+    )

@@ -578,16 +578,16 @@ def download(*,
     exclude = [exclude] if isinstance(exclude, str) else exclude
     exclude = [] if exclude is None else list(exclude)
 
-    for idx, dataset_default_excludes in enumerate(DEFAULT_EXCLUDES):
+    for dataset_default_excludes in DEFAULT_EXCLUDES:
         if dataset_default_excludes['datasetName'] == dataset:
-            default_excludes = DEFAULT_EXCLUDES[idx]['excludeFiles']
-
             msg = f'Adding default excludes for dataset {dataset}: \n     '
-            msg += '\n     '.join(default_excludes)
+            msg += '\n     '.join(dataset_default_excludes['excludeFiles'])
             if stdout_unicode:
                 msg =  f'🤕 {msg}'
             tqdm.write(msg)
-            exclude = list(set(exclude + default_excludes))
+            exclude = list(
+                set(exclude + dataset_default_excludes['excludeFiles'])
+            )
             break
 
     retry_backoff = 0.5  # seconds
