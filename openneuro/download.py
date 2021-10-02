@@ -53,9 +53,9 @@ allowed_retry_exceptions = (
     requests.exceptions.ConnectTimeout,
     requests.exceptions.ReadTimeout,
 
-    # "peer closed connection without sending complete message body 
+    # "peer closed connection without sending complete message body
     #  (incomplete chunked read)"
-    httpx.RemoteProtocolError  
+    httpx.RemoteProtocolError
 )
 
 # GraphQL endpoint and queries.
@@ -405,7 +405,7 @@ async def _retrieve_and_write_to_disk(
                   total=remote_file_size, unit='B',
                   unit_scale=True, unit_divisor=1024,
                   leave=False) as progress:
-            
+
             num_bytes_downloaded = response.num_bytes_downloaded
             # TODO Add timeout handling here, too.
             async for chunk in response.aiter_bytes():
