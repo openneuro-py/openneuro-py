@@ -8,6 +8,10 @@
 - Don't crash if the local `dataset_description.json` file is empty when trying
   to resume an aborted download.
 
+- We now by default exclude certain files from the download that are known to
+  be invalid for specific datasets. Once the datasets have been fixed on
+  OpenNeuro, we will revert these exclusions.
+
 ## 2021.8
 
 - Retry downloads if a `ReadError` has occurred.
