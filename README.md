@@ -19,6 +19,24 @@ conda install -c conda-forge openneuro-py
 pip install openneuro-py
 ```
 
+## Jupyter and IPython support
+
+To get basic support for Jupyter Lab, Jupyter Notebook, IPython interactive
+sessions, and VS Code's interactive Jupyter interface, you will also need to
+install `ipywidgets`:
+
+### via conda
+
+```shell
+conda install -c conda-forge ipywidgets
+```
+
+### via pip
+
+```shell
+pip install ipywidgets
+```
+
 ## Basic usage – Python interface
 
 ```python
