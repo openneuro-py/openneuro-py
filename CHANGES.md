@@ -1,5 +1,10 @@
 # Changelog
 
+## 2021.9
+
+- Add basic support for running Jupyter Notebooks / Jupyter Lab, interactive
+  IPython sessions, and in the VS Code interactive Jupyter window.
+
 ## 2021.8
 
 - Retry downloads if a `ReadError` has occurred.
