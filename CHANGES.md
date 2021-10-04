@@ -1,5 +1,13 @@
 # Changelog
 
+## 2021.10.1
+
+- New release for PyPI.
+
+## 2021.10
+
+- Fix unicode terminal detection for Sphinx documentation builds.
+
 ## 2021.9
 
 - Add basic support for running Jupyter Notebooks / Jupyter Lab, interactive
