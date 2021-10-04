@@ -17,24 +17,27 @@ import httpx
 
 # Manually "enforce" notebook mode in VS Code to get progress bar widgets
 # Can be removed once https://github.com/tqdm/tqdm/issues/1213 has been merged
-from tqdm.notebook import tqdm_notebook
+# from tqdm.notebook import tqdm_notebook
 # if 'VSCODE_PID' in os.environ:
 #     from tqdm.notebook import tqdm
 # else:
 #     from tqdm.auto import tqdm
 
-from tqdm.asyncio import tqdm
+# from tqdm.asyncio import tqdm
+from tqdm.std import tqdm
 
-if isinstance(tqdm, tqdm_notebook):
-    try:
-        import ipywidgets
-    except ImportError:
-        raise ImportError(
-            'It appears you are trying to run openneuro-py fromm a an '
-            'interactive IPython console or Jupyter notebook. For this to '
-            'work, you need to install "ipywidgets", which could not be '
-            'found.'
-        )
+from tqdm import tqdm
+
+# if isinstance(tqdm, tqdm_notebook):
+#     try:
+#         import ipywidgets
+#     except ImportError:
+#         raise ImportError(
+#             'It appears you are trying to run openneuro-py fromm a an '
+#             'interactive IPython console or Jupyter notebook. For this to '
+#             'work, you need to install "ipywidgets", which could not be '
+#             'found.'
+#         )
 
 import click
 import aiofiles
