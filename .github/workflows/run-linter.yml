@@ -11,8 +11,8 @@ on:
   create:
     branches: [main]
     tags: ['**']
-  schedule:
-    - cron: "0 4 * * *"
+  # schedule:
+  #   - cron: "0 4 * * *"
 
 jobs:
   lint:
