@@ -1,5 +1,9 @@
 # Changelog
 
+## 2022.1.0
+
+- Fix handling of DOIs that start with `doi:`, as found e.g. in `ds002778`.
+
 ## 2021.10.1
 
 - New release for PyPI.

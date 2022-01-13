@@ -490,8 +490,14 @@ def _get_local_tag(
                            '"DatasetDOI" field. Are you sure this is the '
                            'correct directory?')
 
+    local_doi = local_json['DatasetDOI']
+    if local_doi.startswith('doi:'):
+        # Remove the "protocol" prefix
+        local_doi = local_doi[4:]
+
     expected_doi_start = f'10.18112/openneuro.{dataset_id}.v'
-    if not local_json['DatasetDOI'].startswith(expected_doi_start):
+
+    if not local_doi.startswith(expected_doi_start):
         raise RuntimeError(f'The existing dataset in the target directory '
                            f'appears to be different from the one you '
                            f'requested to download. "DatasetDOI" field in '
@@ -499,7 +505,7 @@ def _get_local_tag(
                            f'{local_json["DatasetDOI"]}. '
                            f'Requested dataset: {dataset_id}')
 
-    local_version = (local_json['DatasetDOI']
+    local_version = (local_doi
                      .replace(f'10.18112/openneuro.{dataset_id}.v', ''))
     return local_version
 

@@ -87,3 +87,34 @@ def test_ds000248(tmp_path: Path):
         include=['participants.tsv'],
         target_dir=tmp_path
     )
+
+
+def test_doi_handling(tmp_path: Path):
+    """Test that we can handle DOIs that start with 'doi:`."""
+    dataset = 'ds000248'
+    download(
+        dataset=dataset,
+        include=['participants.tsv'],
+        target_dir=tmp_path
+    )
+
+    # Now inject a `doi:` prefix into the DOI
+    dataset_description_path = tmp_path / 'dataset_description.json'
+    dataset_description = json.loads(
+        dataset_description_path.read_text(encoding='utf-8')
+    )
+    assert not dataset_description['DatasetDOI'].startswith('doi:')
+    dataset_description['DatasetDOI'] = (
+        'doi:' + dataset_description['DatasetDOI']
+    )
+    dataset_description_path.write_text(
+        data=json.dumps(dataset_description, indent=2),
+        encoding='utf-8'
+    )
+
+    # Try to download again
+    download(
+        dataset=dataset,
+        include=['participants.tsv'],
+        target_dir=tmp_path
+    )
