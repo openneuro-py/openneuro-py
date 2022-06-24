@@ -172,7 +172,7 @@ def _get_download_metadata(*,
             request_timed_out = True
 
     # Sometimes we do get a response, but it contains a gateway timeout error
-    # messsage (504 status code)
+    # message (504 status code)
     if (response_json is not None and 'errors' in response_json and
             response_json['errors'][0]['message'].startswith('504')):
         request_timed_out = True
@@ -431,9 +431,9 @@ async def _retrieve_and_write_to_disk(
             if (remote_file_size is not None and
                     not local_file_size == remote_file_size):
                 raise RuntimeError(
-                    f'Server claimed size of {outfile }would be '
+                    f'Server claimed size of {outfile} would be '
                     f'{remote_file_size} bytes, but downloaded '
-                    f'{local_file_size} byes.')
+                    f'{local_file_size} bytes.')
 
 
 async def _download_files(*,
@@ -446,7 +446,7 @@ async def _download_files(*,
                           max_concurrent_downloads: int) -> None:
     """Download files, one by one.
     """
-    # Sempahore (counter) to limit maximum number of concurrent download
+    # Semaphore (counter) to limit maximum number of concurrent download
     # coroutines.
     semaphore = asyncio.Semaphore(max_concurrent_downloads)
     download_tasks = []

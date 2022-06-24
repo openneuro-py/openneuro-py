@@ -87,7 +87,7 @@ Note that a few essential BIDS files are **always** downloaded in addition.
 
 ### Download or exclude multiple files
 
-`--include` and `--exclude` can be passed mulitple times:
+`--include` and `--exclude` can be passed multiple times:
 
 ```shell
 openneuro-py download --dataset=ds000246 \
