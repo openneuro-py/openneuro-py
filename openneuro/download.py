@@ -1,6 +1,7 @@
 import sys
 import os
 import fnmatch
+from difflib import get_close_matches
 import hashlib
 import asyncio
 from pathlib import Path
@@ -653,9 +654,20 @@ def download(*,
     if include:
         for idx, count in enumerate(include_counts):
             if count == 0:
-                raise RuntimeError(f'Could not find path '
-                                   f'{include[idx]} in the dataset. Please '
-                                   f'check your includes.')
+                this = include[idx]
+                others = [m['filename'] for m in metadata['files']]
+                maybe = get_close_matches(this, others)
+                if maybe:
+                    extra = (
+                        'Perhaps you mean one of these paths:\n- ' +
+                        '\n- '.join(maybe) + '\n')
+                else:
+                    extra = (
+                        'There were no similar filenames found in the '
+                        'metadata.')
+                raise RuntimeError(
+                    f'Could not find path in the dataset:\n- {this}\n{extra}'
+                    'Please check your includes.')
 
     msg = (f'Retrieving up to {len(files)} files '
            f'({max_concurrent_downloads} concurrent downloads).')
