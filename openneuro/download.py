@@ -660,14 +660,17 @@ def download(*,
                 if maybe:
                     extra = (
                         'Perhaps you mean one of these paths:\n- ' +
-                        '\n- '.join(maybe) + '\n')
+                        '\n- '.join(maybe) + '\n'
+                    )
                 else:
                     extra = (
                         'There were no similar filenames found in the '
-                        'metadata.')
+                        'metadata.'
+                    )
                 raise RuntimeError(
                     f'Could not find path in the dataset:\n- {this}\n{extra}'
-                    'Please check your includes.')
+                    'Please check your includes.'
+                )
 
     msg = (f'Retrieving up to {len(files)} files '
            f'({max_concurrent_downloads} concurrent downloads).')
