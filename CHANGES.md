@@ -3,7 +3,7 @@
 
 ## Unreleased
 
-- Display suggestions in the exception when ``includes`` contains invalid
+- Display suggestions in the exception when `include` contains invalid
   entries.
 
 ## 2022.1.0
