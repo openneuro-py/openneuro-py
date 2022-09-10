@@ -1,5 +1,11 @@
 # Changelog
 
+
+## Unreleased
+
+- Display suggestions in the exception when ``includes`` contains invalid
+  entries.
+
 ## 2022.1.0
 
 - Fix handling of DOIs that start with `doi:`, as found e.g. in `ds002778`.
