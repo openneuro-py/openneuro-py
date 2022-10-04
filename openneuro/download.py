@@ -30,11 +30,6 @@ from sgqlc.endpoint.requests import RequestsEndpoint
 from . import __version__
 from .config import default_base_url
 
-DEFAULT_EXCLUDES = json.loads(
-    (Path(__file__).parent / 'default_excludes.json')
-    .read_text(encoding='utf-8')
-)
-
 
 if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding.lower() == 'utf-8':
     stdout_unicode = True
@@ -583,18 +578,6 @@ def download(*,
 
     exclude = [exclude] if isinstance(exclude, str) else exclude
     exclude = [] if exclude is None else list(exclude)
-
-    for dataset_default_excludes in DEFAULT_EXCLUDES:
-        if dataset_default_excludes['datasetName'] == dataset:
-            msg = f'Adding default excludes for dataset {dataset}: \n     '
-            msg += '\n     '.join(dataset_default_excludes['excludeFiles'])
-            if stdout_unicode:
-                msg =  f'🤕 {msg}'
-            tqdm.write(msg)
-            exclude = list(
-                set(exclude + dataset_default_excludes['excludeFiles'])
-            )
-            break
 
     retry_backoff = 0.5  # seconds
     metadata = _get_download_metadata(base_url=default_base_url,
