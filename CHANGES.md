@@ -5,6 +5,8 @@
 
 - Display suggestions in the exception when `include` contains invalid
   entries.
+- Drop list of default excludes. OpenNeuro has fixed server response for the
+  respective datasets, so excluding files by default is not necessary anymore.
 
 ## 2022.1.0
 
