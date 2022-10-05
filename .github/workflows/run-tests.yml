@@ -14,12 +14,12 @@ on:
   # schedule:
   #   - cron: "0 4 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-
-    concurrency: test_job
-    # cancel-in-progress: true
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
