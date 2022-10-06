@@ -67,8 +67,9 @@ dataset_query_template = string.Template("""
         dataset(id: "$dataset_id") {
             latestSnapshot {
                 id
-                files(prefix: null) {
+                files (prefix: "$prefix") {
                     filename
+                    directory
                     urls
                     size
                 }
@@ -91,8 +92,9 @@ snapshot_query_template = string.Template("""
     query {
         snapshot(datasetId: "$dataset_id", tag: "$tag") {
             id
-            files(prefix: null) {
+            files (prefix: "$prefix") {
                 filename
+                directory
                 urls
                 size
             }
@@ -143,18 +145,25 @@ def _get_download_metadata(*,
                            base_url: str,
                            dataset_id: str,
                            tag: Optional[str] = None,
+                           prefix: str = "",
                            max_retries: int,
                            retry_backoff: float) -> dict:
     """Retrieve dataset metadata required for the download.
     """
     if tag is None:
-        query = dataset_query_template.substitute(dataset_id=dataset_id)
+        query = dataset_query_template.substitute(
+            dataset_id=dataset_id,
+            prefix=prefix
+        )
     else:
         _check_snapshot_exists(dataset_id=dataset_id, tag=tag,
                                max_retries=max_retries,
                                retry_backoff=retry_backoff)
-        query = snapshot_query_template.substitute(dataset_id=dataset_id,
-                                                   tag=tag)
+        query = snapshot_query_template.substitute(
+            dataset_id=dataset_id,
+            tag=tag,
+            prefix=prefix
+        )
 
     with requests.Session() as session:
         gql_endpoint = RequestsEndpoint(url=gql_url, session=session,
@@ -580,11 +589,37 @@ def download(*,
     exclude = [] if exclude is None else list(exclude)
 
     retry_backoff = 0.5  # seconds
-    metadata = _get_download_metadata(base_url=default_base_url,
-                                      dataset_id=dataset,
-                                      tag=tag,
-                                      max_retries=max_retries,
-                                      retry_backoff=retry_backoff)
+
+    # Retrieve list of files and folders in the dataset root.
+    metadata = _get_download_metadata(
+        base_url=default_base_url,
+        dataset_id=dataset,
+        tag=tag,
+        prefix="",  # Retrieves content of the dataset root
+        max_retries=max_retries,
+        retry_backoff=retry_backoff
+    )
+
+    # Now we need to retrieve the contents of each directory in the dataset
+    # root.
+    for file in metadata['files']:
+        if file['directory']:
+            directory_metadata = _get_download_metadata(
+                base_url=default_base_url,
+                dataset_id=dataset,
+                tag=tag,
+                prefix=file['filename'],  # Retrieve contnet of the directory
+                max_retries=max_retries,
+                retry_backoff=retry_backoff
+            )
+            metadata['files'].extend(directory_metadata['files'])
+
+    # We have retrieved all directory trees, so now remove the "duplicates"
+    metadata['files'] = [
+        e for e in metadata['files']
+        if e['directory'] is None
+    ]
+
     if target_dir.exists():
         target_dir_empty = len(list(target_dir.rglob('*'))) == 0
 
@@ -594,7 +629,7 @@ def download(*,
             remote_tag = metadata['id'].replace(f'{dataset}:', '')
 
             if local_tag is None:
-                tqdm.write('Cannot determine local revision of the dataset ,'
+                tqdm.write('Cannot determine local revision of the dataset, '
                            'and the target directory is not empty. If the '
                            'download fails, you may want to try again with a '
                            'fresh (empty) target directory.')

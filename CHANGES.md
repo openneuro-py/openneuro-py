@@ -7,6 +7,7 @@
   entries.
 - Drop list of default excludes. OpenNeuro has fixed server response for the
   respective datasets, so excluding files by default is not necessary anymore.
+- Support latest OpenNeuro API change
 
 ## 2022.1.0
 
