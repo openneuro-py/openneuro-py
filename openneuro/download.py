@@ -67,10 +67,12 @@ dataset_query_template = string.Template("""
         dataset(id: "$dataset_id") {
             latestSnapshot {
                 id
-                files(prefix: null) {
+                files {
                     filename
                     urls
                     size
+                    directory
+                    id
                 }
             }
         }
@@ -91,14 +93,29 @@ snapshot_query_template = string.Template("""
     query {
         snapshot(datasetId: "$dataset_id", tag: "$tag") {
             id
-            files(prefix: null) {
+            files(tree: $tree) {
                 filename
                 urls
                 size
+                directory
+                id
             }
         }
     }
 """)
+
+
+def _safe_query(query, *, timeout=None):
+    with requests.Session() as session:
+        gql_endpoint = RequestsEndpoint(
+            url=gql_url, session=session, timeout=timeout)
+        try:
+            response_json = gql_endpoint(query=query)
+            request_timed_out = False
+        except allowed_retry_exceptions:
+            response_json = None
+            request_timed_out = True
+    return response_json, request_timed_out
 
 
 def _check_snapshot_exists(*,
@@ -106,16 +123,8 @@ def _check_snapshot_exists(*,
                            tag: str,
                            max_retries: int,
                            retry_backoff: float):
-    with requests.Session() as session:
-        gql_endpoint = RequestsEndpoint(url=gql_url, session=session)
-        query = all_snapshots_query_template.substitute(dataset_id=dataset_id)
-
-        try:
-            response_json = gql_endpoint(query=query)
-            request_timed_out = False
-        except allowed_retry_exceptions:
-            response_json = None
-            request_timed_out = True
+    query = all_snapshots_query_template.substitute(dataset_id=dataset_id)
+    response_json, request_timed_out = _safe_query(query)
 
     if request_timed_out and max_retries > 0:
         tqdm.write('Request timed out while fetching list of snapshots, '
@@ -140,11 +149,12 @@ def _check_snapshot_exists(*,
 
 
 def _get_download_metadata(*,
-                           base_url: str,
+                           base_url: str = default_base_url,
                            dataset_id: str,
                            tag: Optional[str] = None,
+                           tree: str = 'null',
                            max_retries: int,
-                           retry_backoff: float) -> dict:
+                           retry_backoff: float = 0.5) -> dict:
     """Retrieve dataset metadata required for the download.
     """
     if tag is None:
@@ -154,18 +164,9 @@ def _get_download_metadata(*,
                                max_retries=max_retries,
                                retry_backoff=retry_backoff)
         query = snapshot_query_template.substitute(dataset_id=dataset_id,
-                                                   tag=tag)
+                                                   tag=tag, tree=tree)
 
-    with requests.Session() as session:
-        gql_endpoint = RequestsEndpoint(url=gql_url, session=session,
-                                        timeout=60)
-
-        try:
-            response_json = gql_endpoint(query=query)
-            request_timed_out = False
-        except allowed_retry_exceptions:
-            response_json = None
-            request_timed_out = True
+    response_json, request_timed_out = _safe_query(query, timeout=60)
 
     # Sometimes we do get a response, but it contains a gateway timeout error
     # message (504 status code)
@@ -174,7 +175,8 @@ def _get_download_metadata(*,
         request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        tqdm.write('Request timed out while fetching metadata, retrying …')
+        tqdm.write(
+            _unicode('Request timed out while fetching metadata, retrying'))
         asyncio.sleep(retry_backoff)
         max_retries -= 1
         retry_backoff *= 2
@@ -359,8 +361,9 @@ async def _retry_download(
     retry_backoff: float,
     semaphore: asyncio.Semaphore
 ) -> None:
-    tqdm.write(f'Request timed out while downloading {outfile}, retrying in '
-               f'{retry_backoff} sec …')
+    tqdm.write(
+        _unicode(f'Request timed out while downloading {outfile}, retrying in '
+                 f'{retry_backoff} sec', emoji='🔄'))
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
     retry_backoff *= 2
@@ -506,6 +509,38 @@ def _get_local_tag(
     return local_version
 
 
+def _unicode(msg, *, emoji=' ', end='…'):
+    if stdout_unicode:
+        msg = f'{emoji} {msg} {end}'
+    elif end == '…':
+        msg = f'{msg} ...'
+    return msg
+
+
+def _iterate_filenames(files, *, dataset_id, tag, max_retries, indent=' ',
+                       root=''):
+    """Iterate over all files in a dataset, yielding filenames."""
+    directories = list()
+    for entity in files:
+        if root:
+            entity['filename'] = f'{root}/{entity["filename"]}'
+        if entity['directory']:
+            directories.append(entity)
+        else:
+            yield entity
+    for directory in directories:
+        # Query filenames
+        this_dir = directory['filename']
+        tqdm.write(_unicode(f'{indent}{this_dir}', emoji=' ', end=''))
+        metadata = _get_download_metadata(
+            dataset_id=dataset_id, tag=tag, tree=f'"{directory["id"]}"',
+            max_retries=max_retries)
+        for path in _iterate_filenames(
+                metadata['files'], dataset_id=dataset_id, tag=tag,
+                max_retries=max_retries, indent=f'{indent}│ ', root=this_dir):
+            yield path
+
+
 def download(*,
              dataset: str,
              tag: Optional[str] = None,
@@ -560,13 +595,7 @@ def download(*,
            f'   {msg_please} report {msg_problems} and {msg_bugs} at\n'
            f'      https://github.com/hoechenberger/openneuro-py/issues\n')
     tqdm.write(msg)
-
-    msg = f'Preparing to download {dataset}'
-    if stdout_unicode:
-        msg = f'🌍 {msg} …'
-    else:
-        msg += ' ...'
-    tqdm.write(msg)
+    tqdm.write(_unicode(f'Preparing to download {dataset}', emoji='🌍'))
 
     if target_dir is None:
         target_dir = Path(dataset)
@@ -580,27 +609,27 @@ def download(*,
     exclude = [] if exclude is None else list(exclude)
 
     retry_backoff = 0.5  # seconds
-    metadata = _get_download_metadata(base_url=default_base_url,
-                                      dataset_id=dataset,
+    metadata = _get_download_metadata(dataset_id=dataset,
                                       tag=tag,
                                       max_retries=max_retries,
                                       retry_backoff=retry_backoff)
+    del tag
+    tag = metadata['id'].replace(f'{dataset}:', '')
     if target_dir.exists():
         target_dir_empty = len(list(target_dir.rglob('*'))) == 0
 
         if not target_dir_empty:
             local_tag = _get_local_tag(dataset_id=dataset,
                                        dataset_dir=target_dir)
-            remote_tag = metadata['id'].replace(f'{dataset}:', '')
 
             if local_tag is None:
                 tqdm.write('Cannot determine local revision of the dataset ,'
                            'and the target directory is not empty. If the '
                            'download fails, you may want to try again with a '
                            'fresh (empty) target directory.')
-            elif local_tag != remote_tag:
+            elif local_tag != tag:
                 raise FileExistsError(
-                    f'You requested to download revision {remote_tag}, but '
+                    f'You requested to download revision {tag}, but '
                     f'revision {local_tag} exists locally in the designated '
                     f'target directory. Please either remove this dataset or '
                     f'specify a different target directory, and try again.'
@@ -608,8 +637,15 @@ def download(*,
 
     files = []
     include_counts = [0] * len(include)  # Keep track of include matches.
-    for file in metadata['files']:
+    filenames = []
+    these_files = metadata['files']
+    del metadata
+    msg = f'Traversing directories for {dataset} (this can take a while)'
+    tqdm.write(_unicode(msg, emoji='📁'))
+    for file in _iterate_filenames(these_files, dataset_id=dataset, tag=tag,
+                                   max_retries=max_retries):
         filename: str = file['filename']  # TODO properly define metadata type
+        filenames.append(filename)
 
         # Always include essential BIDS files.
         if filename in ('dataset_description.json',
@@ -638,8 +674,7 @@ def download(*,
         for idx, count in enumerate(include_counts):
             if count == 0:
                 this = include[idx]
-                others = [m['filename'] for m in metadata['files']]
-                maybe = get_close_matches(this, others)
+                maybe = get_close_matches(this, filenames)
                 if maybe:
                     extra = (
                         'Perhaps you mean one of these paths:\n- ' +
@@ -657,9 +692,7 @@ def download(*,
 
     msg = (f'Retrieving up to {len(files)} files '
            f'({max_concurrent_downloads} concurrent downloads).')
-    if stdout_unicode:
-        msg = f'👉 {msg}'
-    tqdm.write(msg)
+    tqdm.write(_unicode(msg, emoji='📥', end=''))
 
     kwargs = dict(target_dir=target_dir,
                   files=files,
@@ -681,18 +714,9 @@ def download(*,
     else:
         asyncio.run(_download_files(**kwargs))
 
-    msg_finished = f'Finished downloading {dataset}.'
-    if stdout_unicode:
-        msg_finished = f'✅ {msg_finished}'
-    tqdm.write(msg_finished)
-
-    msg_enjoy = 'Please enjoy your brains.'
-    if stdout_unicode:
-        msg_enjoy = f'\n🧠 {msg_enjoy}'
-    else:
-        msg_enjoy = f'\n{msg_enjoy}'
-    msg_enjoy += '\n'
-    tqdm.write(msg_enjoy)
+    tqdm.write(
+        _unicode(f'Finished downloading {dataset}.\n', emoji='✅', end=''))
+    tqdm.write(_unicode('Please enjoy your brains.\n', emoji='🧠', end=''))
 
 
 @click.command()
