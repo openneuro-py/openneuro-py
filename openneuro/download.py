@@ -713,7 +713,6 @@ def download(*,
             # Keep track of include matches.
             if any(matches_keep):
                 include_counts[matches_keep.index(True)] += 1
-    raise RuntimeError
 
     if include:
         for idx, count in enumerate(include_counts):
