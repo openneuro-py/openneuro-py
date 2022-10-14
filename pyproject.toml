@@ -1,7 +1,7 @@
 [project]
 name = "openneuro-py"
 description = "A Python client for OpenNeuro."
-version = "2022.1.0"
+version = "2022.2.0"
 readme = "README.md"
 requires-python = ">=3.7"
 license = {file = "LICENSE"}
