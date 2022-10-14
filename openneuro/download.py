@@ -159,15 +159,19 @@ def _get_download_metadata(*,
                            tag: Optional[str] = None,
                            tree: str = 'null',
                            max_retries: int,
-                           retry_backoff: float = 0.5) -> dict:
+                           retry_backoff: float = 0.5,
+                           check_snapshot: bool = True) -> dict:
     """Retrieve dataset metadata required for the download.
     """
     if tag is None:
         query = dataset_query_template.substitute(dataset_id=dataset_id)
     else:
-        _check_snapshot_exists(dataset_id=dataset_id, tag=tag,
-                               max_retries=max_retries,
-                               retry_backoff=retry_backoff)
+        if check_snapshot:
+            _check_snapshot_exists(
+                dataset_id=dataset_id,
+                tag=tag,
+                max_retries=max_retries,
+                retry_backoff=retry_backoff)
         query = snapshot_query_template.substitute(dataset_id=dataset_id,
                                                    tag=tag, tree=tree)
 
@@ -186,9 +190,14 @@ def _get_download_metadata(*,
         asyncio.sleep(retry_backoff)
         max_retries -= 1
         retry_backoff *= 2
-        return _get_download_metadata(base_url=base_url, dataset_id=dataset_id,
-                                      tag=tag, max_retries=max_retries,
-                                      retry_backoff=retry_backoff)
+        return _get_download_metadata(
+            base_url=base_url,
+            dataset_id=dataset_id,
+            tag=tag,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+            check_snapshot=check_snapshot,
+        )
     elif request_timed_out:
         raise RuntimeError('Timeout when trying to fetch metadata.')
 
@@ -551,17 +560,20 @@ def _iterate_filenames(
         # Query filenames
         this_dir = directory['filename']
         metadata = _get_download_metadata(
-            dataset_id=dataset_id, tag=tag, tree=f'"{directory["id"]}"',
-            max_retries=max_retries
+            dataset_id=dataset_id,
+            tag=tag,
+            tree=f'"{directory["id"]}"',
+            max_retries=max_retries,
+            check_snapshot=False,
         )
-
-        for path in _iterate_filenames(
+        dir_iterator = _iterate_filenames(
             metadata['files'],
             dataset_id=dataset_id,
             tag=tag,
             max_retries=max_retries,
-            root=this_dir
-        ):
+            root=this_dir,
+        )
+        for path in dir_iterator:
             yield path
 
 
@@ -633,10 +645,12 @@ def download(*,
     exclude = [] if exclude is None else list(exclude)
 
     retry_backoff = 0.5  # seconds
-    metadata = _get_download_metadata(dataset_id=dataset,
-                                      tag=tag,
-                                      max_retries=max_retries,
-                                      retry_backoff=retry_backoff)
+    metadata = _get_download_metadata(
+        dataset_id=dataset,
+        tag=tag,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+    )
     del tag
     tag = metadata['id'].replace(f'{dataset}:', '')
     if target_dir.exists():
@@ -699,6 +713,7 @@ def download(*,
             # Keep track of include matches.
             if any(matches_keep):
                 include_counts[matches_keep.index(True)] += 1
+    raise RuntimeError
 
     if include:
         for idx, count in enumerate(include_counts):
