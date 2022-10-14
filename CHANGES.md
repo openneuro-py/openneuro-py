@@ -1,8 +1,9 @@
 # Changelog
 
 
-## Unreleased
+## 2022.2.0
 
+- Support latest OpenNeuro API.
 - Display suggestions in the exception when `include` contains invalid
   entries.
 - Drop list of default excludes. OpenNeuro has fixed server response for the
