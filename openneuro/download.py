@@ -449,6 +449,23 @@ async def _retrieve_and_write_to_disk(
                     f'Server claimed size of {outfile} would be '
                     f'{remote_file_size} bytes, but downloaded '
                     f'{local_file_size} bytes.')
+            # Secondary check: try loading as JSON for "error" entry
+            # We can get for invalid files sometimes the contents:
+            # {"error": "an unknown error occurred accessing this file"}
+            # This is a 58-byte file, but let's be tolerant and try loading
+            # anything less than 200 as JSON and detect a dict with a single
+            # "error" entry.
+            if local_file_size < 200:
+                try:
+                    with open(outfile, 'rb') as f:
+                        data = json.load(f)
+                except Exception:
+                    pass
+                else:
+                    if isinstance(data, dict) and list(data) == ['error']:
+                        raise RuntimeError(
+                            f'Error downloading:\n{outfile}:\n'
+                            f'Got JSON error response contents:\n{data}')
 
 
 async def _download_files(*,
@@ -637,6 +654,7 @@ def download(*,
         target_dir = Path(dataset)
     else:
         target_dir = Path(target_dir)
+    target_dir = target_dir.expanduser().resolve()
 
     include = [include] if isinstance(include, str) else include
     include = [] if include is None else list(include)
