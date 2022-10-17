@@ -457,8 +457,7 @@ async def _retrieve_and_write_to_disk(
             # "error" entry.
             if local_file_size < 200:
                 try:
-                    with open(outfile, 'rb') as f:
-                        data = json.load(f)
+                    data = json.loads(outfile.read_text('utf-8'))
                 except Exception:
                     pass
                 else:
