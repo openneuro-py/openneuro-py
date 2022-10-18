@@ -8,23 +8,27 @@ from openneuro import download
 dataset_id_aws = 'ds000246'
 tag_aws = '1.0.0'
 include_aws = 'sub-0001/anat'
+exclude_aws = []
 
 dataset_id_on = 'ds000117'
+tag_on = None
 include_on = 'sub-16/ses-meg'
+exclude_on = '*.fif'  # save GBs of downloads
 
 invalid_tag = 'abcdefg'
 
 
 @pytest.mark.parametrize(
-    ('dataset_id', 'tag', 'include'),
+    ('dataset_id', 'tag', 'include', 'exclude'),
     [
-        (dataset_id_aws, tag_aws, include_aws),
-        (dataset_id_on, None, include_on)
+        (dataset_id_aws, tag_aws, include_aws, exclude_aws),
+        (dataset_id_on, tag_on, include_on, exclude_on),
     ]
 )
-def test_download(tmp_path: Path, dataset_id, tag, include):
+def test_download(tmp_path: Path, dataset_id, tag, include, exclude):
     """Test downloading some files."""
-    download(dataset=dataset_id, tag=tag, target_dir=tmp_path, include=include)
+    download(dataset=dataset_id, tag=tag, target_dir=tmp_path, include=include,
+             exclude=exclude)
 
 
 def test_download_invalid_tag(tmp_path: Path, dataset_id=dataset_id_aws,
@@ -49,14 +53,16 @@ def test_resume_download(tmp_path: Path):
 
     # Download from a different revision / tag
     new_tag = '00001'
+    include = ['CHANGES']
     with pytest.raises(FileExistsError, match=f'revision {tag} exists'):
-        download(dataset=dataset, tag=new_tag, target_dir=tmp_path)
+        download(dataset=dataset, tag=new_tag, target_dir=tmp_path,
+                 include=include)
 
     # Try to "resume" from a different dataset
     new_dataset = 'ds000117'
     with pytest.raises(RuntimeError,
                        match='existing dataset.*appears to be different'):
-        download(dataset=new_dataset, target_dir=tmp_path)
+        download(dataset=new_dataset, target_dir=tmp_path, include=include)
 
     # Remove "DatasetDOI" from JSON
     json_path = tmp_path / 'dataset_description.json'
@@ -100,15 +106,21 @@ def test_doi_handling(tmp_path: Path):
 
     # Now inject a `doi:` prefix into the DOI
     dataset_description_path = tmp_path / 'dataset_description.json'
-    dataset_description = json.loads(
+    dataset_description_text = \
         dataset_description_path.read_text(encoding='utf-8')
-    )
+    dataset_description = json.loads(dataset_description_text)
+    # Make sure we can dumps to get the same thing back (if they change their
+    # indent 4->8 for example, we might try to resume our download of the file
+    # and things will break in a challenging way)
+    dataset_description_rt = json.dumps(dataset_description, indent=4)
+    assert dataset_description_text == dataset_description_rt
+    # Ensure the dataset doesn't already have the problematic prefix, then add
     assert not dataset_description['DatasetDOI'].startswith('doi:')
     dataset_description['DatasetDOI'] = (
         'doi:' + dataset_description['DatasetDOI']
     )
     dataset_description_path.write_text(
-        data=json.dumps(dataset_description, indent=2),
+        data=json.dumps(dataset_description, indent=4),
         encoding='utf-8'
     )
 
