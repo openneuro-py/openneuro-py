@@ -6,3 +6,4 @@ dist/
 build/
 .vscode/
 openneuro_py.egg-info/
+.hypothesis/
