@@ -441,7 +441,8 @@ async def _retrieve_and_write_to_disk(
             if got != remote_file_hash:
                 raise RuntimeError(
                     f'Hash mismatch for:\n{outfile}\n'
-                    f'Expected:\n{remote_file_hash}\nGot:\n{got}')
+                    f'Expected:\n{remote_file_hash}\nGot:\n{got}'
+                )
 
         # Check the file was completely downloaded.
         if verify_size:
@@ -468,7 +469,8 @@ async def _retrieve_and_write_to_disk(
             if isinstance(data, dict) and list(data) == ['error']:
                 raise RuntimeError(
                     f'Error downloading:\n{outfile}:\n'
-                    f'Got JSON error response contents:\n{data}')
+                    f'Got JSON error response contents:\n{data}'
+                )
 
 
 async def _download_files(*,
