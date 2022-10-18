@@ -48,4 +48,4 @@ build-backend = "setuptools.build_meta"
 # can be left blank
 
 [tool.pytest.ini_options]
-addopts = "-ra -vv --tb=short"
+addopts = "-ra -vv --tb=short --durations=10"
