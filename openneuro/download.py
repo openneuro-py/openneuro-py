@@ -178,9 +178,9 @@ def _get_download_metadata(*,
     response_json, request_timed_out = _safe_query(query, timeout=60)
 
     # Sometimes we do get a response, but it contains a gateway timeout error
-    # message (504 status code)
+    # message (504 or 502 status code)
     if (response_json is not None and 'errors' in response_json and
-            response_json['errors'][0]['message'].startswith('504')):
+            response_json['errors'][0]['message'].startswith(('504', '502'))):
         request_timed_out = True
 
     if request_timed_out and max_retries > 0:
