@@ -53,6 +53,7 @@ allowed_retry_exceptions = (
     httpx.ConnectTimeout,
     httpx.ReadTimeout,
     httpx.ReadError,
+    httpx.ConnectError,  # [Errno -3] Temporary failure in name resolution
 
     # For GraphQL requests via sgqlc (doesn't support httpx)
     requests.exceptions.ConnectTimeout,
