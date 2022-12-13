@@ -138,11 +138,13 @@ def test_restricted_dataset(tmp_path: Path):
     """Test downloading a restricted dataset."""
     # API token for dummy user alijflsdvbjielsdlkjfeiljsvj@gmail.com
     token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOGNhNjE2ZS00OWQxLTRmOTUtODI1OS0xNzYwYzVhYjZjMDciLCJlbWFpbCI6ImFsaWpmbHNkdmJqaWVsc2Rsa2pmZWlsanN2akBnbWFpbC5jb20iLCJwcm92aWRlciI6Imdvb2dsZSIsIm5hbWUiOiJzZGZrbGVpamZsa3NkamYgc2xmZGRsa2phYWlmbCIsImFkbWluIjpmYWxzZSwiaWF0IjoxNjY1NDY4MjM4LCJleHAiOjE2OTcwMDQyMzh9.7YVL_Cagli84nTmumdcmrV1bW5hZMq3VJlMUDmTEpGU'  # noqa
-    openneuro.config.config_fname = tmp_path / '.openneuro'
-    with mock.patch('getpass.getpass', lambda _: token):
-        openneuro.config.init_config()
+
+    with mock.patch.object(openneuro.config, 'CONFIG_PATH', tmp_path / '.openneuro'):
+        with mock.patch('getpass.getpass', lambda _: token):
+            openneuro.config.init_config()
 
         # This is a restricted dataset that is only available if the API token
         # was used correctly.
         download(dataset='ds004287', target_dir=tmp_path)
+
     assert (tmp_path / 'README').exists()
