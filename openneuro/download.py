@@ -4,7 +4,7 @@ import fnmatch
 from difflib import get_close_matches
 import hashlib
 import asyncio
-from pathlib import Path, PosixPath
+from pathlib import Path, PurePosixPath
 import string
 import json
 from typing import Optional, Union
@@ -597,8 +597,8 @@ def _iterate_filenames(
             #
             # All three of these should traverse `sub-CON001` and its
             # subdirectories.
-            n_parts = len(PosixPath(root).parts)
-            dir_include = [PosixPath(inc) for inc in include]
+            n_parts = len(PurePosixPath(root).parts)
+            dir_include = [PurePosixPath(inc) for inc in include]
             dir_include = [  # for stuff like sub-CON001/*
                 '/'.join(inc.parts[:n_parts] + ('*',))
                 for inc in dir_include
