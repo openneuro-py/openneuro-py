@@ -4,7 +4,7 @@ import fnmatch
 from difflib import get_close_matches
 import hashlib
 import asyncio
-from pathlib import Path, PosixPath
+from pathlib import Path, PurePosixPath
 import string
 import json
 from typing import Optional, Union
@@ -53,6 +53,7 @@ allowed_retry_exceptions = (
     httpx.ConnectTimeout,
     httpx.ReadTimeout,
     httpx.ReadError,
+    httpx.ConnectError,  # [Errno -3] Temporary failure in name resolution
 
     # For GraphQL requests via sgqlc (doesn't support httpx)
     requests.exceptions.ConnectTimeout,
@@ -185,9 +186,9 @@ def _get_download_metadata(*,
     response_json, request_timed_out = _safe_query(query, timeout=60)
 
     # Sometimes we do get a response, but it contains a gateway timeout error
-    # message (504 status code)
+    # message (504 or 502 status code)
     if (response_json is not None and 'errors' in response_json and
-            response_json['errors'][0]['message'].startswith('504')):
+            response_json['errors'][0]['message'].startswith(('504', '502'))):
         request_timed_out = True
 
     if request_timed_out and max_retries > 0:
@@ -618,8 +619,8 @@ def _iterate_filenames(
             #
             # All three of these should traverse `sub-CON001` and its
             # subdirectories.
-            n_parts = len(PosixPath(root).parts)
-            dir_include = [PosixPath(inc) for inc in include]
+            n_parts = len(PurePosixPath(root).parts)
+            dir_include = [PurePosixPath(inc) for inc in include]
             dir_include = [  # for stuff like sub-CON001/*
                 '/'.join(inc.parts[:n_parts] + ('*',))
                 for inc in dir_include
