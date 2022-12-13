@@ -33,7 +33,7 @@ import aiofiles
 from sgqlc.endpoint.requests import RequestsEndpoint
 
 from . import __version__
-from .config import default_base_url, get_token
+from .config import BASE_URL, get_token, init_config
 
 
 if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding.lower() == 'utf-8':
@@ -43,6 +43,11 @@ elif hasattr(sys.stdout, 'reconfigure'):
     stdout_unicode = True
 else:
     stdout_unicode = False
+
+
+def login():
+    """Login to OpenNeuro and store an access token."""
+    init_config()
 
 
 # HTTP server responses that indicate hopefully intermittent errors that
@@ -162,7 +167,7 @@ def _check_snapshot_exists(*,
 
 
 def _get_download_metadata(*,
-                           base_url: str = default_base_url,
+                           base_url: str = BASE_URL,
                            dataset_id: str,
                            tag: Optional[str] = None,
                            tree: str = 'null',

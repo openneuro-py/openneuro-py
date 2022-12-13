@@ -94,3 +94,14 @@ openneuro-py download --dataset=ds000246 \
                       --include=sub-0001/meg/sub-0001_coordsystem.json \
                       --include=sub-0001/meg/sub-0001_acq-LPA_photo.jpg
 ```
+
+### Use an API token to log in
+
+To download private datasets, you will need an API key that grants you access
+permissions. Go to OpenNeuro.org, My Account → Obtain an API Key. Copy the key,
+and run:
+
+```shell
+openneuro-py login
+```
+Paste the API key and press return.

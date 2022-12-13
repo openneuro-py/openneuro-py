@@ -10,4 +10,4 @@ except metadata.PackageNotFoundError:
     # package is not installed
     pass
 
-from .download import download  # noqa: F401
+from ._download import download, login  # noqa: F401

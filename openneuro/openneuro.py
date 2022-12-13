@@ -7,8 +7,7 @@ Richard Höchenberger <richard.hoechenberger@gmail.com>
 
 import click
 
-from .download import download_cli
-from .config import init_config
+from ._download import login, download_cli
 from . import __version__
 
 
@@ -21,9 +20,9 @@ def cli() -> None:
 
 
 @click.command()
-def login_cli(**kwargs):
-    """Login to Open Neuro and write the ~/.openneuro config file."""
-    init_config()
+def login_cli():
+    """Login to OpenNeuro and store an access token."""
+    login()
 
 
 cli.add_command(download_cli, name='download')
