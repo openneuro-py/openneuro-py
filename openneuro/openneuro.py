@@ -14,8 +14,7 @@ from . import __version__
 @click.group()
 @click.version_option(version=__version__)
 def cli() -> None:
-    """Access OpenNeuro datasets.
-    """
+    """Access OpenNeuro datasets."""
     pass
 
 
@@ -25,5 +24,5 @@ def login_cli():
     login()
 
 
-cli.add_command(download_cli, name='download')
-cli.add_command(login_cli, name='login')
+cli.add_command(download_cli, name="download")
+cli.add_command(login_cli, name="login")
