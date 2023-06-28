@@ -6,12 +6,12 @@ import json
 import getpass
 from typing import TypedDict
 
-import appdirs
+import platformdirs
 from tqdm.auto import tqdm
 
 
 CONFIG_DIR = Path(
-    appdirs.user_config_dir(appname='openneuro-py', appauthor=False, roaming=True)
+    platformdirs.user_config_dir(appname='openneuro-py', appauthor=False, roaming=True)
 )
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = CONFIG_DIR / 'config.json'

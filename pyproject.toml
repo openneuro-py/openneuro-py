@@ -19,7 +19,7 @@ dependencies = [
     "click",
     "aiofiles",
     "sgqlc",
-    "appdirs",
+    "platformdirs",
 ]
 dynamic = ["version"]
 

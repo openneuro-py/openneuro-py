@@ -4,6 +4,7 @@
 
 - Better handling of server response errors.
 - Drop support for Python 3.7. `openneuro-py` now requires Python 3.8 or newer.
+- We switched from using the unmaintained `appdirs` to `platformdirs`. If you're using private OpenNeuro repositories on macOS, you may have to enter your API tokens again.
 
 ## 2022.2.0
 
