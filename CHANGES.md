@@ -1,8 +1,9 @@
 # Changelog
 
-## unreleased
+## 2023.1.0 (unreleased)
 
 - Better handling of server response errors.
+- We switched from using the unmaintained `appdirs` to `platformdirs`.
 
 ## 2022.2.0
 

@@ -21,7 +21,7 @@ dependencies = [
     "sgqlc",
     "importlib-metadata; python_version < '3.8'",
     "typing-extensions; python_version < '3.8'",
-    "appdirs",
+    "platformdirs",
 ]
 dynamic = ["version"]
 
