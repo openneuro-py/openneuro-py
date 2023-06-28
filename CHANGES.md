@@ -1,8 +1,9 @@
 # Changelog
 
-## unreleased
+## 2023.1.0 (unreleased)
 
 - Better handling of server response errors.
+- Drop support for Python 3.7. `openneuro-py` now requires Python 3.8 or newer.
 
 ## 2022.2.0
 

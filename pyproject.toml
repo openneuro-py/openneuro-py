@@ -2,7 +2,7 @@
 name = "openneuro-py"
 description = "A Python client for OpenNeuro."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = {file = "LICENSE"}
 keywords = ["science", "neuroscience"]
 authors = [
@@ -19,8 +19,6 @@ dependencies = [
     "click",
     "aiofiles",
     "sgqlc",
-    "importlib-metadata; python_version < '3.8'",
-    "typing-extensions; python_version < '3.8'",
     "appdirs",
 ]
 dynamic = ["version"]

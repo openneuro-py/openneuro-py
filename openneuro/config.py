@@ -4,10 +4,7 @@ import sys
 import stat
 import json
 import getpass
-if sys.version_info >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
+from typing import TypedDict
 
 import appdirs
 from tqdm.auto import tqdm
