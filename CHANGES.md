@@ -3,7 +3,7 @@
 ## 2023.1.0 (unreleased)
 
 - Better handling of server response errors.
-- We switched from using the unmaintained `appdirs` to `platformdirs`.
+- We switched from using the unmaintained `appdirs` to `platformdirs`. If you're using private OpenNeuro repositories on macOS, you may have to enter your API tokens again.
 
 ## 2022.2.0
 
