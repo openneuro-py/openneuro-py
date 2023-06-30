@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-import sys
 import stat
 import json
 import getpass
