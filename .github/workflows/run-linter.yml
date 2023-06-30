@@ -17,12 +17,19 @@ on:
 jobs:
   lint:
     concurrency: lint_job
+    # cancel-in-progress: true
+
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+
     timeout-minutes: 3
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
     - uses: psf/black@stable
     - uses: pre-commit/action@v3.0.0
