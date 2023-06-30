@@ -498,7 +498,6 @@ async def _retrieve_and_write_to_disk(
             unit_divisor=1024,
             leave=False,
         ) as progress:
-
             num_bytes_downloaded = response.num_bytes_downloaded
             # TODO Add timeout handling here, too.
             async for chunk in response.aiter_bytes():
