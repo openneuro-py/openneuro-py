@@ -16,6 +16,7 @@ on:
 
 jobs:
   lint:
+    concurrency: lint_job
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
