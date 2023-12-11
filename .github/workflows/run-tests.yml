@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
        # Adjust for min and max supported Python versions
-        python-version: ["3.11"]
+        python-version: ["3.12"]
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - python-version: "3.8"
