@@ -41,8 +41,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        python -m pip install --upgrade wheel
+        python -m pip install --upgrade pip python-build
+    - name: Test building sdist
+        python -m build -s .
+    - name: Test building wheel
+        python -m build -w .
     - name: Install openneuro-py
       run: pip install .[tests]
     - name: Test with pytest
