@@ -44,8 +44,7 @@ source = "vcs"
 raw-options = { version_scheme = "release-branch-semver" }
 
 [tool.hatch.build.targets.wheel]
-sources = ["src"]
-packages = ["openneuro"]
+packages = ["src/openneuro"]
 
 [tool.pytest.ini_options]
 addopts = "-ra -vv --tb=short --durations=10"
