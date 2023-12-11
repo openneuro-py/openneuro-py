@@ -7,30 +7,28 @@ name = "openneuro-py"
 description = "A Python client for OpenNeuro."
 readme = "README.md"
 requires-python = ">=3.8"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 keywords = ["science", "neuroscience"]
 authors = [
-  {name = "Richard Höchenberger", email = "richard.hoechenberger@gmail.com"},
+  { name = "Richard Höchenberger", email = "richard.hoechenberger@gmail.com" },
 ]
 classifiers = [
   "Intended Audience :: Science/Research",
-  "Programming Language :: Python"
+  "Programming Language :: Python",
 ]
 dependencies = [
-    "httpx >= 0.15",
-    "requests",
-    "tqdm",
-    "click",
-    "aiofiles",
-    "sgqlc",
-    "platformdirs",
+  "httpx >= 0.15",
+  "requests",
+  "tqdm",
+  "click",
+  "aiofiles",
+  "sgqlc",
+  "platformdirs",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-tests = [
-    "pytest"
-]
+tests = ["pytest", "pre-commit"]
 
 [project.scripts]
 openneuro-py = "openneuro.openneuro:cli"

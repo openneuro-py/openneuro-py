@@ -376,7 +376,7 @@ async def _download_file(
     async with semaphore:
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                async with (client.stream("GET", url=url, headers=headers)) as response:
+                async with client.stream("GET", url=url, headers=headers) as response:
                     if not response.is_error:
                         pass  # All good!
                     elif (
@@ -668,15 +668,18 @@ def _iterate_filenames(
             # subdirectories.
             n_parts = len(PurePosixPath(root).parts)
             dir_include = [PurePosixPath(inc) for inc in include]
-            dir_include = [  # for stuff like sub-CON001/*
-                "/".join(inc.parts[:n_parts] + ("*",))
-                for inc in dir_include
-                if len(inc.parts) >= n_parts
-            ] + [  # and stuff like sub-CON001/*.eeg
-                "/".join(inc.parts[: n_parts - 1] + ("*",))
-                for inc in dir_include
-                if len(inc.parts) >= n_parts - 1 and len(inc.parts) > 1
-            ]  # we want to traverse sub-CON001 in both cases
+            dir_include = (
+                [  # for stuff like sub-CON001/*
+                    "/".join(inc.parts[:n_parts] + ("*",))
+                    for inc in dir_include
+                    if len(inc.parts) >= n_parts
+                ]
+                + [  # and stuff like sub-CON001/*.eeg
+                    "/".join(inc.parts[: n_parts - 1] + ("*",))
+                    for inc in dir_include
+                    if len(inc.parts) >= n_parts - 1 and len(inc.parts) > 1
+                ]
+            )  # we want to traverse sub-CON001 in both cases
             matches_include, _ = _match_include_exclude(
                 directory["filename"], include=dir_include, exclude=[]
             )
