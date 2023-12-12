@@ -1,13 +1,7 @@
-"""openneuro-py is a lightweight client for accessing OpenNeuro datasets.
-
-Created and maintained by
-Richard Höchenberger <richard.hoechenberger@gmail.com>
-"""
-
 import click
 
-from . import __version__
-from ._download import download_cli, login
+from openneuro import __version__
+from openneuro._download import download_cli, login
 
 
 @click.group()

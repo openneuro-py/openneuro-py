@@ -1,3 +1,9 @@
+"""openneuro-py is a lightweight client for accessing OpenNeuro datasets.
+
+Created and maintained by
+Richard Höchenberger <richard.hoechenberger@gmail.com>
+"""
+
 from importlib import metadata
 
 try:
@@ -6,4 +12,4 @@ except metadata.PackageNotFoundError:
     # package is not installed
     __version__ = "0.0.0"
 
-from ._download import download, login  # noqa: F401
+from openneuro._download import download, login  # noqa: F401

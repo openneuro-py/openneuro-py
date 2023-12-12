@@ -31,7 +31,7 @@ dynamic = ["version"]
 tests = ["pytest", "pre-commit"]
 
 [project.scripts]
-openneuro-py = "openneuro.openneuro:cli"
+openneuro-py = "openneuro._cli:cli"
 
 [project.urls]
 homepage = "https://github.com/hoechenberger/openneuro-py"
