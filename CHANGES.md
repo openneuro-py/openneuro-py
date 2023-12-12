@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Set 'User-Agent' header to `openneuro-py/<version>`.
+
 ## 2023.1.0
 
 - Better handling of server response errors.
