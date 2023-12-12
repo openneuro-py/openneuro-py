@@ -62,6 +62,7 @@ allowed_retry_exceptions = (
     #  (incomplete chunked read)"
     httpx.RemoteProtocolError,
 )
+user_agent_header = {"user-agent": f"openneuro-py/{__version__}"}
 
 # GraphQL endpoint and queries.
 
@@ -118,6 +119,7 @@ snapshot_query_template = string.Template(
 
 def _safe_query(query, *, timeout=None):
     with requests.Session() as session:
+        session.headers.update(user_agent_header)
         try:
             token = get_token()
             session.cookies.set_cookie(
@@ -280,7 +282,7 @@ async def _download_file(
     async with semaphore:
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                response = await client.head(url)
+                response = await client.head(url, headers=user_agent_header)
                 headers = response.headers
             except allowed_retry_exceptions:
                 if max_retries > 0:
@@ -315,7 +317,7 @@ async def _download_file(
                 # The server doesn't always set a Content-Length header.
                 remote_file_size = None
 
-    headers = {}
+    headers = user_agent_header.copy()
     headers["Accept-Encoding"] = ""  # Disable compression
 
     if outfile.exists() and local_file_size == remote_file_size:
