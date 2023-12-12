@@ -40,7 +40,7 @@ def init_config() -> None:
     os.chmod(CONFIG_PATH, stat.S_IRUSR | stat.S_IWUSR)
 
 
-def load_config() -> dict:
+def load_config() -> dict[str, str]:
     """Load an OpenNeuro configuration file, and return its contents.
 
     Returns

@@ -19,7 +19,7 @@ def cli() -> None:
 
 
 @click.command()
-def login_cli():
+def login_cli() -> None:
     """Login to OpenNeuro and store an access token."""
     login()
 
