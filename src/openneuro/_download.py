@@ -23,9 +23,8 @@ else:
 import aiofiles
 from sgqlc.endpoint.requests import RequestsEndpoint
 
+from openneuro import __version__
 from openneuro._config import BASE_URL, get_token, init_config
-
-from . import __version__
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
     stdout_unicode = True
