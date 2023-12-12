@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- We dropped support for Python versions 3.8 and 3.9. `openneuro-py` now requires Python 3.10 or newer.
 - Set 'User-Agent' header to `openneuro-py/<version>`.
 
 ## 2023.1.0

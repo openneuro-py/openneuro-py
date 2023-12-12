@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "openneuro-py"
 description = "A Python client for OpenNeuro."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 keywords = ["science", "neuroscience"]
 authors = [
@@ -46,3 +46,8 @@ packages = ["src/openneuro"]
 
 [tool.pytest.ini_options]
 addopts = "-ra -vv --tb=short --durations=10"
+
+[tool.ruff]
+select = [
+  "I", # import sorting
+]

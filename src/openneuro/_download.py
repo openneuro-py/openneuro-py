@@ -1,21 +1,17 @@
-import sys
-import os
-import fnmatch
-from difflib import get_close_matches
-import hashlib
 import asyncio
-from pathlib import Path, PurePosixPath
-import string
+import fnmatch
+import hashlib
 import json
-from typing import Optional, Union, Literal, Any
+import os
+import string
+import sys
+from collections.abc import Generator, Iterable
+from difflib import get_close_matches
+from pathlib import Path, PurePosixPath
+from typing import Any, Literal
 
-if sys.version_info >= (3, 9):
-    from collections.abc import Iterable, Generator
-else:
-    from typing import Iterable, Generator  # Deprecated since 3.9
-
-import requests
 import httpx
+import requests
 
 # Manually "enforce" notebook mode in VS Code to get progress bar widgets
 # Can be removed once https://github.com/tqdm/tqdm/issues/1213 has been merged
@@ -24,13 +20,12 @@ if "VSCODE_PID" in os.environ:
 else:
     from tqdm.auto import tqdm
 
-import click
 import aiofiles
+import click
 from sgqlc.endpoint.requests import RequestsEndpoint
 
 from . import __version__
 from .config import BASE_URL, get_token, init_config
-
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
     stdout_unicode = True
@@ -117,7 +112,7 @@ snapshot_query_template = string.Template(
 )
 
 
-def _safe_query(query, *, timeout=None) -> tuple[Union[dict[str, Any], None], bool]:
+def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
     with requests.Session() as session:
         session.headers.update(user_agent_header)
         try:
@@ -174,7 +169,7 @@ def _get_download_metadata(
     *,
     base_url: str = BASE_URL,
     dataset_id: str,
-    tag: Optional[str] = None,
+    tag: str | None = None,
     tree: str = "null",
     max_retries: int,
     retry_backoff: float = 0.5,
@@ -473,8 +468,8 @@ async def _retrieve_and_write_to_disk(
     mode: Literal["ab", "wb"],
     desc: str,
     local_file_size: int,
-    remote_file_size: Optional[int],
-    remote_file_hash: Optional[str],
+    remote_file_size: int | None,
+    remote_file_hash: str | None,
     verify_hash: bool,
     verify_size: bool,
 ) -> None:
@@ -585,7 +580,7 @@ async def _download_files(
     await asyncio.gather(*download_tasks)
 
 
-def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> Optional[str]:
+def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     """Get the local dataset revision."""
     local_json_path = dataset_dir / "dataset_description.json"
     if not local_json_path.exists():
@@ -637,7 +632,7 @@ def _iterate_filenames(
     files: Iterable[dict],
     *,
     dataset_id: str,
-    tag: Optional[str],
+    tag: str | None,
     max_retries: int,
     root: str = "",
     include: Iterable[str] = tuple(),
@@ -728,10 +723,10 @@ def _match_include_exclude(
 def download(
     *,
     dataset: str,
-    tag: Optional[str] = None,
-    target_dir: Optional[Union[Path, str]] = None,
-    include: Optional[Iterable[str]] = None,
-    exclude: Optional[Iterable[str]] = None,
+    tag: str | None = None,
+    target_dir: Path | str | None = None,
+    include: Iterable[str] | None = None,
+    exclude: Iterable[str] | None = None,
     verify_hash: bool = True,
     verify_size: bool = True,
     max_retries: int = 5,

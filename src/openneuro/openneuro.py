@@ -7,8 +7,8 @@ Richard Höchenberger <richard.hoechenberger@gmail.com>
 
 import click
 
-from ._download import login, download_cli
 from . import __version__
+from ._download import download_cli, login
 
 
 @click.group()

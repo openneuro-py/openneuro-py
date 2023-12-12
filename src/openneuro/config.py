@@ -1,13 +1,12 @@
-from pathlib import Path
+import getpass
+import json
 import os
 import stat
-import json
-import getpass
+from pathlib import Path
 from typing import TypedDict
 
 import platformdirs
 from tqdm.auto import tqdm
-
 
 CONFIG_DIR = Path(
     platformdirs.user_config_dir(appname="openneuro-py", appauthor=False, roaming=True)

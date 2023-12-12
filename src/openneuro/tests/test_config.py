@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest import mock
 
 import openneuro
-from openneuro.config import init_config, load_config, get_token, Config
+from openneuro.config import Config, get_token, init_config, load_config
 
 
 def test_config(tmp_path: Path):

@@ -1,11 +1,10 @@
 import json
 from pathlib import Path
-
-import pytest
 from unittest import mock
-import openneuro
-from openneuro import download
 
+import openneuro
+import pytest
+from openneuro import download
 
 dataset_id_aws = "ds000246"
 tag_aws = "1.0.0"
