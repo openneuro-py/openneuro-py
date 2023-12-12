@@ -122,9 +122,9 @@ def test_restricted_dataset(tmp_path: Path):
     # API token for dummy user alijflsdvbjielsdlkjfeiljsvj@gmail.com
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOGNhNjE2ZS00OWQxLTRmOTUtODI1OS0xNzYwYzVhYjZjMDciLCJlbWFpbCI6ImFsaWpmbHNkdmJqaWVsc2Rsa2pmZWlsanN2akBnbWFpbC5jb20iLCJwcm92aWRlciI6Imdvb2dsZSIsIm5hbWUiOiJzZGZrbGVpamZsa3NkamYgc2xmZGRsa2phYWlmbCIsImFkbWluIjpmYWxzZSwiaWF0IjoxNzAyMzIzNzk3LCJleHAiOjE3MzM4NTk3OTd9.Af9P71x1_hLNOzSZrht10ayEm72LdDuo5CkGvQEJoZo"  # noqa
 
-    with mock.patch.object(openneuro.config, "CONFIG_PATH", tmp_path / ".openneuro"):
+    with mock.patch.object(openneuro._config, "CONFIG_PATH", tmp_path / ".openneuro"):
         with mock.patch("getpass.getpass", lambda _: token):
-            openneuro.config.init_config()
+            openneuro._config.init_config()
 
         # This is a restricted dataset that is only available if the API token
         # was used correctly.
