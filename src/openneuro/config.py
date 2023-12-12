@@ -17,6 +17,8 @@ BASE_URL = "https://openneuro.org/"
 
 
 class Config(TypedDict):
+    """Configuration container."""
+
     endpoint: str
     apikey: str
 

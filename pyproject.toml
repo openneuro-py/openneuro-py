@@ -48,6 +48,8 @@ packages = ["src/openneuro"]
 addopts = "-ra -vv --tb=short --durations=10"
 
 [tool.ruff]
-select = [
-  "I", # import sorting
+select = ["E", "F", "W", "D", "I"]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D104", # Missing docstring in public package
 ]
