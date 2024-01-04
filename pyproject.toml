@@ -20,7 +20,7 @@ dependencies = [
   "httpx >= 0.15",
   "requests",
   "tqdm",
-  "click",
+  "typer[all]",
   "aiofiles",
   "sgqlc",
   "platformdirs",
@@ -31,7 +31,7 @@ dynamic = ["version"]
 tests = ["pytest", "pre-commit"]
 
 [project.scripts]
-openneuro-py = "openneuro._cli:cli"
+openneuro-py = "openneuro._cli:app"
 
 [project.urls]
 homepage = "https://github.com/hoechenberger/openneuro-py"
