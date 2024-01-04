@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest import mock
 
 import openneuro
+import openneuro._config
 from openneuro._config import Config, get_token, init_config, load_config
 
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 import openneuro
+import openneuro._config
 import pytest
 from openneuro import download
 
