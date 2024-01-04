@@ -82,7 +82,7 @@ def main(
         Optional[bool],
         typer.Option(
             "--version",
-            help="Show the version of openneuro-py",
+            help="Show the version of openneuro-py.",
             callback=show_version_callback,
             is_eager=True,
         ),
