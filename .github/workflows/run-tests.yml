@@ -47,5 +47,7 @@ jobs:
       run: python -m build -w .
     - name: Install openneuro-py
       run: pip install .[tests]
+    - name: Print version
+      run: openneuro-py --version
     - name: Test with pytest
       run: pytest
