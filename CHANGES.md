@@ -5,6 +5,7 @@
 - We dropped support for Python versions 3.8 and 3.9. `openneuro-py` now requires Python 3.10 or newer.
 - We now send the `User-Agent` header `openneuro-py/<version>`.
 - `openneuro.config` was removed from the public namespace; it was never intended for public use.
+- The help screen(s) (e.g., `openneuro-py --help`) look more visually pleasant now thanks to the switch to [Typer](https://typer.tiangolo.com).
 
 ## 2023.1.0
 
