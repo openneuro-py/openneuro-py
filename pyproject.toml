@@ -35,7 +35,6 @@ openneuro-py = "openneuro._cli:app"
 
 [project.urls]
 homepage = "https://github.com/hoechenberger/openneuro-py"
-changelog = "https://github.com/hoechenberger/openneuro-py/CHANGES.md"
 
 [tool.hatch.version]
 source = "vcs"
