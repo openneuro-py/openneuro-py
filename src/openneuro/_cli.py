@@ -10,44 +10,61 @@ app = typer.Typer(no_args_is_help=True)
 
 @app.command(name="download")
 def download_cli(
-    dataset: Annotated[str, typer.Option(help="The OpenNeuro dataset identifier.")],
+    dataset: Annotated[
+        str, typer.Option(help="The OpenNeuro dataset identifier.", show_default=False)
+    ],
     tag: Annotated[
-        Optional[str], typer.Option(help="The tag (version) of the dataset.")
+        Optional[str],
+        typer.Option(help="The tag (version) of the dataset.", show_default=False),
     ] = None,
     target_dir: Annotated[
-        Optional[str], typer.Option(help="The directory to download to.")
+        Optional[str],
+        typer.Option(
+            "--target_dir", help="The directory to download to.", show_default=False
+        ),
     ] = None,
     include: Annotated[
         Optional[str],
         typer.Option(
             help="Only include the specified file or directory. "
-            "Can be passed multiple times."
+            "Can be passed multiple times.",
+            show_default=False,
         ),
     ] = None,
     exclude: Annotated[
         Optional[str],
         typer.Option(
             help="Exclude the specified file or directory. "
-            "Can be passed multiple times."
+            "Can be passed multiple times.",
+            show_default=False,
         ),
     ] = None,
     verify_hash: Annotated[
         bool,
-        typer.Option(help="Whether to check the SHA256 hash of each downloaded file."),
+        typer.Option(
+            "--verify_hash",
+            help="Whether to check the SHA256 hash of each downloaded file.",
+        ),
     ] = True,
     verify_size: Annotated[
         bool,
-        typer.Option(help="Whether to check the size of each downloaded file."),
+        typer.Option(
+            "--verify_size", help="Whether to check the size of each downloaded file."
+        ),
     ] = True,
     max_retries: Annotated[
         int,
         typer.Option(
-            help="Try the specified number of times to download a file before failing."
+            "--max_retries",
+            help="Try the specified number of times to download a file before failing.",
         ),
     ] = 5,
     max_concurrent_downloads: Annotated[
         int,
-        typer.Option(help="The maximum number of downloads to run in parallel."),
+        typer.Option(
+            "--max_concurrent_downloads",
+            help="The maximum number of downloads to run in parallel.",
+        ),
     ] = 5,
 ) -> None:
     """Download datasets from OpenNeuro."""
