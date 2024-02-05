@@ -764,6 +764,7 @@ def download(
         Try the specified number of times to download a file before failing.
     max_concurrent_downloads
         The maximum number of downloads to run in parallel.
+
     """
     msg_problems = "problems 🤯" if stdout_unicode else "problems"
     msg_bugs = "bugs 🪲" if stdout_unicode else "bugs"

@@ -48,6 +48,7 @@ def load_config() -> dict[str, str]:
     -------
     dict
         The configuration options.
+
     """
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         config = json.load(f)
@@ -65,6 +66,7 @@ def get_token() -> str:
     ------
     ValueError
         When no token has been configured yet.
+
     """
     if not CONFIG_PATH.exists():
         raise ValueError(
