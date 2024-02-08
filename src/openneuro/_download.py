@@ -2,7 +2,6 @@ import asyncio
 import fnmatch
 import hashlib
 import json
-import os
 import string
 import sys
 from collections.abc import Generator, Iterable
@@ -10,18 +9,11 @@ from difflib import get_close_matches
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+import aiofiles
 import httpx
 import requests
-
-# Manually "enforce" notebook mode in VS Code to get progress bar widgets
-# Can be removed once https://github.com/tqdm/tqdm/issues/1213 has been merged
-if "VSCODE_PID" in os.environ:
-    from tqdm.notebook import tqdm
-else:
-    from tqdm.auto import tqdm
-
-import aiofiles
 from sgqlc.endpoint.requests import RequestsEndpoint
+from tqdm.auto import tqdm
 
 from openneuro import __version__
 from openneuro._config import BASE_URL, get_token, init_config
