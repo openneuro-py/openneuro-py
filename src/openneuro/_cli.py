@@ -20,7 +20,7 @@ def download_cli(
     target_dir: Annotated[
         Optional[str],
         typer.Option(
-            "--target_dir", help="The directory to download to.", show_default=False
+            help="The directory to download to.", show_default=False
         ),
     ] = None,
     include: Annotated[
@@ -42,27 +42,24 @@ def download_cli(
     verify_hash: Annotated[
         bool,
         typer.Option(
-            "--verify_hash",
             help="Whether to check the SHA256 hash of each downloaded file.",
         ),
     ] = True,
     verify_size: Annotated[
         bool,
         typer.Option(
-            "--verify_size", help="Whether to check the size of each downloaded file."
+            help="Whether to check the size of each downloaded file."
         ),
     ] = True,
     max_retries: Annotated[
         int,
         typer.Option(
-            "--max_retries",
             help="Try the specified number of times to download a file before failing.",
         ),
     ] = 5,
     max_concurrent_downloads: Annotated[
         int,
         typer.Option(
-            "--max_concurrent_downloads",
             help="The maximum number of downloads to run in parallel.",
         ),
     ] = 5,
