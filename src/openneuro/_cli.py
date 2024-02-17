@@ -19,9 +19,7 @@ def download_cli(
     ] = None,
     target_dir: Annotated[
         Optional[str],
-        typer.Option(
-            help="The directory to download to.", show_default=False
-        ),
+        typer.Option(help="The directory to download to.", show_default=False),
     ] = None,
     include: Annotated[
         Optional[str],
@@ -47,9 +45,7 @@ def download_cli(
     ] = True,
     verify_size: Annotated[
         bool,
-        typer.Option(
-            help="Whether to check the size of each downloaded file."
-        ),
+        typer.Option(help="Whether to check the size of each downloaded file."),
     ] = True,
     max_retries: Annotated[
         int,

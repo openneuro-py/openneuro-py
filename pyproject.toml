@@ -46,7 +46,7 @@ packages = ["src/openneuro"]
 [tool.pytest.ini_options]
 addopts = "-ra -vv --tb=short --durations=10"
 
-[tool.ruff]
+[tool.ruff.lint]
 select = ["E", "F", "W", "D", "I"]
 ignore = [
     "D100", # Missing docstring in public module
