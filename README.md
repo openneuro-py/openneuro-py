@@ -7,15 +7,10 @@ datasets.
 
 ## Installation
 
-### via conda
-
 ```shell
+# via conda:
 conda install -c conda-forge openneuro-py
-```
-
-### via pip
-
-```shell
+# or via pip:
 pip install openneuro-py
 ```
 
@@ -25,26 +20,22 @@ To get basic support for Jupyter Lab, Jupyter Notebook, IPython interactive
 sessions, and VS Code's interactive Jupyter interface, you will also need to
 install `ipywidgets`:
 
-### via conda
-
 ```shell
+# via conda:
 conda install -c conda-forge ipywidgets
-```
-
-### via pip
-
-```shell
+# or via pip:
 pip install ipywidgets
 ```
 
-## Basic usage – Python interface
-
-```python
-import openneuro as on
-on.download(dataset='ds000246', target_dir='data/bids')
-```
-
 ## Basic usage – command line interface
+
+### Getting help
+
+```shell
+openneuro-py --help
+openneuro-py download --help
+openneuro-py login --help
+```
 
 ### Download an entire dataset
 
@@ -69,6 +60,7 @@ Interrupted downloads will resume where they left off when you run the command
 again.
 
 ## Advanced usage – command line interface
+
 ### Exclude a directory from the download
 
 ```shell
@@ -104,4 +96,12 @@ and run:
 ```shell
 openneuro-py login
 ```
+
 Paste the API key and press return.
+
+## Basic usage – Python interface
+
+```python
+import openneuro as on
+on.download(dataset='ds000246', target_dir='data/bids')
+```
