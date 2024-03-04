@@ -1,3 +1,5 @@
+"""Test the openneuro-py configuration file."""
+
 from pathlib import Path
 from unittest import mock
 

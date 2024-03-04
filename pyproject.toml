@@ -48,9 +48,3 @@ addopts = "-ra -vv --tb=short --durations=10"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "D", "I"]
-ignore = [
-    "D100", # Missing docstring in public module
-    "D104", # Missing docstring in public package
-    "D203", # One blank line before class
-    "D213", # Multi-line sumnmary second line
-]

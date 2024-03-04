@@ -50,7 +50,7 @@ def load_config() -> dict[str, str]:
         The configuration options.
 
     """
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         config = json.load(f)
     return config
 
