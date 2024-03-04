@@ -1,3 +1,5 @@
+"""Test downloading and authentication."""
+
 import json
 from pathlib import Path
 from unittest import mock
