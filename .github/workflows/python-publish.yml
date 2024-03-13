@@ -20,6 +20,13 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    environment:
+      name: python-publish
+      url: https://pypi.org/p/openneuro-py
+
+    permissions:
+      id-token: write  # mandatory for trusted publishing
+
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
@@ -33,7 +40,6 @@ jobs:
     - name: Build package
       run: python -m build
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@81e9d935c883d0b210363ab89cf05f3894778450
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        print-hash: true
