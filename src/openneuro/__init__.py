@@ -12,4 +12,5 @@ except metadata.PackageNotFoundError:
     # package is not installed
     __version__ = "0.0.0"
 
-from openneuro._download import download, login  # noqa: F401
+from openneuro._download import download as download
+from openneuro._download import login as login
