@@ -46,12 +46,12 @@ openneuro-py download --dataset=ds000246
 ### Specify a target directory
 
 To store the downloaded files in a specific directory, use the
-`--target_dir` switch. The directory will be created if it doesn't exist
+`--target-dir` switch. The directory will be created if it doesn't exist
 already.
 
 ```shell
 openneuro-py download --dataset=ds000246 \
-                      --target_dir=data/bids
+                      --target-dir=data/bids
 ```
 
 ### Continue an interrupted download
@@ -103,5 +103,5 @@ Paste the API key and press return.
 
 ```python
 import openneuro as on
-on.download(dataset='ds000246', target_dir='data/bids')
+on.download(dataset='ds000246', target-dir='data/bids')
 ```
