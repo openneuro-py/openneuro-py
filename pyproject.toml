@@ -48,3 +48,7 @@ addopts = "-ra -vv --tb=short --durations=10"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "D", "I"]
+ignore = [
+  "D203", # one-blank-line-before-class
+  "D213", # multi-line-summary-second-line
+]
