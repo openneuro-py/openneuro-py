@@ -20,7 +20,7 @@ dependencies = [
   "httpx >= 0.15",
   "requests",
   "tqdm",
-  "typer[all]",
+  "typer-slim[standard]",
   "aiofiles",
   "sgqlc",
   "platformdirs",
