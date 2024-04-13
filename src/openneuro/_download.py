@@ -742,14 +742,12 @@ def download(
         The maximum number of downloads to run in parallel.
 
     """
-    print("yo!!")
-    log("hi!!!")
-    log(_unicode("Hello! This is openneuro-py {__version__}. ", emoji="👋", end=""))
-    log(_unicode("Great to see you!", emoji="🤗", end="\n"))
+    log(_unicode(f"Hello! This is openneuro-py {__version__}. ", emoji="👋", end=""))
+    log(_unicode("Great to see you!", emoji="🤗", end=""))
     log(
         _unicode(
-            "Please report problems and bugs at\n"
-            "    https://github.com/hoechenberger/openneuro-py/issues\n",
+            "Please report problems and bugs at "
+            "https://github.com/hoechenberger/openneuro-py/issues",
             emoji="👉",
             end="\n",
         )

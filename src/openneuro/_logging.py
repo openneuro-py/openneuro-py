@@ -3,8 +3,8 @@ import sys
 
 from tqdm.auto import tqdm
 
-# logger = logging.getLogger("openneuro-py")
-logger = logging.getLogger()
+logging.basicConfig(format="%(message)s", level=logging.INFO)
+logger = logging.getLogger("openneuro-py")
 
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
