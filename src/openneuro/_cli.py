@@ -61,6 +61,8 @@ def download_cli(
     ] = 5,
 ) -> None:
     """Download datasets from OpenNeuro."""
+    openneuro._RUNNING_FROM_CLI = True
+
     download(
         dataset=dataset,
         tag=tag,
@@ -77,6 +79,7 @@ def download_cli(
 @app.command(name="login")
 def login_cli() -> None:
     """Login to OpenNeuro and store an access token."""
+    openneuro._RUNNING_FROM_CLI = True
     login()
 
 

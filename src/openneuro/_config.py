@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import TypedDict
 
 import platformdirs
-from tqdm.auto import tqdm
+
+from openneuro._logging import log
 
 CONFIG_DIR = Path(
     platformdirs.user_config_dir(appname="openneuro-py", appauthor=False, roaming=True)
@@ -25,7 +26,7 @@ class Config(TypedDict):
 
 def init_config() -> None:
     """Initialize a new OpenNeuro configuration file."""
-    tqdm.write(
+    log(
         "🙏 Please login to your OpenNeuro account and go to: "
         "My Account → Obtain an API Key"
     )
