@@ -883,5 +883,5 @@ def download(
     except RuntimeError:
         asyncio.run(coroutine)
 
-    log(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
-    log(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+    log(_unicode(f"Finished downloading {dataset}.", emoji="✅", end="\n"))
+    log(_unicode("Please enjoy your brains.", emoji="🧠", end="\n"))
