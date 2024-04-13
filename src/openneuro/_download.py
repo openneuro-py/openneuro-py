@@ -3,7 +3,6 @@ import fnmatch
 import hashlib
 import json
 import string
-import sys
 from collections.abc import Generator, Iterable
 from difflib import get_close_matches
 from pathlib import Path, PurePosixPath
@@ -17,15 +16,7 @@ from tqdm.auto import tqdm
 
 from openneuro import __version__
 from openneuro._config import BASE_URL, get_token, init_config
-from openneuro._logging import log
-
-if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
-    stdout_unicode = True
-elif hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    stdout_unicode = True
-else:
-    stdout_unicode = False
+from openneuro._logging import _unicode, log
 
 
 def login() -> None:
@@ -112,7 +103,7 @@ def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
             session.cookies.set_cookie(
                 requests.cookies.create_cookie("accessToken", token)
             )
-            log("🍪 Using API token to log in")
+            log(_unicode("Using API token to log in", emoji="🍪"))
         except ValueError:
             pass  # No login
         gql_endpoint = RequestsEndpoint(url=gql_url, session=session, timeout=timeout)
@@ -612,14 +603,6 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     return local_version
 
 
-def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
-    if stdout_unicode:
-        msg = f"{emoji} {msg} {end}"
-    elif end == "…":
-        msg = f"{msg} ..."
-    return msg
-
-
 def _iterate_filenames(
     files: Iterable[dict],
     *,
@@ -759,21 +742,18 @@ def download(
         The maximum number of downloads to run in parallel.
 
     """
-    msg_problems = "problems 🤯" if stdout_unicode else "problems"
-    msg_bugs = "bugs 🪲" if stdout_unicode else "bugs"
-    msg_hello = "👋 Hello!" if stdout_unicode else "Hello!"
-    msg_great_to_see_you = "Great to see you!"
-    if stdout_unicode:
-        msg_great_to_see_you += " 🤗"
-    msg_please = "👉 Please" if stdout_unicode else "   Please"
-
-    msg = (
-        f"\n{msg_hello} This is openneuro-py {__version__}. "
-        f"{msg_great_to_see_you}\n\n"
-        f"   {msg_please} report {msg_problems} and {msg_bugs} at\n"
-        f"      https://github.com/hoechenberger/openneuro-py/issues\n"
+    print("yo!!")
+    log("hi!!!")
+    log(_unicode("Hello! This is openneuro-py {__version__}. ", emoji="👋", end=""))
+    log(_unicode("Great to see you!", emoji="🤗", end="\n"))
+    log(
+        _unicode(
+            "Please report problems and bugs at\n"
+            "    https://github.com/hoechenberger/openneuro-py/issues\n",
+            emoji="👉",
+            end="\n",
+        )
     )
-    log(msg)
     log(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
 
     if target_dir is None:
