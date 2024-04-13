@@ -123,7 +123,9 @@ def _check_snapshot_exists(
     response_json, request_timed_out = _safe_query(query)
 
     if request_timed_out and max_retries > 0:
-        log("Request timed out while fetching list of snapshots, retrying …")
+        log(
+            _unicode(msg="Request timed out while fetching list of snapshots, retrying")
+        )
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
