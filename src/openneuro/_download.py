@@ -123,7 +123,7 @@ def _check_snapshot_exists(
     response_json, request_timed_out = _safe_query(query)
 
     if request_timed_out and max_retries > 0:
-        log("Request timed out while fetching list of snapshots, retrying")
+        log("Request timed out while fetching list of snapshots, retrying", emoji="🔄")
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
@@ -185,7 +185,7 @@ def _get_download_metadata(
         request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        log("Request timed out while fetching metadata, retrying")
+        log("Request timed out while fetching metadata, retrying", emoji="🔄")
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
