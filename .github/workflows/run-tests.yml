@@ -57,4 +57,4 @@ jobs:
         openneuro-py download --help
         openneuro-py login --help
     - name: Test with pytest
-      run: pytest
+      run: pytest -s
