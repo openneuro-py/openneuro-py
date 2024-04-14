@@ -744,7 +744,10 @@ def download(
         The maximum number of downloads to run in parallel.
 
     """
-    log(_unicode(f"Hello! This is openneuro-py {__version__}. ", emoji="👋", end=""))
+    log(
+        _unicode(f"Hello! This is openneuro-py {__version__}. ", emoji="👋", end=""),
+        cli_only=True,
+    )
     log(_unicode("Great to see you!", emoji="🤗", end=""))
     log(
         _unicode(
@@ -752,7 +755,8 @@ def download(
             "https://github.com/hoechenberger/openneuro-py/issues",
             emoji="👉",
             end="\n",
-        )
+        ),
+        cli_only=True,
     )
     log(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
 
@@ -884,4 +888,4 @@ def download(
         asyncio.run(coroutine)
 
     log(_unicode(f"Finished downloading {dataset}.", emoji="✅", end="\n"))
-    log(_unicode("Please enjoy your brains.", emoji="🧠", end="\n"))
+    log(_unicode("Please enjoy your brains.", emoji="🧠", end="\n"), cli_only=True)
