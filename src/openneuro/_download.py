@@ -103,7 +103,7 @@ def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
             session.cookies.set_cookie(
                 requests.cookies.create_cookie("accessToken", token)
             )
-            log(_unicode("Using API token to log in", emoji="🍪"))
+            log("Using API token to log in", emoji="🍪")
         except ValueError:
             pass  # No login
         gql_endpoint = RequestsEndpoint(url=gql_url, session=session, timeout=timeout)
@@ -123,9 +123,7 @@ def _check_snapshot_exists(
     response_json, request_timed_out = _safe_query(query)
 
     if request_timed_out and max_retries > 0:
-        log(
-            _unicode(msg="Request timed out while fetching list of snapshots, retrying")
-        )
+        log("Request timed out while fetching list of snapshots, retrying")
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
@@ -187,7 +185,7 @@ def _get_download_metadata(
         request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        log(_unicode("Request timed out while fetching metadata, retrying"))
+        log("Request timed out while fetching metadata, retrying")
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
@@ -424,11 +422,9 @@ async def _retry_download(
     semaphore: asyncio.Semaphore,
 ) -> None:
     log(
-        _unicode(
-            f"Request timed out while downloading {outfile}, retrying in "
-            f"{retry_backoff} sec",
-            emoji="🔄",
-        )
+        f"Request timed out while downloading {outfile}, retrying in "
+        f"{retry_backoff} sec",
+        emoji="🔄",
     )
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
@@ -745,20 +741,20 @@ def download(
 
     """
     log(
-        _unicode(f"Hello! This is openneuro-py {__version__}. ", emoji="👋", end=""),
+        f"Hello! This is openneuro-py {__version__}. ",
+        emoji="👋",
+        end="",
         cli_only=True,
     )
-    log(_unicode("Great to see you!", emoji="🤗", end=""))
+    log("Great to see you!", emoji="🤗", end="")
     log(
-        _unicode(
-            "Please report problems and bugs at "
-            "https://github.com/hoechenberger/openneuro-py/issues",
-            emoji="👉",
-            end="\n",
-        ),
+        "Please report problems and bugs at "
+        "https://github.com/hoechenberger/openneuro-py/issues",
+        emoji="👉",
+        end="\n",
         cli_only=True,
     )
-    log(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
+    log(f"Preparing to download {dataset}", emoji="🌍")
 
     if target_dir is None:
         target_dir = Path(dataset)
@@ -867,7 +863,7 @@ def download(
         f"Retrieving up to {len(files)} files "
         f"({max_concurrent_downloads} concurrent downloads)."
     )
-    log(_unicode(msg, emoji="📥", end=""))
+    log(msg, emoji="📥", end="")
 
     coroutine = _download_files(
         target_dir=target_dir,
@@ -887,5 +883,5 @@ def download(
     except RuntimeError:
         asyncio.run(coroutine)
 
-    log(_unicode(f"Finished downloading {dataset}.", emoji="✅", end="\n"))
-    log(_unicode("Please enjoy your brains.", emoji="🧠", end="\n"), cli_only=True)
+    log(f"Finished downloading {dataset}.", emoji="✅", end="\n")
+    log("Please enjoy your brains.", emoji="🧠", end="\n", cli_only=True)
