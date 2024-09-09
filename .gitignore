@@ -4,3 +4,5 @@ dist/
 build/
 .vscode/
 .DS_Store
+/*.egg-info
+/.hypothesis/
