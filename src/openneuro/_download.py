@@ -1,7 +1,30 @@
+"""Openneuro download module.
+
+The flow is roughly:
+
+download
+  _get_download_metadata
+    _get_download_metadata
+    _check_snapshot_exists
+        _safe_query
+        _check_snapshot_exists ...
+  _get_local_tag
+  _match_include_exclude
+  _iterate_filenames
+    _match_include_exclude
+    _get_download_metadata ...
+  _download_files
+    _download_file
+      _retry_download
+        _download_file ...
+      _retrieve_and_write_to_disk
+"""
+
 import asyncio
 import fnmatch
 import hashlib
 import json
+import shlex
 import string
 from collections.abc import Generator, Iterable
 from difflib import get_close_matches
@@ -241,6 +264,7 @@ async def _download_file(
     max_retries: int,
     retry_backoff: float,
     semaphore: asyncio.Semaphore,
+    query_str: str,
 ) -> None:
     """Download an individual file."""
     if outfile.exists():
@@ -274,12 +298,11 @@ async def _download_file(
                         max_retries=max_retries,
                         retry_backoff=retry_backoff,
                         semaphore=semaphore,
+                        query_str=query_str,
                     )
                     return
                 else:
-                    raise RuntimeError(
-                        f"Timeout when trying to download " f"{outfile}."
-                    )
+                    raise RuntimeError(f"Timeout when trying to download {outfile}.")
 
             # Try to get the S3 MD5 hash for the file.
             try:
@@ -372,12 +395,19 @@ async def _download_file(
                             max_retries=max_retries,
                             retry_backoff=retry_backoff,
                             semaphore=semaphore,
+                            query_str=query_str,
                         )
                         return
                     else:
                         raise RuntimeError(
-                            f"Error {response.status_code} when trying "
-                            f"to download {outfile} from {url}"
+                            f"Error {response.status_code} when trying to download "
+                            f"{outfile}. If this is unexpected:\n\n"
+                            "1. Navigate to https://openneuro.org/crn/graphql\n"
+                            f"2. Enter and run the operation: `{query_str}`\n"
+                            '3. In the Response, try to manually download the "urls" '
+                            f'for "{outfile.name}", which should contain {url}\n\n'
+                            "If the download fails, open a GitHub issue like "
+                            "https://github.com/OpenNeuroOrg/openneuro/issues/3145"
                         )
 
                     await _retrieve_and_write_to_disk(
@@ -402,6 +432,7 @@ async def _download_file(
                         max_retries=max_retries,
                         retry_backoff=retry_backoff,
                         semaphore=semaphore,
+                        query_str=query_str,
                     )
                     return
                 else:
@@ -420,6 +451,7 @@ async def _retry_download(
     max_retries: int,
     retry_backoff: float,
     semaphore: asyncio.Semaphore,
+    query_str: str,
 ) -> None:
     log(
         f"Request timed out while downloading {outfile}, retrying in "
@@ -439,6 +471,7 @@ async def _retry_download(
         max_retries=max_retries,
         retry_backoff=retry_backoff,
         semaphore=semaphore,
+        query_str=query_str,
     )
 
 
@@ -532,6 +565,7 @@ async def _download_files(
     max_retries: int,
     retry_backoff: float,
     max_concurrent_downloads: int,
+    query_str: str,
 ) -> None:
     """Download files, one by one."""
     # Semaphore (counter) to limit maximum number of concurrent download
@@ -546,6 +580,10 @@ async def _download_files(
 
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
+        this_query_str = string.Template(query_str).substitute(
+            tree=f'"{file["parent_tree"]}"',
+        )
+        this_query_str = " ".join(shlex.split(this_query_str, posix=False))
         download_task = _download_file(
             url=url,
             api_file_size=api_file_size,
@@ -555,6 +593,7 @@ async def _download_files(
             max_retries=max_retries,
             retry_backoff=retry_backoff,
             semaphore=semaphore,
+            query_str=this_query_str,
         )
         download_tasks.append(download_task)
 
@@ -609,10 +648,12 @@ def _iterate_filenames(
     max_retries: int,
     root: str = "",
     include: Iterable[str] = tuple(),
+    parent_tree: str | None,
 ) -> Generator[dict[str, Any], None, None]:
     """Iterate over all files in a dataset, yielding filenames."""
     directories = list()
     for entity in files:
+        entity["parent_tree"] = parent_tree
         if root:
             entity["filename"] = f'{root}/{entity["filename"]}'
         if entity["directory"]:
@@ -665,16 +706,15 @@ def _iterate_filenames(
             max_retries=max_retries,
             check_snapshot=False,
         )
-        dir_iterator = _iterate_filenames(
+        yield from _iterate_filenames(
             metadata["files"],
             dataset_id=dataset_id,
             tag=tag,
             max_retries=max_retries,
             root=this_dir,
             include=include,
+            parent_tree=directory["id"],
         )
-        for path in dir_iterator:
-            yield path
 
 
 def _match_include_exclude(
@@ -811,6 +851,7 @@ def download(
             tag=tag,
             max_retries=max_retries,
             include=include,
+            parent_tree=None,
         ),
         desc=_unicode(f"Traversing directories for {dataset}", end="", emoji="📁"),
         unit=" entities",
@@ -865,6 +906,10 @@ def download(
     )
     log(msg, emoji="📥", end="")
 
+    query_str = snapshot_query_template.safe_substitute(
+        tag=tag or "null",
+        dataset_id=dataset,
+    )
     coroutine = _download_files(
         target_dir=target_dir,
         files=files,
@@ -873,6 +918,7 @@ def download(
         max_retries=max_retries,
         retry_backoff=retry_backoff,
         max_concurrent_downloads=max_concurrent_downloads,
+        query_str=query_str,
     )
 
     # Try to re-use event loop if it already exists. This is required e.g.

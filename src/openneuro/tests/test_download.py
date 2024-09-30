@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 import openneuro
 import openneuro._config
-import pytest
 from openneuro import download
 
 dataset_id_aws = "ds000246"
