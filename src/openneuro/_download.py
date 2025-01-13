@@ -175,7 +175,7 @@ def _check_snapshot_exists(
         raise RuntimeError(
             f'The requested snapshot with the tag "{tag}" '
             f"does not exist for dataset {dataset_id}. "
-            f'Existing tags: {", ".join(tags)}'
+            f"Existing tags: {', '.join(tags)}"
         )
 
 
@@ -444,9 +444,7 @@ async def _download_file(
                     )
                     return
                 else:
-                    raise RuntimeError(
-                        f"Timeout when trying to download " f"{outfile}."
-                    )
+                    raise RuntimeError(f"Timeout when trying to download {outfile}.")
 
 
 async def _retry_download(
@@ -642,7 +640,7 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
             f"appears to be different from the one you "
             f'requested to download. "DatasetDOI" field in '
             f'local "dataset_description.json": '
-            f'{local_json["DatasetDOI"]}. '
+            f"{local_json['DatasetDOI']}. "
             f"Requested dataset: {dataset_id}"
         )
 
@@ -673,7 +671,7 @@ def _iterate_filenames(
     for entity in files:
         entity["parent_tree"] = parent_tree
         if root:
-            entity["filename"] = f'{root}/{entity["filename"]}'
+            entity["filename"] = f"{root}/{entity['filename']}"
         if entity["directory"]:
             directories.append(entity)
         else:
@@ -913,7 +911,7 @@ def download(
                         + "\n"
                     )
                 else:
-                    extra = "There were no similar filenames found in the " "metadata. "
+                    extra = "There were no similar filenames found in the metadata. "
                 raise RuntimeError(
                     f"Could not find path in the dataset:\n- {this}\n{extra}"
                     "Please check your includes."
