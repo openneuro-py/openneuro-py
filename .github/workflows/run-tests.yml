@@ -57,4 +57,9 @@ jobs:
         openneuro-py download --help
         openneuro-py login --help
     - name: Test with pytest
-      run: pytest
+      run: pytest -s
+    - name: Test download from CLI
+      run: |
+        openneuro-py download --dataset=ds000248 --include=participants.tsv --target-dir=/tmp/ds000248
+        ls -lah /tmp/ds000248
+

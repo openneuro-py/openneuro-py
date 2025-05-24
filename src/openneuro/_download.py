@@ -26,7 +26,6 @@ import hashlib
 import json
 import shlex
 import string
-import sys
 from collections.abc import Generator, Iterable
 from difflib import get_close_matches
 from pathlib import Path, PurePosixPath
@@ -40,14 +39,7 @@ from tqdm.auto import tqdm
 
 from openneuro import __version__
 from openneuro._config import BASE_URL, get_token, init_config
-
-if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
-    stdout_unicode = True
-elif hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    stdout_unicode = True
-else:
-    stdout_unicode = False
+from openneuro._logging import _unicode, log
 
 
 def login() -> None:
@@ -134,7 +126,7 @@ def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
             session.cookies.set_cookie(
                 requests.cookies.create_cookie("accessToken", token)
             )
-            tqdm.write("🍪 Using API token to log in")
+            log("Using API token to log in", emoji="🍪")
         except ValueError:
             pass  # No login
         gql_endpoint = RequestsEndpoint(url=gql_url, session=session, timeout=timeout)
@@ -154,7 +146,7 @@ def _check_snapshot_exists(
     response_json, request_timed_out = _safe_query(query)
 
     if request_timed_out and max_retries > 0:
-        tqdm.write("Request timed out while fetching list of snapshots, retrying …")
+        log("Request timed out while fetching list of snapshots, retrying", emoji="🔄")
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
@@ -216,7 +208,7 @@ def _get_download_metadata(
         request_timed_out = True
 
     if request_timed_out and max_retries > 0:
-        tqdm.write(_unicode("Request timed out while fetching metadata, retrying"))
+        log("Request timed out while fetching metadata, retrying", emoji="🔄")
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
@@ -459,12 +451,10 @@ async def _retry_download(
     semaphore: asyncio.Semaphore,
     query_str: str,
 ) -> None:
-    tqdm.write(
-        _unicode(
-            f"Request timed out while downloading {outfile}, retrying in "
-            f"{retry_backoff} sec",
-            emoji="🔄",
-        )
+    log(
+        f"Request timed out while downloading {outfile}, retrying in "
+        f"{retry_backoff} sec",
+        emoji="🔄",
     )
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
@@ -648,14 +638,6 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     return local_version
 
 
-def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
-    if stdout_unicode:
-        msg = f"{emoji} {msg} {end}"
-    elif end == "…":
-        msg = f"{msg} ..."
-    return msg
-
-
 def _iterate_filenames(
     files: Iterable[dict],
     *,
@@ -796,22 +778,21 @@ def download(
         The maximum number of downloads to run in parallel.
 
     """
-    msg_problems = "problems 🤯" if stdout_unicode else "problems"
-    msg_bugs = "bugs 🪲" if stdout_unicode else "bugs"
-    msg_hello = "👋 Hello!" if stdout_unicode else "Hello!"
-    msg_great_to_see_you = "Great to see you!"
-    if stdout_unicode:
-        msg_great_to_see_you += " 🤗"
-    msg_please = "👉 Please" if stdout_unicode else "   Please"
-
-    msg = (
-        f"\n{msg_hello} This is openneuro-py {__version__}. "
-        f"{msg_great_to_see_you}\n\n"
-        f"   {msg_please} report {msg_problems} and {msg_bugs} at\n"
-        f"      https://github.com/hoechenberger/openneuro-py/issues\n"
+    log(
+        f"Hello! This is openneuro-py {__version__}. ",
+        emoji="👋",
+        end="",
+        cli_only=True,
     )
-    tqdm.write(msg)
-    tqdm.write(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
+    log("Great to see you!", emoji="🤗", end="")
+    log(
+        "Please report problems and bugs at "
+        "https://github.com/hoechenberger/openneuro-py/issues",
+        emoji="👉",
+        end="\n",
+        cli_only=True,
+    )
+    log(f"Preparing to download {dataset}", emoji="🌍")
 
     if target_dir is None:
         target_dir = Path(dataset)
@@ -841,7 +822,7 @@ def download(
             local_tag = _get_local_tag(dataset_id=dataset, dataset_dir=target_dir)
 
             if local_tag is None:
-                tqdm.write(
+                log(
                     "Cannot determine local revision of the dataset, "
                     "and the target directory is not empty. If the "
                     "download fails, you may want to try again with a "
@@ -921,7 +902,7 @@ def download(
         f"Retrieving up to {len(files)} files "
         f"({max_concurrent_downloads} concurrent downloads)."
     )
-    tqdm.write(_unicode(msg, emoji="📥", end=""))
+    log(msg, emoji="📥", end="")
 
     query_str = snapshot_query_template.safe_substitute(
         tag=tag or "null",
@@ -946,5 +927,5 @@ def download(
     except RuntimeError:
         asyncio.run(coroutine)
 
-    tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
-    tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+    log(f"Finished downloading {dataset}.", emoji="✅", end="\n")
+    log("Please enjoy your brains.", emoji="🧠", end="\n", cli_only=True)
