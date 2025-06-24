@@ -20,15 +20,12 @@ dependencies = [
   "httpx >= 0.15",
   "requests",
   "tqdm",
-  "typer-slim[standard]",
+  "typer-slim[standard]>=0.16",
   "aiofiles",
   "sgqlc",
   "platformdirs",
 ]
 dynamic = ["version"]
-
-[project.optional-dependencies]
-tests = ["pytest", "pre-commit"]
 
 [project.scripts]
 openneuro-py = "openneuro._cli:app"
@@ -51,4 +48,10 @@ select = ["E", "F", "W", "D", "I"]
 ignore = [
   "D203", # one-blank-line-before-class
   "D213", # multi-line-summary-second-line
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
 ]
