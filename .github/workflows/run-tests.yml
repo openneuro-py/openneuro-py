@@ -43,20 +43,14 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install the project
       run: uv sync --locked --all-extras --dev
-    # - name: Test building sdist
-    #   run: python -m build -s .
-    # - name: Test building wheel
-    #   run: python -m build -w .
-    # - name: Install openneuro-py
-    #   run: pip install .[tests]
+    - name: Test building the distributions
+      run: uv build
     - name: Test CLI commands
       run: |
         uv run openneuro-py --help
         uv run openneuro-py --version
         uv run openneuro-py download --help
         uv run openneuro-py login --help
-    # - name: Test with pytest
-    #   run: pytest
-    - name: Run tests
+    - name: Test with pytest
       run: uv run pytest
 
