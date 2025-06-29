@@ -47,10 +47,11 @@ jobs:
       run: uv build
     - name: Test CLI commands
       run: |
-        uv run openneuro-py --help
-        uv run openneuro-py --version
-        uv run openneuro-py download --help
-        uv run openneuro-py login --help
+        openneuro-py --help
+        openneuro-py --version
+        openneuro-py download --help
+        openneuro-py login --help
     - name: Test with pytest
-      run: uv run pytest
-
+      env:
+        OPENNEURO_TEST_TOKEN: ${{ secrets.OPENNEURO_TEST_TOKEN }}
+      run: pytest
