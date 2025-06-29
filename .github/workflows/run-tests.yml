@@ -51,10 +51,11 @@ jobs:
       run: pip install .[tests]
     - name: Test CLI commands
       run: |
-        openneuro-py
         openneuro-py --help
         openneuro-py --version
         openneuro-py download --help
         openneuro-py login --help
     - name: Test with pytest
+      env:
+        OPENNEURO_TEST_TOKEN: ${{ secrets.OPENNEURO_TEST_TOKEN }}
       run: pytest
