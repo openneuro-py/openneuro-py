@@ -5,29 +5,52 @@ datasets.
 
 ![openneuro-py in action](https://raw.githubusercontent.com/hoechenberger/openneuro-py/main/openneuro-py.gif)
 
-## Installation
+## Run without installation (uvx)
+
+You can run `openneuro-py` directly without installing it using `uvx`:
 
 ```shell
+# Download a dataset without installing the package
+uvx openneuro-py download --dataset=ds000246
+
+# Get help
+uvx openneuro-py --help
+```
+
+## Installation into a Python project
+
+Choose one of the following methods:
+
+```shell
+# via uv (recommended):
+uv add openneuro-py
+
 # via conda:
 conda install -c conda-forge openneuro-py
-# or via pip:
+
+# via pip:
 pip install openneuro-py
 ```
 
-## Jupyter and IPython support
+### Optional: Jupyter and IPython support
 
-To get basic support for Jupyter Lab, Jupyter Notebook, IPython interactive
-sessions, and VS Code's interactive Jupyter interface, you will also need to
-install `ipywidgets`:
+For enhanced support in Jupyter Lab, Jupyter Notebook, IPython interactive
+sessions, and VS Code's interactive Jupyter interface, install `ipywidgets`:
 
 ```shell
+# via uv:
+uv add ipywidgets
+
 # via conda:
 conda install -c conda-forge ipywidgets
-# or via pip:
+
+# via pip:
 pip install ipywidgets
 ```
 
 ## Basic usage – command line interface
+
+> **Note:** If you're using `uvx` instead of installing the package, prefix all commands below with `uvx`. For example, `openneuro-py --help` becomes `uvx openneuro-py --help`.
 
 ### Getting help
 
@@ -104,4 +127,32 @@ Paste the API key and press return.
 ```python
 import openneuro as on
 on.download(dataset='ds000246', target_dir='data/bids')
+```
+
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management and building.
+
+### Setup development environment
+
+```shell
+# Clone the repository
+git clone https://github.com/hoechenberger/openneuro-py.git
+cd openneuro-py
+
+# Install dependencies and create virtual environment
+uv sync
+
+# Run tests
+uv run pytest
+
+# Run the CLI during development
+uv run openneuro-py --help
+```
+
+### Building
+
+```shell
+# Build the package
+uv build
 ```
