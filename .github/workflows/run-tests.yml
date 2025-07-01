@@ -47,9 +47,9 @@ jobs:
     - name: Test building the distributions
       run: uv build
     - name: Check if package can be installed and imported
-      run: uv run --with . --no-project -- python -c "import openneuro"
+      run: uv run --isolated --with . --no-project -- python -c "import openneuro"
     - name: Check if CLI works
-      run: uv run --with . --no-project -- openneuro-py --help
+      run: uv run --isolated --with . --no-project -- openneuro-py --help
     # This is where the actual integration tests start
     - name: Test CLI commands
       run: |

@@ -33,12 +33,12 @@ jobs:
         fetch-depth: 0
     - name: Install uv and Python
       uses: astral-sh/setup-uv@v6
-    - name: Build package
-      run: uv build
     - name: Check if package can be installed and imported
-      run: uv run --with . --no-project -- python -c "import openneuro"
+      run: uv run --isolated --with . --no-project -- python -c "import openneuro"
     - name: Check if CLI works
-      run: uv run --with . --no-project -- openneuro-py --help
+      run: uv run --isolated --with . --no-project -- openneuro-py --help
+    - name: Build package for distribution
+      run: uv build
     - name: Publish package
       run: uv publish
     # - name: Publish package
