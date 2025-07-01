@@ -38,20 +38,26 @@ jobs:
       with:
         fetch-depth: 0
     - name: Install uv and set the python version
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install the project
       run: uv sync --locked --all-extras --dev
+    # Test building & distribution
     - name: Test building the distributions
       run: uv build
+    - name: Check if package can be installed and imported
+      run: uv run --with . --no-project -- python -c "import openneuro"
+    - name: Check if CLI works
+      run: uv run --with . --no-project -- openneuro-py --help
+    # This is where the actual integration tests start
     - name: Test CLI commands
       run: |
-        openneuro-py --help
-        openneuro-py --version
-        openneuro-py download --help
-        openneuro-py login --help
+        uv run openneuro-py --help
+        uv run openneuro-py --version
+        uv run openneuro-py download --help
+        uv run openneuro-py login --help
     - name: Test with pytest
       env:
         OPENNEURO_TEST_TOKEN: ${{ secrets.OPENNEURO_TEST_TOKEN }}
-      run: pytest
+      run: uv run pytest
