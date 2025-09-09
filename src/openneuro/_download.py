@@ -656,7 +656,7 @@ def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
     return msg
 
 
-def _iterate_filenames(
+def _iterate_filenames( #new
     files: Iterable[dict],
     *,
     dataset_id: str,
@@ -694,24 +694,36 @@ def _iterate_filenames(
             #
             # All three of these should traverse `sub-CON001` and its
             # subdirectories.
-            n_parts = len(PurePosixPath(root).parts)
-            dir_include = [PurePosixPath(inc) for inc in include]
-            dir_include = (
-                [  # for stuff like sub-CON001/*
-                    "/".join(inc.parts[:n_parts] + ("*",))
-                    for inc in dir_include
-                    if len(inc.parts) >= n_parts
-                ]
-                + [  # and stuff like sub-CON001/*.eeg
-                    "/".join(inc.parts[: n_parts - 1] + ("*",))
-                    for inc in dir_include
-                    if len(inc.parts) >= n_parts - 1 and len(inc.parts) > 1
-                ]
-            )  # we want to traverse sub-CON001 in both cases
-            matches_include, _ = _match_include_exclude(
-                directory["filename"], include=dir_include, exclude=[]
-            )
-            if dir_include and not any(matches_include):
+            dir_path = directory["filename"]
+
+            # Check if any of the include patterns match or are parents of this directory
+            should_traverse = False
+            for inc in include:
+                # Case 1: Direct match (sub-CON001 matches sub-CON001)
+                if fnmatch.fnmatch(dir_path, inc):
+                    should_traverse = True
+                    break
+
+                # Case 2: Directory is a parent of include pattern (sub-CON001 is parent of sub-CON001/*)
+                inc_parts = PurePosixPath(inc).parts
+                dir_parts = PurePosixPath(dir_path).parts
+
+                # Check if directory is a parent path of the include pattern
+                if len(dir_parts) <= len(inc_parts) and all(
+                    d == i for d, i in zip(dir_parts, inc_parts)
+                ):
+                    should_traverse = True
+                    break
+
+                # Case 3: Handle wildcard patterns
+                if "*" in inc:
+                    # Convert glob pattern to regex pattern for prefix matching
+                    pattern_prefix = inc.split("*")[0]
+                    if dir_path.startswith(pattern_prefix):
+                        should_traverse = True
+                        break
+
+            if not should_traverse:
                 continue
         # Query filenames
         this_dir = directory["filename"]
