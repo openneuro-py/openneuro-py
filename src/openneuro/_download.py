@@ -696,7 +696,7 @@ def _iterate_filenames(
             # subdirectories.
             dir_path = directory["filename"]
 
-            # Check if any of the include patterns match or are parents 
+            # Check if any of the include patterns match or are parents
             # of this directory
             should_traverse = False
             for inc in include:
@@ -705,7 +705,7 @@ def _iterate_filenames(
                     should_traverse = True
                     break
 
-                # Case 2: Directory is a parent of include pattern 
+                # Case 2: Directory is a parent of include pattern
                 # (sub-CON001 is parent of sub-CON001/*)
                 inc_parts = PurePosixPath(inc).parts
                 dir_parts = PurePosixPath(dir_path).parts
