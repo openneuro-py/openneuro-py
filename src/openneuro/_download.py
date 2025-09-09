@@ -656,7 +656,7 @@ def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
     return msg
 
 
-def _iterate_filenames( #new
+def _iterate_filenames(
     files: Iterable[dict],
     *,
     dataset_id: str,
