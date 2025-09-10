@@ -721,9 +721,10 @@ def _iterate_filenames(
                     should_traverse = True
                     break
 
-                # Case 3: Include is a directory (no wildcard, no extension) and matches this directory
-                # (e.g., inc='sub-emptyroom/ses-20090409' and dir_path='sub-emptyroom/ses-20090409')
-                # Also handle the case where the include is a directory and the dir_path is a subdirectory or file within it
+                # Case 3: Include is a directory (no wildcard, no extension) 
+                # and matches this directory. Also handle the case where the 
+                # include is a directory and the dir_path is a subdirectory
+                # or file within it
                 if (
                     inc == dir_path
                     or (inc.endswith("/") and dir_path == inc.rstrip("/"))
