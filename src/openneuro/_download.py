@@ -696,7 +696,7 @@ def _iterate_filenames(
             # subdirectories.
             dir_path = directory["filename"]
 
-            # Check if any of the include patterns match or are parents
+            # Check if any of the include patterns match or are parents 
             # of this directory
             should_traverse = False
             for inc in include:
@@ -709,12 +709,10 @@ def _iterate_filenames(
                     should_traverse = True
                     break
 
-                # Case 2: Directory is a parent of include pattern
-                # (sub-CON001 is parent of sub-CON001/*)
-                inc_parts = PurePosixPath(inc).parts
-                dir_parts = PurePosixPath(dir_path).parts
-
-                # Check if directory is a parent path of the include pattern
+                # Case 2: Directory is a parent of include pattern 
+                # (e.g., sub-CON001 is parent of sub-CON001/*)
+                inc_parts = inc_path.parts
+                dir_parts = dir_path_obj.parts
                 if len(dir_parts) <= len(inc_parts) and all(
                     d == i for d, i in zip(dir_parts, inc_parts)
                 ):
@@ -981,3 +979,4 @@ def download(
 
     tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
     tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+
