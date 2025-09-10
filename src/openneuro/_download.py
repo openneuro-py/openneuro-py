@@ -696,7 +696,7 @@ def _iterate_filenames(
             # subdirectories.
             dir_path = directory["filename"]
 
-            # Check if any of the include patterns match or are parents 
+            # Check if any of the include patterns match or are parents
             # of this directory
             should_traverse = False
             for inc in include:
@@ -709,7 +709,7 @@ def _iterate_filenames(
                     should_traverse = True
                     break
 
-                # Case 2: Directory is a parent of include pattern 
+                # Case 2: Directory is a parent of include pattern
                 # (e.g., sub-CON001 is parent of sub-CON001/*)
                 inc_parts = inc_path.parts
                 dir_parts = dir_path_obj.parts
@@ -719,8 +719,8 @@ def _iterate_filenames(
                     should_traverse = True
                     break
 
-                # Case 3: Include is a directory (no wildcard, no extension) 
-                # and matches this directory. Also handle the case where the 
+                # Case 3: Include is a directory (no wildcard, no extension)
+                # and matches this directory. Also handle the case where the
                 # include is a directory and the dir_path is a subdirectory
                 # or file within it
                 if (
@@ -728,7 +728,10 @@ def _iterate_filenames(
                     or (inc.endswith("/") and dir_path == inc.rstrip("/"))
                     or (
                         not any(char in inc for char in "*?[]")
-                        and (dir_path == inc or dir_path.startswith(inc.rstrip("/") + "/"))
+                        and (
+                            dir_path == inc
+                            or dir_path.startswith(inc.rstrip("/") + "/")
+                        )
                     )
                 ):
                     should_traverse = True
@@ -979,4 +982,3 @@ def download(
 
     tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
     tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
-
