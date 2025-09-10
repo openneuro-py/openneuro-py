@@ -700,8 +700,12 @@ def _iterate_filenames(
             # of this directory
             should_traverse = False
             for inc in include:
-                # Case 1: Direct match (sub-CON001 matches sub-CON001)
-                if fnmatch.fnmatch(dir_path, inc):
+                # Normalize paths for comparison
+                inc_path = PurePosixPath(inc)
+                dir_path_obj = PurePosixPath(dir_path)
+
+                # Case 1: Direct match (e.g., sub-CON001 matches sub-CON001)
+                if dir_path == inc:
                     should_traverse = True
                     break
 
@@ -717,7 +721,21 @@ def _iterate_filenames(
                     should_traverse = True
                     break
 
-                # Case 3: Handle wildcard patterns
+                # Case 3: Include is a directory (no wildcard, no extension) and matches this directory
+                # (e.g., inc='sub-emptyroom/ses-20090409' and dir_path='sub-emptyroom/ses-20090409')
+                # Also handle the case where the include is a directory and the dir_path is a subdirectory or file within it
+                if (
+                    inc == dir_path
+                    or (inc.endswith("/") and dir_path == inc.rstrip("/"))
+                    or (
+                        not any(char in inc for char in "*?[]")
+                        and (dir_path == inc or dir_path.startswith(inc.rstrip("/") + "/"))
+                    )
+                ):
+                    should_traverse = True
+                    break
+
+                # Case 4: Handle wildcard patterns
                 if "*" in inc:
                     # Convert glob pattern to regex pattern for prefix matching
                     pattern_prefix = inc.split("*")[0]
