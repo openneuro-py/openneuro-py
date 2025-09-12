@@ -9,6 +9,7 @@ import pytest
 import openneuro
 import openneuro._config
 from openneuro import download
+from openneuro._download import _traverse_directory
 
 dataset_id_aws = "ds000246"
 tag_aws = "1.0.0"
@@ -132,3 +133,116 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
         download(dataset="ds006412", include="README.txt", target_dir=tmp_path)
 
     assert (tmp_path / "README.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("dir_path", "include_pattern", "expected"),
+    [
+        # Test Case 1: Exact Directory Match
+        ("sub-01", "sub-01", True),
+        ("sub-02", "sub-01", False),
+        ("sub-01/ses-meg", "sub-01/ses-meg", True),
+        ("sub-01/ses-mri", "sub-01/ses-meg", False),
+        
+        # Test Case 2: Directory is a Parent of the Include Pattern
+        ("sub-01", "sub-01/*", True),
+        ("sub-01", "sub-01/ses-meg/*", True),
+        ("sub-01/ses-mri", "sub-01/ses-meg/*", False),
+        ("sub-01/ses-meg", "sub-01/ses-meg/*", True),
+        ("sub-01/ses-meg/meg", "sub-01/ses-meg/*", True),
+        ("sub-02", "sub-01/*", False),
+        ("sub-01/ses-meg", "sub-01/ses-mri/*", False),
+        
+        # Test Case 3: Directory or Subdirectory Match (No Wildcards)
+        ("sub-01", "sub-01/ses-emg", True),
+        ("sub-01", "sub-01/ses-emg/", True),
+        ("sub-01/ses-mri", "sub-01/ses-meg", False),
+        ("sub-01/ses-emg", "sub-01/ses-emg", True),
+        ("sub-01/ses-emg", "sub-01/ses-emg/", True),
+        ("sub-01/ses-emg/meg", "sub-01/ses-emg", True),
+        ("sub-01/ses-emg/meg", "sub-01/ses-emg/", True),
+        ("sub-02/ses-emg", "sub-01/ses-emg", False),
+        
+        # Test Case 4: Wildcard Pattern Prefix Match
+        ("sub-01/ses-meg", "sub-01/*", True),
+        ("sub-01/ses-meg/meg", "sub-01/*", True),
+        ("sub-02/ses-meg", "sub-01/*", False),
+        ("sub-01/ses-meg", "sub-01/ses-*", True),
+        ("sub-01/ses-mri", "sub-01/ses-*", True),
+        ("sub-01/anat", "sub-01/ses-*", False),
+        ("sub-01/ses-meg/meg", "sub-01/ses-*", True),
+        ("sub-01/ses-meg/meg", "sub-01/ses-meg/*", True),
+        ("sub-01/ses-meg/meg", "sub-01/ses-mri/*", False),
+        
+        # Edge Cases
+        ("", "", True),  # Empty paths
+        ("", "sub-01", True),
+        # ("sub-01", "", True),
+        ("sub-01", "sub-01/", True),  # Trailing slash
+        ("sub-01/", "sub-01", True),  # Trailing slash on dir_path
+        ("sub-01/", "sub-01/", True),  # Both with trailing slash
+        
+        # Deep nesting tests
+        ("sub-01/ses-meg/meg/raw", "sub-01/*", True),
+        ("sub-01/ses-meg/meg/raw", "sub-01/ses-*", True),
+        ("sub-01/ses-meg/meg/raw", "sub-01/ses-meg/*", True),
+        ("sub-01/ses-meg/meg/raw", "sub-01/ses-meg/meg/*", True),
+        ("sub-01/ses-meg/meg/raw", "sub-01/ses-mri/*", False),
+        ("sub-01/ses-meg/meg/raw", "sub-02/*", False),
+        
+        # Complex wildcard patterns
+        ("sub-01/ses-meg", "sub-*", True),
+        ("sub-01/ses-meg", "sub-01/ses-*", True),  # Wildcard in middle
+        # ("sub-01/ses-meg", "sub-01/*meg*", False),  # Wildcard around text (not supported)
+        # ("sub-01/ses-meg", "sub-01/ses-*meg", False),  # Wildcard before text (not supported)
+        
+        # Special characters and edge cases
+        ("sub-01_special", "sub-01_special", True),
+        ("sub-01-special", "sub-01-special", True),
+        ("sub-01.special", "sub-01.special", True),
+        ("sub-01_special", "sub-01-special", False),  # Different separators
+        ("sub-01-special", "sub-01_special", False),  # Different separators
+        
+        # Multiple wildcards (should match prefix before first *)
+        ("sub-01/ses-meg/meg", "sub-01/*/*", True),
+        ("sub-01/ses-meg/meg", "sub-01/ses-*/*", True),
+        # ("sub-01/ses-meg/meg", "sub-01/ses-*meg*", False),  # Multiple wildcards not supported
+        
+        # Very deep paths
+        ("a/b/c/d/e/f/g/h/i/j", "a/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/f/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/f/g/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/f/g/h/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/f/g/h/i/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/f/g/h/i/j/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "a/b/c/d/e/f/g/h/i/j/k/*", True),
+        ("a/b/c/d/e/f/g/h/i/j", "b/*", False),  # Wrong prefix
+    ],
+)
+def test_traverse_directory(dir_path: str, include_pattern: str, expected: bool):
+    """Test _traverse_directory function with various directory paths and include patterns.
+    
+    This comprehensive test covers all the different cases handled by the function:
+    1. Exact directory match
+    2. Directory is a parent of the include pattern
+    3. Directory or subdirectory match (no wildcards)
+    4. Wildcard pattern prefix match
+    
+    Parameters
+    ----------
+    dir_path : str
+        The directory path to test
+    include_pattern : str
+        The include pattern to match against
+    expected : bool
+        Expected result (True if directory should be traversed)
+    """
+    result = _traverse_directory(dir_path, include_pattern)
+    assert result == expected, (
+        f"_traverse_directory('Directory: {dir_path}', 'Include Pattern: {include_pattern}') "
+        f"returned {result}, expected {expected}"
+    )

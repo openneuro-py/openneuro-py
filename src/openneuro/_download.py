@@ -19,7 +19,6 @@ download
         _download_file ...
       _retrieve_and_write_to_disk
 """
-
 import asyncio
 import fnmatch
 import hashlib
@@ -648,6 +647,102 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     return local_version
 
 
+def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
+    """Determine whether a directory should be traversed based on a single include pattern.
+    
+    Parameters
+    ----------
+    dir_path
+        The directory path to check.
+    include_pattern
+        Single include pattern to match against.
+        
+    Returns
+    -------
+    bool
+        True if the directory should be traversed, False otherwise.
+    """
+    # ----------------------------------------------------------
+    # Directory Traversal Logic for Include Patterns
+    #
+    # This block determines whether a directory should be traversed
+    # based on the provided "include" pattern. The logic covers
+    # several cases, each with clear examples.
+    # ----------------------------------------------------------
+    
+    # -----------------------------------------------------------------
+    # 1. Exact Directory Match
+    #    - Traverse if the directory path exactly matches the include pattern.
+    #    - Examples:
+    #        ✔ dir_path = "sub-01", inc = "sub-01"         --> traverse
+    #        ✘ dir_path = "sub-02", inc = "sub-01"         --> do not traverse
+    # -----------------------------------------------------------------
+    if dir_path == include_pattern:
+        return True
+
+    # -----------------------------------------------------------------
+    # 2. Directory (dir_path) is a Parent of the Include Pattern
+    #    - Traverse if the directory is a parent of the include pattern.
+    #    - This allows traversal down to subdirectories/files that match.
+    #    - Examples:
+    #        ✔ dir_path = "sub-01", inc = "sub-01/*"                --> traverse
+    #        ✔ dir_path = "sub-01", inc = "sub-01/ses-meg/*"        --> traverse
+    #        ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg/*" --> do not traverse
+    #    - Logic: Compare path parts; traverse if all parts of dir_path
+    #      match the start of inc_parts.
+    # -----------------------------------------------------------------
+    inc_parts = PurePosixPath(include_pattern).parts
+    dir_parts = PurePosixPath(dir_path).parts
+
+    if len(dir_parts) <= len(inc_parts) and all(
+        d == i for d, i in zip(dir_parts, inc_parts)
+    ):
+        return True
+
+    # -----------------------------------------------------------------
+    # 3. Directory (dir_path) or Subdirectory Match (No Wildcards)
+    #    - Traverse if the include pattern is a directory (no wildcards)
+    #      and matches this directory or any of its subdirectories.
+    #    - Examples:
+    #        ✔ dir_path = "sub-01", inc = "sub-01/ses-emg"  --> traverse
+    #        ✔ dir_path = "sub-01", inc = "sub-01/ses-emg/" --> traverse
+    #        ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg" --> do not traverse
+    #    - Logic: If inc has no wildcards and dir_path is equal to inc
+    #      (with or without trailing slash), or is a subdirectory.
+    # -----------------------------------------------------------------
+    if (
+        dir_path == include_pattern.rstrip("/")
+        or (
+            not any(char in include_pattern for char in "*?")
+            and (
+                dir_path == include_pattern
+                or dir_path.startswith(include_pattern.rstrip("/") + "/")
+            )
+        )
+    ):
+        return True
+
+    # -----------------------------------------------------------------
+    # 4. Wildcard Pattern Prefix Match
+    #    - Traverse if the directory path (dir_path) matches the prefix of an
+    #      include pattern containing a wildcard.
+    #    - Examples:
+    #        ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*"           --> traverse
+    #        ✔ dir_path = "sub-01/ses-meg/meg", inc = "sub-01/*"       --> traverse
+    #        ✘ dir_path = "sub-02/ses-meg", inc = "sub-01/*"           --> do not traverse
+    #    - Logic: Use the part of inc before the '*' as a prefix.
+    # -----------------------------------------------------------------
+    if "*" in include_pattern:
+        pattern_prefix = include_pattern.split("*")[0]
+        if dir_path.startswith(pattern_prefix):
+            return True
+
+    # -----------------------------------------------------------------
+    # If none of the above cases matched, do not traverse this directory.
+    # -----------------------------------------------------------------
+    return False
+
+
 def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
     if stdout_unicode:
         msg = f"{emoji} {msg} {end}"
@@ -680,71 +775,16 @@ def _iterate_filenames(
     for directory in directories:
         # Only bother with directories that are in the include list
         if include:
-            # Take the example:
-            #
-            # --include="sub-CON001/*.eeg"
-            #
-            # or
-            #
-            # --include="sub-CON001"
-            #
-            # or
-            #
-            # --include="sub-CON001/*"
-            #
-            # All three of these should traverse `sub-CON001` and its
-            # subdirectories.
             dir_path = directory["filename"]
-
+            
             # Check if any of the include patterns match or are parents
             # of this directory
             should_traverse = False
             for inc in include:
-                # Normalize paths for comparison
-                inc_path = PurePosixPath(inc)
-                dir_path_obj = PurePosixPath(dir_path)
-
-                # Case 1: Direct match (e.g., sub-CON001 matches sub-CON001)
-                if dir_path == inc:
+                if _traverse_directory(dir_path, inc):
                     should_traverse = True
                     break
-
-                # Case 2: Directory is a parent of include pattern
-                # (e.g., sub-CON001 is parent of sub-CON001/*)
-                inc_parts = inc_path.parts
-                dir_parts = dir_path_obj.parts
-                if len(dir_parts) <= len(inc_parts) and all(
-                    d == i for d, i in zip(dir_parts, inc_parts)
-                ):
-                    should_traverse = True
-                    break
-
-                # Case 3: Include is a directory (no wildcard, no extension)
-                # and matches this directory. Also handle the case where the
-                # include is a directory and the dir_path is a subdirectory
-                # or file within it
-                if (
-                    inc == dir_path
-                    or (inc.endswith("/") and dir_path == inc.rstrip("/"))
-                    or (
-                        not any(char in inc for char in "*?[]")
-                        and (
-                            dir_path == inc
-                            or dir_path.startswith(inc.rstrip("/") + "/")
-                        )
-                    )
-                ):
-                    should_traverse = True
-                    break
-
-                # Case 4: Handle wildcard patterns
-                if "*" in inc:
-                    # Convert glob pattern to regex pattern for prefix matching
-                    pattern_prefix = inc.split("*")[0]
-                    if dir_path.startswith(pattern_prefix):
-                        should_traverse = True
-                        break
-
+            
             if not should_traverse:
                 continue
         # Query filenames
@@ -951,34 +991,37 @@ def download(
                     "Please check your includes."
                 )
 
+    for file in files:
+        print(file["filename"])
+
     msg = (
         f"Retrieving up to {len(files)} files "
         f"({max_concurrent_downloads} concurrent downloads)."
     )
     tqdm.write(_unicode(msg, emoji="📥", end=""))
 
-    query_str = snapshot_query_template.safe_substitute(
-        tag=tag or "null",
-        dataset_id=dataset,
-    )
-    coroutine = _download_files(
-        target_dir=target_dir,
-        files=files,
-        verify_hash=verify_hash,
-        verify_size=verify_size,
-        max_retries=max_retries,
-        retry_backoff=retry_backoff,
-        max_concurrent_downloads=max_concurrent_downloads,
-        query_str=query_str,
-    )
+    # query_str = snapshot_query_template.safe_substitute(
+    #     tag=tag or "null",
+    #     dataset_id=dataset,
+    # )
+    # coroutine = _download_files(
+    #     target_dir=target_dir,
+    #     files=files,
+    #     verify_hash=verify_hash,
+    #     verify_size=verify_size,
+    #     max_retries=max_retries,
+    #     retry_backoff=retry_backoff,
+    #     max_concurrent_downloads=max_concurrent_downloads,
+    #     query_str=query_str,
+    # )
 
-    # Try to re-use event loop if it already exists. This is required e.g.
-    # for use in Jupyter notebooks.
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(coroutine)
-    except RuntimeError:
-        asyncio.run(coroutine)
+    # # Try to re-use event loop if it already exists. This is required e.g.
+    # # for use in Jupyter notebooks.
+    # try:
+    #     loop = asyncio.get_running_loop()
+    #     loop.create_task(coroutine)
+    # except RuntimeError:
+    #     asyncio.run(coroutine)
 
-    tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
-    tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+    # tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
+    # tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
