@@ -729,14 +729,16 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
     #    - Examples:
     #        ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*"           --> traverse
     #        ✔ dir_path = "sub-01/ses-meg/meg", inc = "sub-01/*"       --> traverse
+    #        ✘ dir_path = "sub-01", inc = "*.json"                     --> do not traverse
+    #        ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*.json"      --> do not traverse
     #        ✘ dir_path = "sub-02/ses-meg", inc = "sub-01/*"           --> do not traverse
     #    - Logic: Use the part of inc before the '*' as a prefix.
     # -----------------------------------------------------------------
-    if "*" in include_pattern:
+    if "*" in include_pattern and not include_pattern.startswith("*."):
         pattern_prefix = include_pattern.split("*")[0]
         if dir_path.startswith(pattern_prefix):
             return True
-
+    
     # -----------------------------------------------------------------
     # If none of the above cases matched, do not traverse this directory.
     # -----------------------------------------------------------------
@@ -773,7 +775,6 @@ def _iterate_filenames(
             yield entity
 
     for directory in directories:
-        # Only bother with directories that are in the include list
         if include:
             dir_path = directory["filename"]
             
@@ -782,10 +783,12 @@ def _iterate_filenames(
             should_traverse = False
             for inc in include:
                 if _traverse_directory(dir_path, inc):
+                    # print(f"[DEBUG] MATCH for directory: {dir_path} and include pattern: {inc}")
                     should_traverse = True
                     break
             
             if not should_traverse:
+                # print(f"[DEBUG] NO MATCH for directory: {dir_path} and include patterns: {include}")
                 continue
         # Query filenames
         this_dir = directory["filename"]
@@ -991,8 +994,9 @@ def download(
                     "Please check your includes."
                 )
 
-    for file in files:
-        print(file["filename"])
+    # print("\n\n-------Files:")
+    # for file in files:
+    #     print(file["filename"])
 
     msg = (
         f"Retrieving up to {len(files)} files "
