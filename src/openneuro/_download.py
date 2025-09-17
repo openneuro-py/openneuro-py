@@ -738,6 +738,34 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
         pattern_prefix = include_pattern.split("*")[0]
         if dir_path.startswith(pattern_prefix):
             return True
+
+    # -----------------------------------------------------------------
+    # 5. Double Wildcard (**) Pattern Match
+    #    - Traverse if the include pattern contains ** and the directory
+    #      could potentially match the pattern.
+    #    - Examples:
+    #        ✔ dir_path = "sub-01", inc = "**/ses-meg/**"     --> traverse
+    #        ✔ dir_path = "sub-01/ses-meg", inc = "**/ses-meg/**" --> traverse
+    #        ✔ dir_path = "sub-01/ses-meg/meg", inc = "**/ses-meg/**" --> traverse
+    #        ✘ dir_path = "sub-01/ses-mri", inc = "**/ses-meg/**" --> do not traverse
+    #    - Logic: If pattern contains **, check if any part of the pattern
+    #      (excluding **) could match the directory path.
+    # -----------------------------------------------------------------
+    if "**" in include_pattern:
+        # Split the pattern by ** and check if any part could match
+        pattern_parts = include_pattern.split("**")
+        for i, part in enumerate(pattern_parts):
+            if part and not part.startswith("/"):
+                # This part should match somewhere in the path
+                if part in dir_path:
+                    return True
+            elif part and part.startswith("/"):
+                # This part should match at the end of the path
+                if dir_path.endswith(part.rstrip("/")):
+                    return True
+        # If pattern is just ** or **/, always traverse
+        if include_pattern in ("**", "**/"):
+            return True
     
     # -----------------------------------------------------------------
     # If none of the above cases matched, do not traverse this directory.
@@ -783,12 +811,12 @@ def _iterate_filenames(
             should_traverse = False
             for inc in include:
                 if _traverse_directory(dir_path, inc):
-                    # print(f"[DEBUG] MATCH for directory: {dir_path} and include pattern: {inc}")
+                    # print(f"\n[DEBUG] MATCH for directory: {dir_path} and include pattern: {inc}")
                     should_traverse = True
                     break
             
             if not should_traverse:
-                # print(f"[DEBUG] NO MATCH for directory: {dir_path} and include patterns: {include}")
+                # print(f"\n[DEBUG] NO MATCH for directory: {dir_path} and include patterns: {include}")
                 continue
         # Query filenames
         this_dir = directory["filename"]
@@ -962,9 +990,14 @@ def download(
             "CHANGES",
         ):
             files.append(file)
+        
             # Keep track of include matches.
+            matches_to_include = [inc for inc in include if fnmatch.fnmatch(filename, inc)]
             if filename in include:
                 include_counts[include.index(filename)] += 1
+            elif matches_to_include:
+                for match in matches_to_include:
+                    include_counts[include.index(match)] += 1
             continue
 
         matches_keep, matches_exclude = _match_include_exclude(
@@ -993,39 +1026,35 @@ def download(
                     f"Could not find path in the dataset:\n- {this}\n{extra}"
                     "Please check your includes."
                 )
-
-    # print("\n\n-------Files:")
-    # for file in files:
-    #     print(file["filename"])
-
+               
     msg = (
         f"Retrieving up to {len(files)} files "
         f"({max_concurrent_downloads} concurrent downloads)."
     )
     tqdm.write(_unicode(msg, emoji="📥", end=""))
 
-    # query_str = snapshot_query_template.safe_substitute(
-    #     tag=tag or "null",
-    #     dataset_id=dataset,
-    # )
-    # coroutine = _download_files(
-    #     target_dir=target_dir,
-    #     files=files,
-    #     verify_hash=verify_hash,
-    #     verify_size=verify_size,
-    #     max_retries=max_retries,
-    #     retry_backoff=retry_backoff,
-    #     max_concurrent_downloads=max_concurrent_downloads,
-    #     query_str=query_str,
-    # )
+    query_str = snapshot_query_template.safe_substitute(
+        tag=tag or "null",
+        dataset_id=dataset,
+    )
+    coroutine = _download_files(
+        target_dir=target_dir,
+        files=files,
+        verify_hash=verify_hash,
+        verify_size=verify_size,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+        max_concurrent_downloads=max_concurrent_downloads,
+        query_str=query_str,
+    )
 
-    # # Try to re-use event loop if it already exists. This is required e.g.
-    # # for use in Jupyter notebooks.
-    # try:
-    #     loop = asyncio.get_running_loop()
-    #     loop.create_task(coroutine)
-    # except RuntimeError:
-    #     asyncio.run(coroutine)
+    # Try to re-use event loop if it already exists. This is required e.g.
+    # for use in Jupyter notebooks.
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coroutine)
+    except RuntimeError:
+        asyncio.run(coroutine)
 
-    # tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
-    # tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+    tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
+    tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
