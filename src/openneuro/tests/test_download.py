@@ -3,9 +3,7 @@
 import json
 import copy
 from pathlib import Path
-from unittest import mock
 from unittest.mock import patch
-from difflib import get_close_matches
 
 import pytest
 
@@ -131,8 +129,8 @@ def test_doi_handling(tmp_path: Path):
 
 def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
     """Test downloading a restricted dataset."""
-    with mock.patch.object(openneuro._config, "CONFIG_PATH", tmp_path / ".openneuro"):
-        with mock.patch("getpass.getpass", lambda _: openneuro_token):
+    with patch.object(openneuro._config, "CONFIG_PATH", tmp_path / ".openneuro"):
+        with patch("getpass.getpass", lambda _: openneuro_token):
             openneuro._config.init_config()
 
         # This is a restricted dataset that is only available if the API token
