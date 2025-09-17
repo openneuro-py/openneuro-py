@@ -684,14 +684,14 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
 
     # -----------------------------------------------------------------
     # 2. Directory (dir_path) is a Parent of the Include Pattern
-    #    - Traverse if the directory is a parent of the include pattern.
-    #    - This allows traversal down to subdirectories/files that match.
-    #    - Examples:
-    #        ✔ dir_path = "sub-01", inc = "sub-01/*"                --> traverse
-    #        ✔ dir_path = "sub-01", inc = "sub-01/ses-meg/*"        --> traverse
-    #        ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg/*" --> do not traverse
-    #    - Logic: Compare path parts; traverse if all parts of dir_path
-    #      match the start of inc_parts.
+    # - Traverse if the directory is a parent of the include pattern.
+    # - This allows traversal down to subdirectories/files that match.
+    # - Examples:
+    #     ✔ dir_path = "sub-01", inc = "sub-01/*"                --> traverse
+    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-meg/*"        --> traverse
+    #     ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg/*" --> do not traverse
+    # - Logic: Compare path parts; traverse if all parts of dir_path
+    #     match the start of inc_parts.
     # -----------------------------------------------------------------
     inc_parts = PurePosixPath(include_pattern).parts
     dir_parts = PurePosixPath(dir_path).parts
@@ -703,14 +703,14 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
 
     # -----------------------------------------------------------------
     # 3. Directory (dir_path) or Subdirectory Match (No Wildcards)
-    #    - Traverse if the include pattern is a directory (no wildcards)
-    #      and matches this directory or any of its subdirectories.
-    #    - Examples:
-    #        ✔ dir_path = "sub-01", inc = "sub-01/ses-emg"  --> traverse
-    #        ✔ dir_path = "sub-01", inc = "sub-01/ses-emg/" --> traverse
-    #        ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg" --> do not traverse
-    #    - Logic: If inc has no wildcards and dir_path is equal to inc
-    #      (with or without trailing slash), or is a subdirectory.
+    # - Traverse if the include pattern is a directory (no wildcards)
+    #     and matches this directory or any of its subdirectories.
+    # - Examples:
+    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-emg"  --> traverse
+    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-emg/" --> traverse
+    #     ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg" --> do not traverse
+    # - Logic: If inc has no wildcards and dir_path is equal to inc
+    #     (with or without trailing slash), or is a subdirectory.
     # -----------------------------------------------------------------
     if dir_path == include_pattern.rstrip("/") or (
         not any(char in include_pattern for char in "*?")
@@ -723,15 +723,15 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
 
     # -----------------------------------------------------------------
     # 4. Wildcard Pattern Prefix Match
-    #    - Traverse if the directory path (dir_path) matches the prefix of an
-    #      include pattern containing a wildcard.
-    #    - Examples:
-    #        ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*"           --> traverse
-    #        ✔ dir_path = "sub-01/ses-meg/meg", inc = "sub-01/*"       --> traverse
-    #        ✘ dir_path = "sub-01", inc = "*.json"                     --> do not traverse
-    #        ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*.json"      --> do not traverse
-    #        ✘ dir_path = "sub-02/ses-meg", inc = "sub-01/*"           --> do not traverse
-    #    - Logic: Use the part of inc before the '*' as a prefix.
+    # - Traverse if the directory path (dir_path) matches the prefix of an
+    #     include pattern containing a wildcard.
+    # - Examples:
+    #     ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*"     --> traverse
+    #     ✔ dir_path = "sub-01/ses-meg/meg", inc = "sub-01/*"  --> traverse
+    #     ✘ dir_path = "sub-01", inc = "*.json"                --> do not traverse
+    #     ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*.json" --> do not traverse
+    #     ✘ dir_path = "sub-02/ses-meg", inc = "sub-01/*"      --> do not traverse
+    # - Logic: Use the part of inc before the '*' as a prefix.
     # -----------------------------------------------------------------
     if "*" in include_pattern and not include_pattern.startswith("*."):
         pattern_prefix = include_pattern.split("*")[0]
@@ -740,15 +740,15 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
 
     # -----------------------------------------------------------------
     # 5. Double Wildcard (**) Pattern Match
-    #    - Traverse if the include pattern contains ** and the directory
-    #      could potentially match the pattern.
-    #    - Examples:
-    #        ✔ dir_path = "sub-01", inc = "**/ses-meg/**"     --> traverse
-    #        ✔ dir_path = "sub-01/ses-meg", inc = "**/ses-meg/**" --> traverse
-    #        ✔ dir_path = "sub-01/ses-meg/meg", inc = "**/ses-meg/**" --> traverse
-    #        ✘ dir_path = "sub-01/ses-mri", inc = "**/ses-meg/**" --> do not traverse
-    #    - Logic: If pattern contains **, check if any part of the pattern
-    #      (excluding **) could match the directory path.
+    # - Traverse if the include pattern contains ** and the directory
+    #     could potentially match the pattern.
+    # - Examples:
+    #     ✔ dir_path = "sub-01", inc = "**/ses-meg/**"     --> traverse
+    #     ✔ dir_path = "sub-01/ses-meg", inc = "**/ses-meg/**" --> traverse
+    #     ✔ dir_path = "sub-01/ses-meg/meg", inc = "**/ses-meg/**" --> traverse
+    #     ✘ dir_path = "sub-01/ses-mri", inc = "**/ses-meg/**" --> do not traverse
+    # - Logic: If pattern contains **, check if any part of the pattern
+    #     (excluding **) could match the directory path.
     # -----------------------------------------------------------------
     if "**" in include_pattern:
         # Split the pattern by ** and check if any part could match
