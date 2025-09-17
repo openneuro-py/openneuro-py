@@ -2072,13 +2072,12 @@ def test_download_file_list_generation(
     ],
 )
 def test_download_file_count(dataset: str, include: list[str], expected_num_files: int):
-    """
-        Test that the download function generates the correct
-        number of files without actually downloading.
-    
-        This test verifies the file filtering logic by mocking
-        the metadata retrieval and checking that the correct
-        number of files are selected based on include patterns.
+    """Test that the download function generates the correct
+    number of files without actually downloading.
+
+    This test verifies the file filtering logic by mocking
+    the metadata retrieval and checking that the correct
+    number of files are selected based on include patterns.
     """
 
     async def _download_files_spy(*, files, **kwargs):
