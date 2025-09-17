@@ -649,7 +649,9 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
 
 
 def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
-    """Determine whether a directory should be traversed based on a single include pattern.
+    """
+    Determine whether a directory should be traversed based on 
+    a single include pattern.
 
     Parameters
     ----------
@@ -810,12 +812,10 @@ def _iterate_filenames(
             should_traverse = False
             for inc in include:
                 if _traverse_directory(dir_path, inc):
-                    # print(f"\n[DEBUG] MATCH for directory: {dir_path} and include pattern: {inc}")
                     should_traverse = True
                     break
 
             if not should_traverse:
-                # print(f"\n[DEBUG] NO MATCH for directory: {dir_path} and include patterns: {include}")
                 continue
         # Query filenames
         this_dir = directory["filename"]

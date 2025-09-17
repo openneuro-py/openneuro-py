@@ -2003,10 +2003,12 @@ MOCK_METADATA = {
 def test_download_file_list_generation(
     dataset: str, include: list[str], expected_files: list[str]
 ):
-    """Test that the download function generates the correct list of files without actually downloading.
+    """Test that the download function generates the correct
+    list of files without actually downloading.
 
-    This test verifies the file filtering logic by mocking the metadata retrieval
-    and checking that the correct files are selected based on include/exclude patterns.
+    This test verifies the file filtering logic by mocking the
+    metadata retrieval and checking that the correct files are 
+    selected based on include/exclude patterns.
     """
 
     def mock_get_download_metadata(*args, **kwargs):
@@ -2017,7 +2019,7 @@ def test_download_file_list_generation(
         return None
 
     async def _download_files_spy(*, files, **kwargs):
-        """Spy on _download_files to capture the call arguments"""
+        """Spy on _download_files to capture the call arguments."""
         return None
 
     with (
@@ -2081,7 +2083,7 @@ def test_download_file_count(dataset: str, include: list[str], expected_num_file
     """
 
     async def _download_files_spy(*, files, **kwargs):
-        """Spy on _download_files to capture the call arguments"""
+        """Spy on _download_files to capture the call arguments."""
         return None
 
     with patch.object(
