@@ -220,7 +220,6 @@ def test_traverse_directory(
     )
 
 
-MOCK_METADATA = load_json(Path(__file__).parent / "data/mock_metadata_ds000117.json")
 @pytest.mark.parametrize(
     ("dataset", "include", "expected_files"),
     [
@@ -444,6 +443,7 @@ def test_download_file_list_generation(
     metadata retrieval and checking that the correct files are
     selected based on include/exclude patterns.
     """
+    MOCK_METADATA = load_json(Path(__file__).parent / "data/mock_metadata_ds000117.json")
 
     def mock_get_download_metadata(*args, **kwargs):
         tree = kwargs.get("tree", "null").strip('"').strip("'")
