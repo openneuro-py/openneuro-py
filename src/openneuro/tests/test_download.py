@@ -196,15 +196,16 @@ def test_traverse_directory(
     include_pattern: str,
     expected: bool,
 ):
-    """Test _traverse_directory function with comprehensive OpenNeuro dataset patterns.
+    """Test that the right directories are traversed.
 
     This test uses realistic OpenNeuro directory structures following BIDS standards
     and tests against a comprehensive set of include patterns commonly used in practice.
+    It checks if the right directories are traversed based on the include pattern.
 
     Parameters
     ----------
     dir_path : str
-        The directory path from a realistic OpenNeuro dataset
+        The directory path from a realistic OpenNeuro dataset.
     include_pattern : str
         The include pattern to match against
     expected : bool
@@ -2003,8 +2004,7 @@ MOCK_METADATA = {
 def test_download_file_list_generation(
     dataset: str, include: list[str], expected_files: list[str]
 ):
-    """Test that the download function generates the correct
-    list of files without actually downloading.
+    """Test that download generates the correct list of files.
 
     This test verifies the file filtering logic by mocking the
     metadata retrieval and checking that the correct files are
@@ -2074,8 +2074,7 @@ def test_download_file_list_generation(
     ],
 )
 def test_download_file_count(dataset: str, include: list[str], expected_num_files: int):
-    """Test that the download function generates the correct
-    number of files without actually downloading.
+    """Test that download generates the correct number of files.
 
     This test verifies the file filtering logic by mocking
     the metadata retrieval and checking that the correct
