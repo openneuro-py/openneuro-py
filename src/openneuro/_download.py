@@ -19,6 +19,7 @@ download
         _download_file ...
       _retrieve_and_write_to_disk
 """
+
 import asyncio
 import fnmatch
 import hashlib
@@ -649,18 +650,19 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
 
 def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
     """Determine whether a directory should be traversed based on a single include pattern.
-    
+
     Parameters
     ----------
     dir_path
         The directory path to check.
     include_pattern
         Single include pattern to match against.
-        
+
     Returns
     -------
     bool
         True if the directory should be traversed, False otherwise.
+
     """
     # ----------------------------------------------------------
     # Directory Traversal Logic for Include Patterns
@@ -669,7 +671,7 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
     # based on the provided "include" pattern. The logic covers
     # several cases, each with clear examples.
     # ----------------------------------------------------------
-    
+
     # -----------------------------------------------------------------
     # 1. Exact Directory Match
     #    - Traverse if the directory path exactly matches the include pattern.
@@ -710,14 +712,11 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
     #    - Logic: If inc has no wildcards and dir_path is equal to inc
     #      (with or without trailing slash), or is a subdirectory.
     # -----------------------------------------------------------------
-    if (
-        dir_path == include_pattern.rstrip("/")
-        or (
-            not any(char in include_pattern for char in "*?")
-            and (
-                dir_path == include_pattern
-                or dir_path.startswith(include_pattern.rstrip("/") + "/")
-            )
+    if dir_path == include_pattern.rstrip("/") or (
+        not any(char in include_pattern for char in "*?")
+        and (
+            dir_path == include_pattern
+            or dir_path.startswith(include_pattern.rstrip("/") + "/")
         )
     ):
         return True
@@ -766,7 +765,7 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
         # If pattern is just ** or **/, always traverse
         if include_pattern in ("**", "**/"):
             return True
-    
+
     # -----------------------------------------------------------------
     # If none of the above cases matched, do not traverse this directory.
     # -----------------------------------------------------------------
@@ -805,7 +804,7 @@ def _iterate_filenames(
     for directory in directories:
         if include:
             dir_path = directory["filename"]
-            
+
             # Check if any of the include patterns match or are parents
             # of this directory
             should_traverse = False
@@ -814,7 +813,7 @@ def _iterate_filenames(
                     # print(f"\n[DEBUG] MATCH for directory: {dir_path} and include pattern: {inc}")
                     should_traverse = True
                     break
-            
+
             if not should_traverse:
                 # print(f"\n[DEBUG] NO MATCH for directory: {dir_path} and include patterns: {include}")
                 continue
@@ -990,9 +989,11 @@ def download(
             "CHANGES",
         ):
             files.append(file)
-        
+
             # Keep track of include matches.
-            matches_to_include = [inc for inc in include if fnmatch.fnmatch(filename, inc)]
+            matches_to_include = [
+                inc for inc in include if fnmatch.fnmatch(filename, inc)
+            ]
             if filename in include:
                 include_counts[include.index(filename)] += 1
             elif matches_to_include:
@@ -1026,7 +1027,7 @@ def download(
                     f"Could not find path in the dataset:\n- {this}\n{extra}"
                     "Please check your includes."
                 )
-               
+
     msg = (
         f"Retrieving up to {len(files)} files "
         f"({max_concurrent_downloads} concurrent downloads)."
