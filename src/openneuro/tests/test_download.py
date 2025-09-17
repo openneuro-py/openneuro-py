@@ -2007,7 +2007,7 @@ def test_download_file_list_generation(
     list of files without actually downloading.
 
     This test verifies the file filtering logic by mocking the
-    metadata retrieval and checking that the correct files are 
+    metadata retrieval and checking that the correct files are
     selected based on include/exclude patterns.
     """
 

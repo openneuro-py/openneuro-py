@@ -649,8 +649,7 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
 
 
 def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
-    """
-    Determine whether a directory should be traversed based on 
+    """Determine whether a directory should be traversed based on
     a single include pattern.
 
     Parameters
