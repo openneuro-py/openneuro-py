@@ -140,7 +140,6 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
     assert (tmp_path / "README.txt").exists()
 
 
-
 @pytest.mark.parametrize(
     ("dir_path", "include_pattern", "expected"),
     load_json("traverse_test_cases.json"),
@@ -152,7 +151,7 @@ def test_traverse_directory(
 ):
     """Test that the right directories are traversed.
 
-    This test uses realistic OpenNeuro directory structures 
+    This test uses realistic OpenNeuro directory structures
     following BIDS standards, and tests against a comprehensive
     set of include patterns commonly used in practice. It checks
     if the right directories are traversed based on the include

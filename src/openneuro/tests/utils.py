@@ -1,9 +1,9 @@
-import os
 import json
+import os
 from pathlib import Path
 
+TEST_DATA_DIR = os.path.join(Path(__file__).parent, "data")
 
-TEST_DATA_DIR= os.path.join(Path(__file__).parent, "data")
 
 def load_json(path):
     """Load a JSON file."""
