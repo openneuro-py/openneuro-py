@@ -4,7 +4,6 @@ import os
 import json
 from pathlib import Path
 
-
 TEST_DATA_DIR= os.path.join(Path(__file__).parent, "data")
 
 def load_json(path):
