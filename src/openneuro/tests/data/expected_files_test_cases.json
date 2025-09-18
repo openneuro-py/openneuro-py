@@ -1,23 +1,23 @@
 [
-  {
-    "dataset": "ds000117",
-    "include": [
+  [
+    "ds000117",
+    [
       "*.tsv"
     ],
-    "expected_files": [
+    [
       "dataset_description.json",
       "participants.tsv",
       "participants.json",
       "README",
       "CHANGES"
     ]
-  },
-  {
-    "dataset": "ds000117",
-    "include": [
+  ],
+  [
+    "ds000117",
+    [
       "sub-01"
     ],
-    "expected_files": [
+    [
       "CHANGES",
       "README",
       "dataset_description.json",
@@ -66,13 +66,13 @@
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
     ]
-  },
-  {
-    "dataset": "ds000117",
-    "include": [
+  ],
+  [
+    "ds000117",
+    [
       "sub-01/"
     ],
-    "expected_files": [
+    [
       "CHANGES",
       "README",
       "dataset_description.json",
@@ -121,13 +121,13 @@
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
     ]
-  },
-  {
-    "dataset": "ds000117",
-    "include": [
+  ],
+  [
+    "ds000117",
+    [
       "sub-01/**"
     ],
-    "expected_files": [
+    [
       "CHANGES",
       "README",
       "dataset_description.json",
@@ -176,10 +176,10 @@
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
     ]
-  },
-  {
-    "dataset": "ds000117",
-    "include": [
+  ],
+  [
+    "ds000117",
+    [
       "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_*",
       "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-02_*",
       "sub-01/ses-meg/meg/sub-01_ses-meg_headshape.pos",
@@ -189,7 +189,7 @@
       "derivatives/meg_derivatives/ct_sparse.fif",
       "derivatives/meg_derivatives/sss_cal.dat"
     ],
-    "expected_files": [
+    [
       "CHANGES",
       "README",
       "dataset_description.json",
@@ -210,5 +210,5 @@
       "sub-emptyroom/ses-20090409/sub-emptyroom_ses-20090409_scans.tsv",
       "sub-emptyroom/ses-20090409/meg/sub-emptyroom_ses-20090409_task-noise_meg.fif"
     ]
-  }
+  ]
 ]

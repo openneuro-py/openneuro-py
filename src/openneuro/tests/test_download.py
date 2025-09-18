@@ -14,13 +14,7 @@ from openneuro._download import (
     _traverse_directory,
     download,
 )
-from openneuro.tests.utils import (
-    load_json, 
-    load_test_cases_download_file_list_generation,
-)
-
-# Load test cases
-TEST_CASES = load_test_cases_download_file_list_generation()
+from openneuro.tests.utils import load_json
 
 dataset_id_aws = "ds000246"
 tag_aws = "1.0.0"
@@ -146,57 +140,10 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
     assert (tmp_path / "README.txt").exists()
 
 
-TRAVERSE_TEST_CASES = [
-    ("sub-01", "*", True),
-    ("sub-01", "*.json", False),
-    ("sub-01", "dataset_description.json", False),
-    ("sub-01", "sub-01", True),
-    ("sub-01", "sub-01/", True),
-    ("sub-01", "sub-01/*", True),
-    ("sub-01", "sub-01/**", True),
-    ("sub-01", "sub-01/ses-meg", True),
-    ("sub-01", "sub-01/ses-meg/meg/*.tsv", True),
-    ("sub-01", "sub-01/**/*.tsv", True),
-    ("sub-01", "sub-*", True),
-    ("sub-01", "sub-*/", True),
-    ("sub-01", "sub-*/**", True),
-    ("sub-01", "sub-*/**/*.tsv", True),
-    ("sub-01", "sub-*/**/meg/**", True),
-    ("sub-01", "**/meg/**", True),
-    ("sub-01", "**/*.json", True),
-    ("sub-01", "sub-02", False),
-    ("sub-01", "sub-02/", False),
-    ("sub-01", "sub-02/*", False),
-    ("sub-01", "sub-02/**", False),
-    ("sub-01/ses-meg", "sub-01", True),
-    ("sub-01/ses-meg", "sub-01/ses-meg", True),
-    ("sub-01/ses-meg", "sub-01/ses-meg/meg/*.tsv", True),
-    ("sub-01/ses-meg", "sub-01/ses-meg/*.tsv", False),  # This is failing
-    ("sub-01/ses-meg", "sub-01/ses-mri/", False),
-    ("sub-01/ses-meg/meg", "sub-01/*/meg/*.tsv", True),
-    ("sub-01/ses-meg/meg", "sub-01/**/meg/*.tsv", True),
-    ("sub-01/ses-meg/meg", "sub-01/**/*.tsv", True),
-    ("sub-01/ses-meg/meg", "sub-*/**/*.tsv", True),
-    ("sub-01/ses-meg/meg", "sub-*/**/meg/**", True),
-    ("sub-01/ses-meg/meg", "**/meg/**", True),
-    ("sub-01/ses-meg/meg", "**/*.json", True),
-    ("sub-01/ses-meg/meg", "*/*.json", False),  # This is failing
-    ("sub-01/ses-meg/meg", "sub-01/ses-meg/*.tsv", False),  # This is failing
-    ("derivatives", "sub-01", False),
-    ("derivatives", "sub-01/", False),
-    ("derivatives", "sub-01/*", False),
-    ("derivatives", "sub-01/**", False),
-    ("derivatives", "sub-01/**/*.tsv", False),
-    ("derivatives", "sub-*", False),
-    ("derivatives", "sub-*/**/meg/**", False),
-    ("derivatives", "**/meg/**", True),
-    ("derivatives", "**/*.json", True),
-]
-
 
 @pytest.mark.parametrize(
     ("dir_path", "include_pattern", "expected"),
-    TRAVERSE_TEST_CASES,
+    load_json("traverse_test_cases.json"),
 )
 def test_traverse_directory(
     dir_path: str,
@@ -205,9 +152,11 @@ def test_traverse_directory(
 ):
     """Test that the right directories are traversed.
 
-    This test uses realistic OpenNeuro directory structures following BIDS standards
-    and tests against a comprehensive set of include patterns commonly used in practice.
-    It checks if the right directories are traversed based on the include pattern.
+    This test uses realistic OpenNeuro directory structures 
+    following BIDS standards, and tests against a comprehensive
+    set of include patterns commonly used in practice. It checks
+    if the right directories are traversed based on the include
+    pattern.
 
     Parameters
     ----------
@@ -228,7 +177,7 @@ def test_traverse_directory(
 
 @pytest.mark.parametrize(
     ("dataset", "include", "expected_files"),
-    load_test_cases_download_file_list_generation(),
+    load_json("expected_files_test_cases.json"),
 )
 def test_download_file_list_generation(
     dataset: str, include: list[str], expected_files: list[str]
@@ -239,7 +188,7 @@ def test_download_file_list_generation(
     metadata retrieval and checking that the correct files are
     selected based on include/exclude patterns.
     """
-    MOCK_METADATA = load_json(Path(__file__).parent / "data/mock_metadata_ds000117.json")
+    MOCK_METADATA = load_json("mock_metadata_ds000117.json")
 
     def mock_get_download_metadata(*args, **kwargs):
         tree = kwargs.get("tree", "null").strip('"').strip("'")
@@ -281,27 +230,7 @@ def test_download_file_list_generation(
 
 @pytest.mark.parametrize(
     ("dataset", "include", "expected_num_files"),
-    [
-        ("ds000117", ["*"], 2626),
-        ("ds000117", ["sub-01"], 76),
-        ("ds000117", ["sub-01/**/*.tsv"], 23),
-        ("ds000117", ["sub-01/**"], 76),
-        (
-            "ds000117",
-            [
-                "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_*",
-                "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-02_*",
-                "sub-01/ses-meg/meg/sub-01_ses-meg_headshape.pos",
-                "sub-01/ses-meg/*.tsv",
-                "sub-01/ses-meg/*.json",
-                "sub-emptyroom/ses-20090409",
-                "derivatives/meg_derivatives/ct_sparse.fif",
-                "derivatives/meg_derivatives/sss_cal.dat",
-            ],
-            23,
-        ),
-        ("ds000117", ["**/ses-meg/**"], 517),
-    ],
+    load_json("expected_file_count_test_cases.json"),
 )
 def test_download_file_count(dataset: str, include: list[str], expected_num_files: int):
     """Test that download generates the correct number of files.
