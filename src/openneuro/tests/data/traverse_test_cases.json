@@ -121,11 +121,6 @@
   ],
   [
     "sub-01/ses-meg",
-    "sub-01/ses-meg/*.tsv",
-    false
-  ],
-  [
-    "sub-01/ses-meg",
     "sub-01/ses-mri/",
     false
   ],
@@ -163,16 +158,6 @@
     "sub-01/ses-meg/meg",
     "**/*.json",
     true
-  ],
-  [
-    "sub-01/ses-meg/meg",
-    "*/*.json",
-    false
-  ],
-  [
-    "sub-01/ses-meg/meg",
-    "sub-01/ses-meg/*.tsv",
-    false
   ],
   [
     "derivatives",
