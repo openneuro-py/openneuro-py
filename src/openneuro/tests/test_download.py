@@ -142,7 +142,7 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
 
 @pytest.mark.parametrize(
     ("dir_path", "include_pattern", "expected"),
-    load_json("traverse_test_cases.json")
+    load_json("traverse_dir_test_cases.json")
     + [
         # TODO: These three tests cases are failing because directory
         # should not be traversed for include_pattern that does not
