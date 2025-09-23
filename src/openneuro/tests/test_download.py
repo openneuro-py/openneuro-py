@@ -139,18 +139,35 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
 
     assert (tmp_path / "README.txt").exists()
 
+
 @pytest.mark.parametrize(
     ("dir_path", "include_pattern", "expected"),
-    load_json("traverse_test_cases.json") + [
+    load_json("traverse_test_cases.json")
+    + [
         # TODO: These three tests cases are failing because directory should not be traversed for include_pattern that does not match dir_path itself
-        pytest.param("sub-01/ses-meg", "sub-01/ses-meg/*.tsv", False,
-            marks=pytest.mark.xfail(reason="Known bug: directory should not be traversed for file pattern that does not match directory itself")
+        pytest.param(
+            "sub-01/ses-meg",
+            "sub-01/ses-meg/*.tsv",
+            False,
+            marks=pytest.mark.xfail(
+                reason="Known bug: directory should not be traversed for file pattern that does not match directory itself"
+            ),
         ),
-        pytest.param("sub-01/ses-meg/meg", "sub-01/ses-meg/*.tsv", False,
-            marks=pytest.mark.xfail(reason="Known bug: directory should not be traversed for file pattern that does not match directory itself")
+        pytest.param(
+            "sub-01/ses-meg/meg",
+            "sub-01/ses-meg/*.tsv",
+            False,
+            marks=pytest.mark.xfail(
+                reason="Known bug: directory should not be traversed for file pattern that does not match directory itself"
+            ),
         ),
-        pytest.param("sub-01/ses-meg/meg", "**/*.json", False,
-            marks=pytest.mark.xfail(reason="Known bug: directory should not be traversed for file pattern that does not match directory itself")
+        pytest.param(
+            "sub-01/ses-meg/meg",
+            "**/*.json",
+            False,
+            marks=pytest.mark.xfail(
+                reason="Known bug: directory should not be traversed for file pattern that does not match directory itself"
+            ),
         ),
     ],
 )
@@ -173,9 +190,9 @@ def test_traverse_directory(
     [dir_path, include_pattern, expected_result]
 
     Where:
-    - dir_path: Directory path from OpenNeuro dataset (e.g., 
+    - dir_path: Directory path from OpenNeuro dataset (e.g.,
       "sub-01", "sub-01/ses-meg", "derivatives")
-    - include_pattern: Glob pattern to match (e.g., "*.tsv", 
+    - include_pattern: Glob pattern to match (e.g., "*.tsv",
       "sub-01/**", "**/meg/**")
     - expected_result: Boolean indicating if directory should
       be traversed (true/false)
@@ -232,11 +249,11 @@ def test_download_file_list_generation(
     mock OpenNeuro metadata for dataset ds000117. This file
     simulates the API response with file listings including
     filenames, URLs, sizes, and directory flags for realistic
-    testing without requiring actual API calls. Having a mock 
+    testing without requiring actual API calls. Having a mock
     metadata makes it easy to control which files should be
     selected with different include patterns. The `mock_metadata_ds000117.json`
     file was built manually using the following directory structure:
-    
+
     |ds000117/
     |--- CHANGES
     |--- README
@@ -404,7 +421,7 @@ def test_download_file_list_generation(
 
     To add more test cases:
     1. Open `src/openneuro/tests/data/expected_files_test_cases.json`
-    2. Add new test case as: ["dataset", ["pattern1", "pattern2"], 
+    2. Add new test case as: ["dataset", ["pattern1", "pattern2"],
       ["file1", "file2", ...]]
     3. Include dataset metadata files (CHANGES, README, etc.)
     4. Ensure all expected files match the include patterns
@@ -435,7 +452,7 @@ def test_download_file_list_generation(
     ):
         # Load mock metadata
         MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
-        
+
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
@@ -477,7 +494,7 @@ def test_download_file_count(dataset: str, include: list[str], expected_num_file
 
     To add more test cases:
     1. Open `src/openneuro/tests/data/expected_file_count_test_cases.json`
-    2. Add new test case as: ["dataset", ["pattern1", "pattern2"], 
+    2. Add new test case as: ["dataset", ["pattern1", "pattern2"],
       count_number]
     3. Count should include dataset metadata files in total
     4. Verify count matches actual files selected by patterns

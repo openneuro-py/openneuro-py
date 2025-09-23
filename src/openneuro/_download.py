@@ -20,11 +20,11 @@ download
       _retrieve_and_write_to_disk
 """
 
-import os
 import asyncio
 import fnmatch
 import hashlib
 import json
+import os
 import shlex
 import string
 import sys
