@@ -24,7 +24,6 @@ import asyncio
 import fnmatch
 import hashlib
 import json
-import os
 import shlex
 import string
 import sys

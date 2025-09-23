@@ -152,27 +152,27 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
             "sub-01/ses-meg/*.tsv",
             False,
             marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file" \
-                    "pattern that does not match directory itself"
-            )
+                reason="Known bug: directory should not be traversed for file"
+                "pattern that does not match directory itself"
+            ),
         ),
         pytest.param(
             "sub-01/ses-meg/meg",
             "sub-01/ses-meg/*.tsv",
             False,
             marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file" \
-                    "pattern that does not match directory itself"
-            )
+                reason="Known bug: directory should not be traversed for file"
+                "pattern that does not match directory itself"
+            ),
         ),
         pytest.param(
             "sub-01/ses-meg/meg",
             "*/*.json",
             False,
             marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file" \
-                    "pattern that does not match directory itself"
-            )
+                reason="Known bug: directory should not be traversed for file"
+                "pattern that does not match directory itself"
+            ),
         ),
     ],
 )
