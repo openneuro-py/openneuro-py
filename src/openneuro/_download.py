@@ -20,6 +20,7 @@ download
       _retrieve_and_write_to_disk
 """
 
+import os
 import asyncio
 import fnmatch
 import hashlib
@@ -664,6 +665,9 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
         True if the directory should be traversed, False otherwise.
 
     """
+    # Normalize pattern across OSes
+    dir_path = os.path.normcase(os.path.normpath(dir_path))
+    include_pattern = os.path.normcase(os.path.normpath(include_pattern))
     # ----------------------------------------------------------
     # Directory Traversal Logic for Include Patterns
     #

@@ -139,10 +139,20 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
 
     assert (tmp_path / "README.txt").exists()
 
-
 @pytest.mark.parametrize(
     ("dir_path", "include_pattern", "expected"),
-    load_json("traverse_test_cases.json"),
+    load_json("traverse_test_cases.json") + [
+        # TODO: These three tests cases are failing because directory should not be traversed for include_pattern that does not match dir_path itself
+        pytest.param("sub-01/ses-meg", "sub-01/ses-meg/*.tsv", False,
+            marks=pytest.mark.xfail(reason="Known bug: directory should not be traversed for file pattern that does not match directory itself")
+        ),
+        pytest.param("sub-01/ses-meg/meg", "sub-01/ses-meg/*.tsv", False,
+            marks=pytest.mark.xfail(reason="Known bug: directory should not be traversed for file pattern that does not match directory itself")
+        ),
+        pytest.param("sub-01/ses-meg/meg", "**/*.json", False,
+            marks=pytest.mark.xfail(reason="Known bug: directory should not be traversed for file pattern that does not match directory itself")
+        ),
+    ],
 )
 def test_traverse_directory(
     dir_path: str,
@@ -156,6 +166,25 @@ def test_traverse_directory(
     set of include patterns commonly used in practice. It checks
     if the right directories are traversed based on the include
     pattern.
+
+    Test cases are loaded from `traverse_test_cases.json` which
+    contains an array of test case tuples. Each tuple has the
+    structure:
+    [dir_path, include_pattern, expected_result]
+
+    Where:
+    - dir_path: Directory path from OpenNeuro dataset (e.g., 
+      "sub-01", "sub-01/ses-meg", "derivatives")
+    - include_pattern: Glob pattern to match (e.g., "*.tsv", 
+      "sub-01/**", "**/meg/**")
+    - expected_result: Boolean indicating if directory should
+      be traversed (true/false)
+
+    To add more test cases:
+    1. Open `src/openneuro/tests/data/traverse_test_cases.json`
+    2. Add new test case as: ["dir_path", "pattern", true/false]
+    3. Ensure JSON syntax is valid (commas, quotes, brackets)
+    4. Test cases should cover edge cases and common patterns
 
     Parameters
     ----------
@@ -186,8 +215,201 @@ def test_download_file_list_generation(
     This test verifies the file filtering logic by mocking the
     metadata retrieval and checking that the correct files are
     selected based on include/exclude patterns.
+
+    Test cases are loaded from `expected_files_test_cases.json`
+    which contains an array of test case tuples. Each tuple has
+    the structure:
+    [dataset_id, include_patterns, expected_file_list]
+
+    Where:
+    - dataset_id: OpenNeuro dataset identifier (e.g., "ds000117")
+    - include_patterns: List of glob patterns to include files
+      (e.g., ["*.tsv"], ["sub-01"], ["sub-01/**"])
+    - expected_file_list: Complete list of files that should be
+      selected, including dataset metadata files
+
+    The test uses `mock_metadata_ds000117.json` which contains
+    mock OpenNeuro metadata for dataset ds000117. This file
+    simulates the API response with file listings including
+    filenames, URLs, sizes, and directory flags for realistic
+    testing without requiring actual API calls. Having a mock 
+    metadata makes it easy to control which files should be
+    selected with different include patterns. The `mock_metadata_ds000117.json`
+    file was built manually using the following directory structure:
+    
+    |ds000117/
+    |--- CHANGES
+    |--- README
+    |--- dataset_description.json
+    |--- participants.json
+    |--- participants.tsv
+    |--- derivatives/
+    |------ freesurfer/
+    |--------- sub-01/
+    |------------ ses-mri/
+    |--------------- anat/
+    |------------------ label/
+    |--------------------- .lh.BA.thresh.annot.f3h5wZ
+    |--------------------- lh.BA.annot
+    |--------------------- lh.BA.thresh.annot
+    |--------------------- lh.aparc.DKTatlas40.annot
+    |--------------------- lh.aparc.a2009s.annot
+    |--------------------- lh.aparc.annot
+    |--------------------- rh.BA.annot
+    |--------------------- rh.BA.thresh.annot
+    |--------------------- rh.aparc.DKTatlas40.annot
+    |--------------------- rh.aparc.a2009s.annot
+    |--------------------- rh.aparc.annot
+    |------------------ mri/
+    |--------------------- T1.mgz
+    |--------------------- aseg.mgz
+    |------------------ surf/
+    |--------------------- lh.pial
+    |--------------------- lh.sphere.reg
+    |--------------------- lh.white
+    |--------------------- rh.pial
+    |--------------------- rh.sphere.reg
+    |--------------------- rh.white
+    |--------- sub-02/
+    |------------ ses-mri/
+    |--------------- anat/
+    |------------------ label/
+    |--------------------- lh.BA.annot
+    |--------------------- lh.BA.thresh.annot
+    |--------------------- lh.aparc.DKTatlas40.annot
+    |--------------------- lh.aparc.a2009s.annot
+    |--------------------- lh.aparc.annot
+    |--------------------- rh.BA.annot
+    |--------------------- rh.BA.thresh.annot
+    |--------------------- rh.aparc.DKTatlas40.annot
+    |--------------------- rh.aparc.a2009s.annot
+    |--------------------- rh.aparc.annot
+    |------------------ mri/
+    |--------------------- T1.mgz
+    |--------------------- aseg.mgz
+    |------------------ surf/
+    |--------------------- lh.pial
+    |--------------------- lh.sphere.reg
+    |--------------------- lh.white
+    |--------------------- rh.pial
+    |--------------------- rh.sphere.reg
+    |--------------------- rh.white
+    |--- sub-01/
+    |------ ses-meg/
+    |--------- sub-01_ses-meg_scans.tsv
+    |--------- sub-01_ses-meg_task-facerecognition_channels.tsv
+    |--------- sub-01_ses-meg_task-facerecognition_meg.json
+    |--------- beh/
+    |------------ sub-01_ses-meg_task-facerecognition_events.tsv
+    |--------- meg/
+    |------------ sub-01_ses-meg_coordsystem.json
+    |------------ sub-01_ses-meg_headshape.pos
+    |------------ sub-01_ses-meg_task-facerecognition_run-01_events.tsv
+    |------------ sub-01_ses-meg_task-facerecognition_run-01_meg.fif
+    |------------ sub-01_ses-meg_task-facerecognition_run-02_events.tsv
+    |------------ sub-01_ses-meg_task-facerecognition_run-02_meg.fif
+    |------ ses-mri/
+    |--------- anat/
+    |------------ sub-01_ses-mri_acq-mprage_T1w.json
+    |------------ sub-01_ses-mri_acq-mprage_T1w.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-2_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-3_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-4_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-5_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-6_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-1_echo-7_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-1_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-2_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-3_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-4_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-5_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-6_FLASH.nii.gz
+    |------------ sub-01_ses-mri_run-2_echo-7_FLASH.nii.gz
+    |--------- dwi/
+    |------------ sub-01_ses-mri_dwi.bval
+    |------------ sub-01_ses-mri_dwi.bvec
+    |------------ sub-01_ses-mri_dwi.json
+    |------------ sub-01_ses-mri_dwi.nii.gz
+    |--------- fmap/
+    |------------ sub-01_ses-mri_magnitude1.json
+    |------------ sub-01_ses-mri_magnitude1.nii
+    |------------ sub-01_ses-mri_magnitude2.json
+    |------------ sub-01_ses-mri_magnitude2.nii
+    |------------ sub-01_ses-mri_phasediff.json
+    |------------ sub-01_ses-mri_phasediff.nii
+    |--------- func/
+    |------------ sub-01_ses-mri_task-facerecognition_run-01_bold.json
+    |------------ sub-01_ses-mri_task-facerecognition_run-01_bold.nii.gz
+    |------------ sub-01_ses-mri_task-facerecognition_run-01_events.tsv
+    |------------ sub-01_ses-mri_task-facerecognition_run-02_bold.json
+    |------------ sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz
+    |------------ sub-01_ses-mri_task-facerecognition_run-02_events.tsv
+    |--- sub-02/
+    |------ ses-meg/
+    |--------- sub-02_ses-meg_scans.tsv
+    |--------- sub-02_ses-meg_task-facerecognition_channels.tsv
+    |--------- sub-02_ses-meg_task-facerecognition_meg.json
+    |--------- beh/
+    |------------ sub-02_ses-meg_task-facerecognition_events.tsv
+    |--------- meg/
+    |------------ sub-02_ses-meg_coordsystem.json
+    |------------ sub-02_ses-meg_headshape.pos
+    |------------ sub-02_ses-meg_task-facerecognition_run-01_events.tsv
+    |------------ sub-02_ses-meg_task-facerecognition_run-01_meg.fif
+    |------------ sub-02_ses-meg_task-facerecognition_run-02_events.tsv
+    |------------ sub-02_ses-meg_task-facerecognition_run-02_meg.fif
+    |------ ses-mri/
+    |--------- anat/
+    |------------ sub-02_ses-mri_acq-mprage_T1w.json
+    |------------ sub-02_ses-mri_acq-mprage_T1w.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-1_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-2_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-3_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-4_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-5_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-6_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-1_echo-7_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-1_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-2_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-3_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-4_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-5_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-6_FLASH.nii.gz
+    |------------ sub-02_ses-mri_run-2_echo-7_FLASH.nii.gz
+    |--------- dwi/
+    |------------ sub-02_ses-mri_dwi.bval
+    |------------ sub-02_ses-mri_dwi.bvec
+    |------------ sub-02_ses-mri_dwi.json
+    |------------ sub-02_ses-mri_dwi.nii.gz
+    |--------- fmap/
+    |------------ sub-02_ses-mri_magnitude1.json
+    |------------ sub-02_ses-mri_magnitude1.nii
+    |------------ sub-02_ses-mri_magnitude2.json
+    |------------ sub-02_ses-mri_magnitude2.nii
+    |------------ sub-02_ses-mri_phasediff.json
+    |------------ sub-02_ses-mri_phasediff.nii
+    |--------- func/
+    |------------ sub-02_ses-mri_task-facerecognition_run-01_bold.json
+    |------------ sub-02_ses-mri_task-facerecognition_run-01_bold.nii.gz
+    |------------ sub-02_ses-mri_task-facerecognition_run-01_events.tsv
+    |------------ sub-02_ses-mri_task-facerecognition_run-02_bold.json
+    |------------ sub-02_ses-mri_task-facerecognition_run-02_bold.nii.gz
+    |------------ sub-02_ses-mri_task-facerecognition_run-02_events.tsv
+    |--- sub-emptyroom/
+    |------ ses-20090409/
+    |--------- sub-emptyroom_ses-20090409_scans.tsv
+    |--------- meg/
+    |------------ sub-emptyroom_ses-20090409_task-noise_meg.fif
+
+    To add more test cases:
+    1. Open `src/openneuro/tests/data/expected_files_test_cases.json`
+    2. Add new test case as: ["dataset", ["pattern1", "pattern2"], 
+      ["file1", "file2", ...]]
+    3. Include dataset metadata files (CHANGES, README, etc.)
+    4. Ensure all expected files match the include patterns
+    5. Validate JSON syntax and file paths are correct
     """
-    MOCK_METADATA = load_json("mock_metadata_ds000117.json")
 
     def mock_get_download_metadata(*args, **kwargs):
         tree = kwargs.get("tree", "null").strip('"').strip("'")
@@ -211,6 +433,9 @@ def test_download_file_list_generation(
             _download, "_download_files", side_effect=_download_files_spy
         ) as _download_files_spy,
     ):
+        # Load mock metadata
+        MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
+        
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
@@ -237,6 +462,27 @@ def test_download_file_count(dataset: str, include: list[str], expected_num_file
     This test verifies the file filtering logic by mocking
     the metadata retrieval and checking that the correct
     number of files are selected based on include patterns.
+
+    Test cases are loaded from `expected_file_count_test_cases.json`
+    which contains an array of test case tuples. Each tuple has
+    the structure:
+    [dataset_id, include_patterns, expected_file_count]
+
+    Where:
+    - dataset_id: OpenNeuro dataset identifier (e.g., "ds000117")
+    - include_patterns: List of glob patterns to include files
+      (e.g., ["*"], ["sub-01"], ["sub-01/**/*.tsv"])
+    - expected_file_count: Integer count of files that should
+      be selected by the include patterns
+
+    To add more test cases:
+    1. Open `src/openneuro/tests/data/expected_file_count_test_cases.json`
+    2. Add new test case as: ["dataset", ["pattern1", "pattern2"], 
+      count_number]
+    3. Count should include dataset metadata files in total
+    4. Verify count matches actual files selected by patterns
+    5. Ensure JSON syntax is valid and numbers are integers
+
     """
 
     async def _download_files_spy(*, files, **kwargs):
@@ -249,6 +495,7 @@ def test_download_file_count(dataset: str, include: list[str], expected_num_file
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
+            tag="1.1.0",
             target_dir=Path("/tmp/test"),
             include=include,
         )
