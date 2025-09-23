@@ -666,8 +666,8 @@ def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
 
     """
     # Normalize pattern across OSes
-    dir_path = os.path.normcase(os.path.normpath(dir_path))
-    include_pattern = os.path.normcase(os.path.normpath(include_pattern))
+    dir_path = str(PurePosixPath(dir_path))
+    include_pattern = str(PurePosixPath(include_pattern))
     # ----------------------------------------------------------
     # Directory Traversal Logic for Include Patterns
     #
