@@ -145,29 +145,23 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
     load_json("traverse_test_cases.json")
     + [
         # TODO: These three tests cases are failing because directory should not be traversed for include_pattern that does not match dir_path itself
-        pytest.param(
-            "sub-01/ses-meg",
-            "sub-01/ses-meg/*.tsv",
-            False,
+        pytest.param("sub-01/ses-meg", "sub-01/ses-meg/*.tsv", False,
             marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file pattern that does not match directory itself"
-            ),
+                reason="Known bug: directory should not be traversed for file \
+                    pattern that does not match directory itself"
+            )
         ),
-        pytest.param(
-            "sub-01/ses-meg/meg",
-            "sub-01/ses-meg/*.tsv",
-            False,
+        pytest.param("sub-01/ses-meg/meg", "sub-01/ses-meg/*.tsv", False,
             marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file pattern that does not match directory itself"
-            ),
+                reason="Known bug: directory should not be traversed for file \
+                    pattern that does not match directory itself"
+            )
         ),
-        pytest.param(
-            "sub-01/ses-meg/meg",
-            "**/*.json",
-            False,
+        pytest.param("sub-01/ses-meg/meg", "**/*.json", False,
             marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file pattern that does not match directory itself"
-            ),
+                reason="Known bug: directory should not be traversed for file \
+                    pattern that does not match directory itself"
+            )
         ),
     ],
 )
