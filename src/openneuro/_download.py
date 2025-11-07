@@ -88,7 +88,7 @@ dataset_query_template = string.Template(
                     urls
                     size
                     directory
-                    id
+                    key
                 }
             }
         }
@@ -118,7 +118,7 @@ snapshot_query_template = string.Template(
                 urls
                 size
                 directory
-                id
+                key
             }
         }
     }
@@ -718,7 +718,7 @@ def _iterate_filenames(
         metadata = _get_download_metadata(
             dataset_id=dataset_id,
             tag=tag,
-            tree=f'"{directory["id"]}"',
+            tree=f'"{directory["key"]}"',
             max_retries=max_retries,
             check_snapshot=False,
         )
@@ -729,7 +729,7 @@ def _iterate_filenames(
             max_retries=max_retries,
             root=this_dir,
             include=include,
-            parent_tree=directory["id"],
+            parent_tree=directory["key"],
         )
 
 
