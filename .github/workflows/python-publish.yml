@@ -32,7 +32,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Install uv and Python
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@v7
     - name: Check if package can be installed and imported
       run: uv run --isolated --with . --no-project -- python -c "import openneuro"
     - name: Check if CLI works
