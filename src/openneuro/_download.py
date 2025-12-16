@@ -208,12 +208,10 @@ def _get_download_metadata(
 
     # Sometimes we do get a response, but it contains a gateway timeout error
     # message (504 or 502 status code)
-    if (
-        response_json is not None
-        and "errors" in response_json
-        and response_json["errors"][0]["message"].startswith(("504", "502"))
-    ):
-        request_timed_out = True
+    if response_json is not None and "errors" in response_json:
+        message = response_json["errors"][0]["message"]
+        if message.startswith(("504", "502")) or message.endswith("due to timeout"):
+            request_timed_out = True
 
     if request_timed_out and max_retries > 0:
         tqdm.write(_unicode("Request timed out while fetching metadata, retrying"))
