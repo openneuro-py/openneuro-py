@@ -147,21 +147,27 @@ def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
 
 
 def _write_retry(*, what: str, retry: int, backoff: float) -> str:
-    remaining = (
-        "1 retry remains" if retry == 1 else f"{retry} retries remain"
-    )
+    remaining = "1 retry remains" if retry == 1 else f"{retry} retries remain"
     remaining += f", backing off {backoff:0.1f}s"
-    tqdm.write(_unicode(
-        f"Request timed out while {what}, retrying ({remaining})",
-        emoji="🔄",
-    ))
+    tqdm.write(
+        _unicode(
+            f"Request timed out while {what}, retrying ({remaining})",
+            emoji="🔄",
+        )
+    )
 
 
 def _check_snapshot_exists(
     *, dataset_id: str, tag: str, max_retries: int, retry_backoff: float
 ) -> None:
     query = all_snapshots_query_template.substitute(dataset_id=dataset_id)
-    response_json = _retry_request(query, what=f"fetching list of snapshots", timeout=60., max_retries=max_retries, retry_backoff=retry_backoff)
+    response_json = _retry_request(
+        query,
+        what="fetching list of snapshots",
+        timeout=60.0,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+    )
 
     snapshots = response_json["data"]["dataset"]["snapshots"]
     tags = [s["id"].replace(f"{dataset_id}:", "") for s in snapshots]
@@ -183,7 +189,7 @@ def _get_download_metadata(
     max_retries: int,
     retry_backoff: float = 0.5,
     check_snapshot: bool = True,
-    metadata_timeout: float = 60.,
+    metadata_timeout: float = 60.0,
 ) -> dict[str, Any]:
     """Retrieve dataset metadata required for the download."""
     if tag is None:
@@ -201,14 +207,22 @@ def _get_download_metadata(
         )
 
     kind = "dataset" if tree == "null" else f"{tree=}"
-    response_json = _retry_request(query, what=f"retrieving metadata for {kind}", timeout=metadata_timeout, max_retries=max_retries, retry_backoff=retry_backoff)
+    response_json = _retry_request(
+        query,
+        what=f"retrieving metadata for {kind}",
+        timeout=metadata_timeout,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+    )
     if tag is None:
         return response_json["data"]["dataset"]["latestSnapshot"]
     else:
         return response_json["data"]["snapshot"]
 
 
-def _retry_request(query: str, *, what: str, timeout: float, max_retries: int, retry_backoff: float) -> dict[str, Any]:
+def _retry_request(
+    query: str, *, what: str, timeout: float, max_retries: int, retry_backoff: float
+) -> dict[str, Any]:
     response_json: dict[str, Any] | None = None
     for retry in reversed(range(max_retries + 1)):
         response_json, request_timed_out = _safe_query(query, timeout=timeout)
@@ -451,7 +465,9 @@ async def _retry_download(
     semaphore: asyncio.Semaphore,
     query_str: str,
 ) -> None:
-    _write_retry(what=f"downloading {outfile}", retry=max_retries, backoff=retry_backoff)
+    _write_retry(
+        what=f"downloading {outfile}", retry=max_retries, backoff=retry_backoff
+    )
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
     retry_backoff *= 2
@@ -749,7 +765,7 @@ def download(
     verify_size: bool = True,
     max_retries: int = 5,
     max_concurrent_downloads: int = 5,
-    metadata_timeout: float = 60.,
+    metadata_timeout: float = 60.0,
 ) -> None:
     """Download datasets from OpenNeuro.
 
@@ -786,6 +802,7 @@ def download(
         The maximum number of downloads to run in parallel.
     metadata_timeout
         Timeout in seconds for metadata queries.
+
     """
     msg_problems = "problems 🤯" if stdout_unicode else "problems"
     msg_bugs = "bugs 🪲" if stdout_unicode else "bugs"
