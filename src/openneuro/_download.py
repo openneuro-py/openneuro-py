@@ -216,7 +216,7 @@ def _get_download_metadata(
     ):
         request_timed_out = True
 
-    for_this = f" for {this_dir!r}"
+    for_this = f"for {this_dir!r}"
     if request_timed_out and max_retries > 0:
         tqdm.write(
             _unicode(f"Request timed out while fetching metadata {for_this}, retrying")
