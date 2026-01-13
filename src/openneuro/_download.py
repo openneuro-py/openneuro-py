@@ -765,7 +765,7 @@ def download(
     verify_size: bool = True,
     max_retries: int = 5,
     max_concurrent_downloads: int = 5,
-    metadata_timeout: float = 60.0,
+    metadata_timeout: float = 15.0,
 ) -> None:
     """Download datasets from OpenNeuro.
 
