@@ -64,7 +64,7 @@ def download_cli(
         typer.Option(
             help="Timeout in seconds for metadata queries.",
         ),
-    ] = 60.,
+    ] = 15.0,
 ) -> None:
     """Download datasets from OpenNeuro."""
     download(
