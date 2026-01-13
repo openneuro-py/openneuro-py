@@ -188,6 +188,7 @@ def _get_download_metadata(
     max_retries: int,
     retry_backoff: float = 0.5,
     check_snapshot: bool = True,
+    this_dir: str,
 ) -> dict[str, Any]:
     """Retrieve dataset metadata required for the download."""
     if tag is None:
@@ -215,8 +216,11 @@ def _get_download_metadata(
     ):
         request_timed_out = True
 
+    for_this = f" for {this_dir!r}"
     if request_timed_out and max_retries > 0:
-        tqdm.write(_unicode("Request timed out while fetching metadata, retrying"))
+        tqdm.write(
+            _unicode(f"Request timed out while fetching metadata {for_this}, retrying")
+        )
         asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
         max_retries -= 1
         retry_backoff *= 2
@@ -227,9 +231,10 @@ def _get_download_metadata(
             max_retries=max_retries,
             retry_backoff=retry_backoff,
             check_snapshot=check_snapshot,
+            this_dir=this_dir,
         )
     elif request_timed_out:
-        raise RuntimeError("Timeout when trying to fetch metadata.")
+        raise RuntimeError(f"Timeout when trying to fetch metadata {for_this}.")
 
     if response_json is not None:
         if "errors" in response_json:
@@ -253,13 +258,13 @@ def _get_download_metadata(
                         f"not log you in. {e}"
                     )
             else:
-                raise RuntimeError(f'Query failed: "{msg}"')
+                raise RuntimeError(f'Query failed {for_this}: "{msg}"')
         elif tag is None:
             return response_json["data"]["dataset"]["latestSnapshot"]
         else:
             return response_json["data"]["snapshot"]
     else:
-        raise RuntimeError("Error when trying to fetch metadata.")
+        raise RuntimeError(f"Error when trying to fetch metadata {for_this:!r}.")
 
 
 async def _download_file(
@@ -721,6 +726,7 @@ def _iterate_filenames(
             tree=f'"{directory["key"]}"',
             max_retries=max_retries,
             check_snapshot=False,
+            this_dir=this_dir,
         )
         yield from _iterate_filenames(
             metadata["files"],
@@ -831,6 +837,7 @@ def download(
         tag=tag,
         max_retries=max_retries,
         retry_backoff=retry_backoff,
+        this_dir="/",
     )
     del tag
     tag = metadata["id"].replace(f"{dataset}:", "")
