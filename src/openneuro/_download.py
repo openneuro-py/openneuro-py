@@ -653,6 +653,133 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     return local_version
 
 
+def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
+    """Determine if a directory should be traversed based on include pattern.
+
+    Parameters
+    ----------
+    dir_path
+        The directory path to check.
+    include_pattern
+        Single include pattern to match against.
+
+    Returns
+    -------
+    bool
+        True if the directory should be traversed, False otherwise.
+
+    """
+    # Normalize pattern across OSes
+    dir_path = str(PurePosixPath(dir_path))
+    include_pattern = str(PurePosixPath(include_pattern))
+    # ----------------------------------------------------------
+    # Directory Traversal Logic for Include Patterns
+    #
+    # This block determines whether a directory should be traversed
+    # based on the provided "include" pattern. The logic covers
+    # several cases, each with clear examples.
+    # ----------------------------------------------------------
+
+    # -----------------------------------------------------------------
+    # 1. Exact Directory Match
+    #    - Traverse if the directory path exactly matches the include pattern.
+    #    - Examples:
+    #        ✔ dir_path = "sub-01", inc = "sub-01"         --> traverse
+    #        ✘ dir_path = "sub-02", inc = "sub-01"         --> do not traverse
+    # -----------------------------------------------------------------
+    if dir_path == include_pattern:
+        return True
+
+    # -----------------------------------------------------------------
+    # 2. Directory (dir_path) is a Parent of the Include Pattern
+    # - Traverse if the directory is a parent of the include pattern.
+    # - This allows traversal down to subdirectories/files that match.
+    # - Examples:
+    #     ✔ dir_path = "sub-01", inc = "sub-01/*"                --> traverse
+    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-meg/*"        --> traverse
+    #     ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg/*" --> do not traverse
+    # - Logic: Compare path parts; traverse if all parts of dir_path
+    #     match the start of inc_parts.
+    # -----------------------------------------------------------------
+    inc_parts = PurePosixPath(include_pattern).parts
+    dir_parts = PurePosixPath(dir_path).parts
+
+    if len(dir_parts) <= len(inc_parts) and all(
+        d == i for d, i in zip(dir_parts, inc_parts)
+    ):
+        return True
+
+    # -----------------------------------------------------------------
+    # 3. Directory (dir_path) or Subdirectory Match (No Wildcards)
+    # - Traverse if the include pattern is a directory (no wildcards)
+    #     and matches this directory or any of its subdirectories.
+    # - Examples:
+    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-emg"  --> traverse
+    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-emg/" --> traverse
+    #     ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg" --> do not traverse
+    # - Logic: If inc has no wildcards and dir_path is equal to inc
+    #     (with or without trailing slash), or is a subdirectory.
+    # -----------------------------------------------------------------
+    if dir_path == include_pattern.rstrip("/") or (
+        not any(char in include_pattern for char in "*?")
+        and (
+            dir_path == include_pattern
+            or dir_path.startswith(include_pattern.rstrip("/") + "/")
+        )
+    ):
+        return True
+
+    # -----------------------------------------------------------------
+    # 4. Wildcard Pattern Prefix Match
+    # - Traverse if the directory path (dir_path) matches the prefix of an
+    #     include pattern containing a wildcard.
+    # - Examples:
+    #     ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*"     --> traverse
+    #     ✔ dir_path = "sub-01/ses-meg/meg", inc = "sub-01/*"  --> traverse
+    #     ✘ dir_path = "sub-01", inc = "*.json"                --> do not traverse
+    #     ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*.json" --> do not traverse
+    #     ✘ dir_path = "sub-02/ses-meg", inc = "sub-01/*"      --> do not traverse
+    # - Logic: Use the part of inc before the '*' as a prefix.
+    # -----------------------------------------------------------------
+    if "*" in include_pattern and not include_pattern.startswith("*."):
+        pattern_prefix = include_pattern.split("*")[0]
+        if dir_path.startswith(pattern_prefix):
+            return True
+
+    # -----------------------------------------------------------------
+    # 5. Double Wildcard (**) Pattern Match
+    # - Traverse if the include pattern contains ** and the directory
+    #     could potentially match the pattern.
+    # - Examples:
+    #     ✔ dir_path = "sub-01", inc = "**/ses-meg/**"     --> traverse
+    #     ✔ dir_path = "sub-01/ses-meg", inc = "**/ses-meg/**" --> traverse
+    #     ✔ dir_path = "sub-01/ses-meg/meg", inc = "**/ses-meg/**" --> traverse
+    #     ✘ dir_path = "sub-01/ses-mri", inc = "**/ses-meg/**" --> do not traverse
+    # - Logic: If pattern contains **, check if any part of the pattern
+    #     (excluding **) could match the directory path.
+    # -----------------------------------------------------------------
+    if "**" in include_pattern:
+        # Split the pattern by ** and check if any part could match
+        pattern_parts = include_pattern.split("**")
+        for i, part in enumerate(pattern_parts):
+            if part and not part.startswith("/"):
+                # This part should match somewhere in the path
+                if part in dir_path:
+                    return True
+            elif part and part.startswith("/"):
+                # This part should match at the end of the path
+                if dir_path.endswith(part.rstrip("/")):
+                    return True
+        # If pattern is just ** or **/, always traverse
+        if include_pattern in ("**", "**/"):
+            return True
+
+    # -----------------------------------------------------------------
+    # If none of the above cases matched, do not traverse this directory.
+    # -----------------------------------------------------------------
+    return False
+
+
 def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
     if stdout_unicode:
         msg = f"{emoji} {msg} {end}"
@@ -683,40 +810,18 @@ def _iterate_filenames(
             yield entity
 
     for directory in directories:
-        # Only bother with directories that are in the include list
         if include:
-            # Take the example:
-            #
-            # --include="sub-CON001/*.eeg"
-            #
-            # or
-            #
-            # --include="sub-CON001"
-            #
-            # or
-            #
-            # --include="sub-CON001/*"
-            #
-            # All three of these should traverse `sub-CON001` and its
-            # subdirectories.
-            n_parts = len(PurePosixPath(root).parts)
-            dir_include = [PurePosixPath(inc) for inc in include]
-            dir_include = (
-                [  # for stuff like sub-CON001/*
-                    "/".join(inc.parts[:n_parts] + ("*",))
-                    for inc in dir_include
-                    if len(inc.parts) >= n_parts
-                ]
-                + [  # and stuff like sub-CON001/*.eeg
-                    "/".join(inc.parts[: n_parts - 1] + ("*",))
-                    for inc in dir_include
-                    if len(inc.parts) >= n_parts - 1 and len(inc.parts) > 1
-                ]
-            )  # we want to traverse sub-CON001 in both cases
-            matches_include, _ = _match_include_exclude(
-                directory["filename"], include=dir_include, exclude=[]
-            )
-            if dir_include and not any(matches_include):
+            dir_path = directory["filename"]
+
+            # Check if any of the include patterns match or are parents
+            # of this directory
+            should_traverse = False
+            for inc in include:
+                if _traverse_directory(dir_path, inc):
+                    should_traverse = True
+                    break
+
+            if not should_traverse:
                 continue
         # Query filenames
         this_dir = directory["filename"]
@@ -892,9 +997,16 @@ def download(
             "CHANGES",
         ):
             files.append(file)
+
             # Keep track of include matches.
+            matches_to_include = [
+                inc for inc in include if fnmatch.fnmatch(filename, inc)
+            ]
             if filename in include:
                 include_counts[include.index(filename)] += 1
+            elif matches_to_include:
+                for match in matches_to_include:
+                    include_counts[include.index(match)] += 1
             continue
 
         matches_keep, matches_exclude = _match_include_exclude(
