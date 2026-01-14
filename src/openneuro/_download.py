@@ -133,7 +133,7 @@ def _safe_query(
         try:
             token = get_token()
             session.cookies.set_cookie(
-                requests.cookies.create_cookie("accessToken", token)
+                requests.cookies.create_cookie("accessToken", token)  # type: ignore[no-untyped-call]
             )
             tqdm.write("🍪 Using API token to log in")
         except ValueError:
