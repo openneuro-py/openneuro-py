@@ -52,6 +52,7 @@ def load_config() -> dict[str, str]:
     """
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = json.load(f)
+    assert isinstance(config, dict)
     return config
 
 

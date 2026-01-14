@@ -104,6 +104,6 @@ def main(
             is_eager=True,
         ),
     ] = False,
-):
+) -> None:
     """Access OpenNeuro datasets."""
     pass

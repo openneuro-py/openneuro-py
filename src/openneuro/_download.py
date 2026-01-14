@@ -70,7 +70,7 @@ allowed_retry_exceptions = (
     #  (incomplete chunked read)"
     httpx.RemoteProtocolError,
 )
-user_agent_header = {"user-agent": f"openneuro-py/{__version__}"}
+user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"}
 
 # GraphQL endpoint and queries.
 
@@ -125,7 +125,9 @@ snapshot_query_template = string.Template(
 )
 
 
-def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
+def _safe_query(
+    query: str, *, timeout: float | None = None
+) -> tuple[dict[str, Any] | None, bool]:
     with requests.Session() as session:
         session.headers.update(user_agent_header)
         try:
@@ -146,7 +148,7 @@ def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
     return response_json, request_timed_out
 
 
-def _write_retry(*, what: str, retry: int, backoff: float) -> str:
+def _write_retry(*, what: str, retry: int, backoff: float) -> None:
     remaining = "1 retry remains" if retry == 1 else f"{retry} retries remain"
     remaining += f", backing off {backoff:0.1f}s"
     tqdm.write(
@@ -216,9 +218,11 @@ def _get_download_metadata(
         retry_backoff=retry_backoff,
     )
     if tag is None:
-        return response_json["data"]["dataset"]["latestSnapshot"]
+        out = response_json["data"]["dataset"]["latestSnapshot"]
     else:
-        return response_json["data"]["snapshot"]
+        out = response_json["data"]["snapshot"]
+    assert isinstance(out, dict)
+    return out
 
 
 def _retry_request(
@@ -337,6 +341,7 @@ async def _download_file(
     headers = user_agent_header.copy()
     headers["Accept-Encoding"] = ""  # Disable compression
 
+    mode: Literal["ab", "wb"] = "wb"
     if outfile.exists() and local_file_size == remote_file_size:
         hash = hashlib.md5()
 
@@ -354,7 +359,6 @@ async def _download_file(
             and hash.hexdigest() != remote_file_hash
         ):
             desc = f"Re-downloading {outfile.name}: file hash mismatch."
-            mode = "wb"
             outfile.unlink()
             local_file_size = 0
         else:
@@ -384,13 +388,11 @@ async def _download_file(
     elif outfile.exists():
         # Local file is larger than remote – overwrite.
         desc = f"Re-downloading {outfile.name}: file size mismatch."
-        mode = "wb"
         outfile.unlink()
         local_file_size = 0
     else:
         # File doesn't exist locally, download entirely.
         desc = outfile.name
-        mode = "wb"
 
     async with semaphore:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -631,6 +633,7 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
         )
 
     local_doi = local_json["DatasetDOI"]
+    assert isinstance(local_doi, str)
     if local_doi.startswith("doi:"):
         # Remove the "protocol" prefix
         local_doi = local_doi[4:]
@@ -660,7 +663,7 @@ def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
 
 
 def _iterate_filenames(
-    files: Iterable[dict],
+    files: Iterable[dict[str, Any]],
     *,
     dataset_id: str,
     tag: str | None,
@@ -699,16 +702,16 @@ def _iterate_filenames(
             # All three of these should traverse `sub-CON001` and its
             # subdirectories.
             n_parts = len(PurePosixPath(root).parts)
-            dir_include = [PurePosixPath(inc) for inc in include]
+            dir_include_paths = [PurePosixPath(inc) for inc in include]
             dir_include = (
                 [  # for stuff like sub-CON001/*
                     "/".join(inc.parts[:n_parts] + ("*",))
-                    for inc in dir_include
+                    for inc in dir_include_paths
                     if len(inc.parts) >= n_parts
                 ]
                 + [  # and stuff like sub-CON001/*.eeg
                     "/".join(inc.parts[: n_parts - 1] + ("*",))
-                    for inc in dir_include
+                    for inc in dir_include_paths
                     if len(inc.parts) >= n_parts - 1 and len(inc.parts) > 1
                 ]
             )  # we want to traverse sub-CON001 in both cases

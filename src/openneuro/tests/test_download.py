@@ -13,7 +13,7 @@ from openneuro import download
 dataset_id_aws = "ds000246"
 tag_aws = "1.0.0"
 include_aws = "sub-0001/anat"
-exclude_aws = []
+exclude_aws: list[str] = []
 
 dataset_id_on = "ds000117"
 tag_on = None
