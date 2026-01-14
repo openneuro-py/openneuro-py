@@ -52,7 +52,7 @@ def test_download_invalid_tag(
 def test_resume_download(tmp_path: Path):
     """Test resuming of a dataset download."""
     dataset = "ds000246"
-    tag = "1.0.0"
+    tag = "1.0.1"
     include = ["CHANGES"]
     download(dataset=dataset, tag=tag, target_dir=tmp_path, include=include)
 
