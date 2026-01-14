@@ -5,7 +5,7 @@ import typer
 import openneuro
 from openneuro._download import download, login
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 
 
 @app.command(name="download")
@@ -59,6 +59,12 @@ def download_cli(
             help="The maximum number of downloads to run in parallel.",
         ),
     ] = 5,
+    metadata_timeout: Annotated[
+        float,
+        typer.Option(
+            help="Timeout in seconds for metadata queries.",
+        ),
+    ] = 15.0,
 ) -> None:
     """Download datasets from OpenNeuro."""
     download(
@@ -71,6 +77,7 @@ def download_cli(
         verify_size=verify_size,
         max_retries=max_retries,
         max_concurrent_downloads=max_concurrent_downloads,
+        metadata_timeout=metadata_timeout,
     )
 
 
