@@ -5,7 +5,7 @@ import typer
 import openneuro
 from openneuro._download import download, login
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 
 
 @app.command(name="download")
