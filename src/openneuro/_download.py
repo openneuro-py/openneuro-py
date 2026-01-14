@@ -290,6 +290,13 @@ async def _download_file(
         local_file_size = outfile.stat().st_size
     else:
         local_file_size = 0
+    # For debugging purposes, if there is a problem with a specific file, lines like
+    # this can help (used for https://github.com/OpenNeuroOrg/openneuro/issues/3665):
+    #
+    # tqdm.write(f"Downloading: {outfile.name} from {url}")
+    # tqdm.write(f"Query:       {query_str}")
+    # if outfile.name == "lh.sphere":
+    #     raise RuntimeError(query_str)
 
     # The OpenNeuro servers are sometimes very slow to respond, so use a
     # gigantic timeout for those.
@@ -336,14 +343,23 @@ async def _download_file(
                 remote_file_size = int(response.headers["content-length"])
             except KeyError:
                 # The server doesn't always set a Content-Length header.
-                remote_file_size = None
+                remote_file_size = api_file_size
+            if remote_file_size != api_file_size:
+                tqdm.write(
+                    _unicode(
+                        f"Warning: size mismatch for {outfile.name}: "
+                        f"API size {api_file_size} bytes, "
+                        f"server size {remote_file_size} bytes.",
+                        emoji="⚠️",
+                    )
+                )
 
     headers = user_agent_header.copy()
     headers["Accept-Encoding"] = ""  # Disable compression
 
     mode: Literal["ab", "wb"] = "wb"
     if outfile.exists() and local_file_size == remote_file_size:
-        hash = hashlib.md5()
+        hash_ = hashlib.md5()
 
         if verify_hash and remote_file_hash is not None:
             async with aiofiles.open(outfile, "rb") as f:
@@ -351,12 +367,12 @@ async def _download_file(
                     data = await f.read(65536)
                     if not data:
                         break
-                    hash.update(data)
+                    hash_.update(data)
 
         if (
             verify_hash
             and remote_file_hash is not None
-            and hash.hexdigest() != remote_file_hash
+            and hash_.hexdigest() != remote_file_hash
         ):
             desc = f"Re-downloading {outfile.name}: file hash mismatch."
             outfile.unlink()
@@ -376,11 +392,7 @@ async def _download_file(
             )
             t.close()
             return
-    elif (
-        outfile.exists()
-        and remote_file_size is not None
-        and local_file_size < remote_file_size
-    ):
+    elif outfile.exists() and local_file_size < remote_file_size:
         # Download incomplete, resume.
         desc = f"Resuming {outfile.name}"
         headers["Range"] = f"bytes={local_file_size}-"
@@ -495,7 +507,7 @@ async def _retrieve_and_write_to_disk(
     mode: Literal["ab", "wb"],
     desc: str,
     local_file_size: int,
-    remote_file_size: int | None,
+    remote_file_size: int,
     remote_file_hash: str | None,
     verify_hash: bool,
     verify_size: bool,
@@ -544,7 +556,7 @@ async def _retrieve_and_write_to_disk(
         if verify_size:
             await f.flush()
             local_file_size = outfile.stat().st_size
-            if remote_file_size is not None and not local_file_size == remote_file_size:
+            if local_file_size != remote_file_size:
                 raise RuntimeError(
                     f"Server claimed size of {outfile} would be "
                     f"{remote_file_size} bytes, but downloaded "
