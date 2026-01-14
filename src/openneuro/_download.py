@@ -189,7 +189,8 @@ def _get_download_metadata(
     max_retries: int,
     retry_backoff: float = 0.5,
     check_snapshot: bool = True,
-    metadata_timeout: float = 60.0,
+    metadata_timeout: float = 15.0,
+    this_dir: str,
 ) -> dict[str, Any]:
     """Retrieve dataset metadata required for the download."""
     if tag is None:
@@ -206,7 +207,7 @@ def _get_download_metadata(
             dataset_id=dataset_id, tag=tag, tree=tree
         )
 
-    kind = "dataset" if tree == "null" else f"{tree=}"
+    kind = "dataset" if tree == "null" else f"{this_dir!r} (with {tree=})"
     response_json = _retry_request(
         query,
         what=f"retrieving metadata for {kind}",
@@ -725,6 +726,7 @@ def _iterate_filenames(
             max_retries=max_retries,
             check_snapshot=False,
             metadata_timeout=metadata_timeout,
+            this_dir=this_dir,
         )
         yield from _iterate_filenames(
             metadata["files"],
@@ -840,6 +842,7 @@ def download(
         max_retries=max_retries,
         retry_backoff=retry_backoff,
         metadata_timeout=metadata_timeout,
+        this_dir="/",
     )
     del tag
     tag = metadata["id"].replace(f"{dataset}:", "")
