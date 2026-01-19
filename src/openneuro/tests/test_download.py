@@ -230,7 +230,7 @@ def test_traverse_directory(
     load_json("expected_files_test_cases.json"),
 )
 def test_download_file_list_generation(
-    dataset: str, include: list[str], expected_files: list[str]
+    dataset: str, include: list[str], expected_files: list[str], tmp_path: Path
 ):
     """Test that download generates the correct list of files.
 
@@ -461,7 +461,7 @@ def test_download_file_list_generation(
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
-            target_dir=Path("/tmp/test"),
+            target_dir=Path(tmp_path),
             include=include,
         )
 
@@ -478,7 +478,9 @@ def test_download_file_list_generation(
     ("dataset", "include", "expected_num_files"),
     load_json("expected_file_count_test_cases.json"),
 )
-def test_download_file_count(dataset: str, include: list[str], expected_num_files: int):
+def test_download_file_count(
+    dataset: str, include: list[str], expected_num_files: int, tmp_path: Path
+):
     """Test that download generates the correct number of files.
 
     This test verifies the file filtering logic by mocking
@@ -518,7 +520,7 @@ def test_download_file_count(dataset: str, include: list[str], expected_num_file
         _download.download(
             dataset=dataset,
             tag="1.1.0",
-            target_dir=Path("/tmp/test"),
+            target_dir=tmp_path,
             include=include,
         )
 

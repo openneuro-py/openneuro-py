@@ -52,6 +52,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives",
         "id": "derivatives"
       },
       {
@@ -59,6 +60,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1",
         "id": "sub1"
       },
       {
@@ -66,6 +68,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2",
         "id": "sub2"
       },
       {
@@ -73,6 +76,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub-emptyroom",
         "id": "sub-emptyroom"
       }
     ]
@@ -84,6 +88,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer",
         "id": "derivatives_freesurfer"
       },
       {
@@ -91,6 +96,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_meg_derivatives",
         "id": "derivatives_meg_derivatives"
       }
     ]
@@ -133,6 +139,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub1",
         "id": "derivatives_freesurfer_sub1"
       },
       {
@@ -140,6 +147,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub2",
         "id": "derivatives_freesurfer_sub2"
       }
     ]
@@ -151,6 +159,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri",
         "id": "derivatives_freesurfer_sub1_ses_mri"
       }
     ]
@@ -162,6 +171,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat",
         "id": "derivatives_freesurfer_sub1_ses_mri_anat"
       }
     ]
@@ -173,6 +183,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat_label",
         "id": "derivatives_freesurfer_sub1_ses_mri_anat_label"
       },
       {
@@ -180,6 +191,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat_mri",
         "id": "derivatives_freesurfer_sub1_ses_mri_anat_mri"
       },
       {
@@ -187,6 +199,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat_surf",
         "id": "derivatives_freesurfer_sub1_ses_mri_anat_surf"
       }
     ]
@@ -381,6 +394,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri",
         "id": "derivatives_freesurfer_sub2_ses_mri"
       }
     ]
@@ -392,6 +406,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat",
         "id": "derivatives_freesurfer_sub2_ses_mri_anat"
       }
     ]
@@ -403,6 +418,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat_label",
         "id": "derivatives_freesurfer_sub2_ses_mri_anat_label"
       },
       {
@@ -410,6 +426,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat_mri",
         "id": "derivatives_freesurfer_sub2_ses_mri_anat_mri"
       },
       {
@@ -417,6 +434,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat_surf",
         "id": "derivatives_freesurfer_sub2_ses_mri_anat_surf"
       }
     ]
@@ -602,6 +620,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_meg",
         "id": "sub1_ses_meg"
       },
       {
@@ -609,6 +628,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_mri",
         "id": "sub1_ses_mri"
       }
     ]
@@ -647,6 +667,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_meg_beh",
         "id": "sub1_ses_meg_beh"
       },
       {
@@ -654,6 +675,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_meg_meg",
         "id": "sub1_ses_meg_meg"
       }
     ]
@@ -736,6 +758,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_mri_anat",
         "id": "sub1_ses_mri_anat"
       },
       {
@@ -743,6 +766,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_mri_dwi",
         "id": "sub1_ses_mri_dwi"
       },
       {
@@ -750,6 +774,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_mri_func",
         "id": "sub1_ses_mri_func"
       },
       {
@@ -757,6 +782,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub1_ses_mri_fmap",
         "id": "sub1_ses_mri_fmap"
       }
     ]
@@ -1072,6 +1098,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_meg",
         "id": "sub2_ses_meg"
       },
       {
@@ -1079,6 +1106,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_mri",
         "id": "sub2_ses_mri"
       }
     ]
@@ -1117,6 +1145,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_meg_beh",
         "id": "sub2_ses_meg_beh"
       },
       {
@@ -1124,6 +1153,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_meg_meg",
         "id": "sub2_ses_meg_meg"
       }
     ]
@@ -1206,6 +1236,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_mri_anat",
         "id": "sub2_ses_mri_anat"
       },
       {
@@ -1213,6 +1244,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_mri_dwi",
         "id": "sub2_ses_mri_dwi"
       },
       {
@@ -1220,6 +1252,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_mri_func",
         "id": "sub2_ses_mri_func"
       },
       {
@@ -1227,6 +1260,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub2_ses_mri_fmap",
         "id": "sub2_ses_mri_fmap"
       }
     ]
@@ -1542,6 +1576,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub-emptyroom_ses-20090409",
         "id": "sub-emptyroom_ses-20090409"
       }
     ]
@@ -1562,6 +1597,7 @@
         "urls": [],
         "size": 0,
         "directory": true,
+        "key": "sub-emptyroom_ses-20090409_meg",
         "id": "sub-emptyroom_ses-20090409_meg"
       }
     ]
