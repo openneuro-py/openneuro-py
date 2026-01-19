@@ -140,9 +140,13 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
     assert (tmp_path / "README.txt").exists()
 
 
+_TEST_CASES_LIST = load_json("traverse_dir_test_cases.json")
+assert isinstance(_TEST_CASES_LIST, list)
+
+
 @pytest.mark.parametrize(
     ("dir_path", "include_pattern", "expected"),
-    load_json("traverse_dir_test_cases.json")
+    _TEST_CASES_LIST
     + [
         # TODO: These three tests cases are failing because directory
         # should not be traversed for include_pattern that does not
