@@ -334,10 +334,10 @@ async def _download_file(
 
             # Try to get the S3 MD5 hash for the file.
             try:
-                remote_file_hash: str | None = headers["etag"].strip('"')
-                if (
-                    remote_file_hash is not None and len(remote_file_hash) != 32
-                ):  # It's not an MD5 hash.
+                etag_hash = headers["etag"].strip('"')
+                if len(etag_hash) == 32:
+                    remote_file_hash = etag_hash
+                else:  # It's not an MD5 hash.
                     remote_file_hash = None
             except KeyError:
                 remote_file_hash = None
