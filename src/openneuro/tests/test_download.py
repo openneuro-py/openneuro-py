@@ -32,8 +32,16 @@ invalid_tag = "abcdefg"
 @pytest.mark.parametrize(
     ("dataset_id", "tag", "include", "exclude"),
     [
-        (dataset_id_aws, tag_aws, include_aws, exclude_aws),
-        (dataset_id_on, tag_on, include_on, exclude_on),
+        # errors on this one as of 2026/01/19
+        pytest.param(
+            dataset_id_aws,
+            tag_aws,
+            include_aws,
+            exclude_aws,
+            id="aws-ds000246",
+            marks=pytest.mark.xfail(reason="ECONNREFUSED"),
+        ),
+        pytest.param(dataset_id_on, tag_on, include_on, exclude_on, id="on-ds000117"),
     ],
 )
 def test_download(tmp_path: Path, dataset_id, tag, include, exclude):
