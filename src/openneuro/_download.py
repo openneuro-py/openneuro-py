@@ -334,8 +334,10 @@ async def _download_file(
 
             # Try to get the S3 MD5 hash for the file.
             try:
-                remote_file_hash = headers["etag"].strip('"')
-                if len(remote_file_hash) != 32:  # It's not an MD5 hash.
+                remote_file_hash: str | None = headers["etag"].strip('"')
+                if (
+                    remote_file_hash is not None and len(remote_file_hash) != 32
+                ):  # It's not an MD5 hash.
                     remote_file_hash = None
             except KeyError:
                 remote_file_hash = None
@@ -356,8 +358,8 @@ async def _download_file(
                     )
                 )
 
-    headers = user_agent_header.copy()
-    headers["Accept-Encoding"] = ""  # Disable compression
+    request_headers: dict[str, str] = user_agent_header.copy()
+    request_headers["Accept-Encoding"] = ""  # Disable compression
 
     mode: Literal["ab", "wb"] = "wb"
     if outfile.exists() and local_file_size == remote_file_size:
@@ -397,7 +399,7 @@ async def _download_file(
     elif outfile.exists() and local_file_size < remote_file_size:
         # Download incomplete, resume.
         desc = f"Resuming {outfile.name}"
-        headers["Range"] = f"bytes={local_file_size}-"
+        request_headers["Range"] = f"bytes={local_file_size}-"
         mode = "ab"
     elif outfile.exists():
         # Local file is larger than remote – overwrite.
@@ -411,7 +413,9 @@ async def _download_file(
     async with semaphore:
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                async with client.stream("GET", url=url, headers=headers) as response:
+                async with client.stream(
+                    "GET", url=url, headers=request_headers
+                ) as response:
                     if not response.is_error:
                         pass  # All good!
                     elif (

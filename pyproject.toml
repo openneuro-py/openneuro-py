@@ -36,6 +36,7 @@ dev = [
   "pytest>=8.4.1",
   "types-aiofiles>=25.1.0.20251011",
   "types-requests>=2.32.4.20260107",
+  "types-tqdm",
 ]
 
 [build-system]
@@ -60,6 +61,10 @@ module = ["openneuro.tests.*"]
 disable_error_code = [
   "no-untyped-def",
 ]
+
+[[tool.mypy.overrides]]
+module = ["sgqlc.*"]
+ignore_missing_imports = true
 
 [tool.pytest]
 addopts = ["--durations=10", "--tb=short", "-ra", "-vv"]
