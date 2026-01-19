@@ -1,37 +1,45 @@
-[build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
-
 [project]
 name = "openneuro-py"
 description = "A Python client for OpenNeuro."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-keywords = ["science", "neuroscience"]
 authors = [
   { name = "Richard Höchenberger", email = "richard.hoechenberger@gmail.com" },
 ]
+keywords = ["neuroscience", "science"]
 classifiers = [
   "Intended Audience :: Science/Research",
   "Programming Language :: Python",
 ]
 dependencies = [
+  "aiofiles",
   "httpx >= 0.15",
+  "platformdirs",
   "requests",
+  "sgqlc",
   "tqdm",
   "typer-slim[standard]>=0.16",
-  "aiofiles",
-  "sgqlc",
-  "platformdirs",
 ]
 dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/hoechenberger/openneuro-py"
 
 [project.scripts]
 openneuro-py = "openneuro._cli:app"
 
-[project.urls]
-homepage = "https://github.com/hoechenberger/openneuro-py"
+[dependency-groups]
+dev = [
+  "lefthook>=1.10.4",
+  "pytest>=8.4.1",
+  "types-aiofiles>=25.1.0.20251011",
+  "types-requests>=2.32.4.20260107",
+]
+
+[build-system]
+requires = ["hatch-vcs", "hatchling"]
+build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
@@ -39,22 +47,6 @@ raw-options = { version_scheme = "release-branch-semver" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openneuro"]
-
-[tool.pytest.ini_options]
-addopts = "-ra -vv --tb=short --durations=10"
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "D", "I"]
-ignore = [
-  "D203", # one-blank-line-before-class
-  "D213", # multi-line-summary-second-line
-]
-
-[dependency-groups]
-dev = [
-    "pre-commit>=4.2.0",
-    "pytest>=8.4.1",
-]
 
 [tool.mypy]
 ignore_errors = false
@@ -66,4 +58,14 @@ modules = ["openneuro"]
 module = ["openneuro.tests.*"]
 disable_error_code = [
   "no-untyped-def",
+]
+
+[tool.pytest]
+addopts = ["--durations=10", "--tb=short", "-ra", "-vv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "D", "I"]
+ignore = [
+  "D203",  # one-blank-line-before-class
+  "D213",  # multi-line-summary-second-line
 ]

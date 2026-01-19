@@ -1,0 +1,18 @@
+pre-commit:
+  parallel: true
+  commands:
+    ruff-lint:
+      glob: "*.py"
+      run: uvx ruff check --fix {staged_files}
+    ruff-format:
+      glob: "*.py"
+      run: uvx ruff format {staged_files}
+    mypy:
+      glob: "*.py"
+      run: uvx mypy {staged_files}
+    tombi-format:
+      glob: "*.toml"
+      run: uvx tombi format {staged_files}
+    tombi-lint:
+      glob: "*.toml"
+      run: uvx tombi lint {staged_files}

@@ -1,0 +1,32 @@
+name: Auto-fix
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  auto-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Run formatters and linters with auto-fix
+        run: |
+          uvx ruff check --fix .
+          uvx ruff format .
+          uvx tombi format .
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "[auto-fix] Apply formatting and linting fixes"
+          git push
