@@ -17,6 +17,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
 
+      - name: Install project
+        run: uv sync
+
       - name: Run formatters and linters with auto-fix
         run: uvx lefthook run pre-commit --all-files
 
