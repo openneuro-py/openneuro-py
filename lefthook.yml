@@ -9,7 +9,7 @@ pre-commit:
       run: uvx ruff format {staged_files}
     mypy:
       glob: "*.py"
-      run: uvx mypy {staged_files}
+      run: uv run mypy {staged_files}
     tombi-format:
       glob: "*.toml"
       run: uvx tombi format {staged_files}
