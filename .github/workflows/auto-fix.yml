@@ -18,10 +18,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Run formatters and linters with auto-fix
-        run: |
-          uvx ruff check --fix .
-          uvx ruff format .
-          uvx tombi format .
+        run: uvx lefthook run pre-commit --all-files
 
       - name: Commit changes
         run: |
