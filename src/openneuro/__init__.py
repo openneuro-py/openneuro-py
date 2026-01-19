@@ -6,6 +6,7 @@ Richard Höchenberger <richard.hoechenberger@gmail.com>
 
 from importlib import metadata
 
+__version__: str
 try:
     __version__ = metadata.version("openneuro-py")
 except metadata.PackageNotFoundError:

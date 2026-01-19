@@ -4,10 +4,8 @@ The flow is roughly:
 
 download
   _get_download_metadata
-    _get_download_metadata
     _check_snapshot_exists
         _safe_query
-        _check_snapshot_exists ...
   _get_local_tag
   _match_include_exclude
   _iterate_filenames
@@ -27,6 +25,7 @@ import json
 import shlex
 import string
 import sys
+import time
 from collections.abc import Generator, Iterable
 from difflib import get_close_matches
 from pathlib import Path, PurePosixPath
@@ -71,7 +70,7 @@ allowed_retry_exceptions = (
     #  (incomplete chunked read)"
     httpx.RemoteProtocolError,
 )
-user_agent_header = {"user-agent": f"openneuro-py/{__version__}"}
+user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"}
 
 # GraphQL endpoint and queries.
 
@@ -126,13 +125,15 @@ snapshot_query_template = string.Template(
 )
 
 
-def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
+def _safe_query(
+    query: str, *, timeout: float | None = None
+) -> tuple[dict[str, Any] | None, bool]:
     with requests.Session() as session:
         session.headers.update(user_agent_header)
         try:
             token = get_token()
             session.cookies.set_cookie(
-                requests.cookies.create_cookie("accessToken", token)
+                requests.cookies.create_cookie("accessToken", token)  # type: ignore[no-untyped-call]
             )
             tqdm.write("🍪 Using API token to log in")
         except ValueError:
@@ -147,27 +148,29 @@ def _safe_query(query, *, timeout=None) -> tuple[dict[str, Any] | None, bool]:
     return response_json, request_timed_out
 
 
+def _write_retry(*, what: str, retry: int, backoff: float) -> None:
+    remaining = "1 retry remains" if retry == 1 else f"{retry} retries remain"
+    remaining += f", backing off {backoff:0.1f}s"
+    tqdm.write(
+        _unicode(
+            f"Request timed out while {what}, retrying ({remaining})",
+            emoji="🔄",
+        )
+    )
+
+
 def _check_snapshot_exists(
     *, dataset_id: str, tag: str, max_retries: int, retry_backoff: float
 ) -> None:
     query = all_snapshots_query_template.substitute(dataset_id=dataset_id)
-    response_json, request_timed_out = _safe_query(query)
+    response_json = _retry_request(
+        query,
+        what="fetching list of snapshots",
+        timeout=60.0,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+    )
 
-    if request_timed_out and max_retries > 0:
-        tqdm.write("Request timed out while fetching list of snapshots, retrying …")
-        asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
-        max_retries -= 1
-        retry_backoff *= 2
-        return _check_snapshot_exists(
-            dataset_id=dataset_id,
-            tag=tag,
-            max_retries=max_retries,
-            retry_backoff=retry_backoff,
-        )
-    elif request_timed_out:
-        raise RuntimeError("Timeout when trying to fetch list of snapshots.")
-
-    assert response_json is not None
     snapshots = response_json["data"]["dataset"]["snapshots"]
     tags = [s["id"].replace(f"{dataset_id}:", "") for s in snapshots]
 
@@ -188,6 +191,8 @@ def _get_download_metadata(
     max_retries: int,
     retry_backoff: float = 0.5,
     check_snapshot: bool = True,
+    metadata_timeout: float = 15.0,
+    this_dir: str,
 ) -> dict[str, Any]:
     """Retrieve dataset metadata required for the download."""
     if tag is None:
@@ -204,62 +209,70 @@ def _get_download_metadata(
             dataset_id=dataset_id, tag=tag, tree=tree
         )
 
-    response_json, request_timed_out = _safe_query(query, timeout=60)
-
-    # Sometimes we do get a response, but it contains a gateway timeout error
-    # message (504 or 502 status code)
-    if (
-        response_json is not None
-        and "errors" in response_json
-        and response_json["errors"][0]["message"].startswith(("504", "502"))
-    ):
-        request_timed_out = True
-
-    if request_timed_out and max_retries > 0:
-        tqdm.write(_unicode("Request timed out while fetching metadata, retrying"))
-        asyncio.sleep(retry_backoff)  # pyright: ignore[reportUnusedCoroutine]
-        max_retries -= 1
-        retry_backoff *= 2
-        return _get_download_metadata(
-            base_url=base_url,
-            dataset_id=dataset_id,
-            tag=tag,
-            max_retries=max_retries,
-            retry_backoff=retry_backoff,
-            check_snapshot=check_snapshot,
-        )
-    elif request_timed_out:
-        raise RuntimeError("Timeout when trying to fetch metadata.")
-
-    if response_json is not None:
-        if "errors" in response_json:
-            msg = response_json["errors"][0]["message"]
-            if msg == "You do not have access to read this dataset.":
-                try:
-                    # Do we have an API token?
-                    get_token()
-                    raise RuntimeError(
-                        "We were not permitted to download "
-                        "this dataset. Perhaps your user "
-                        "does not have access to it, or "
-                        "your API token is wrong."
-                    )
-                except ValueError as e:
-                    # We don't have an API token.
-                    raise RuntimeError(
-                        "It seems that this is a restricted "
-                        "dataset. However, your API token is "
-                        "not configured properly, so we could "
-                        f"not log you in. {e}"
-                    )
-            else:
-                raise RuntimeError(f'Query failed: "{msg}"')
-        elif tag is None:
-            return response_json["data"]["dataset"]["latestSnapshot"]
-        else:
-            return response_json["data"]["snapshot"]
+    kind = "dataset" if tree == "null" else f"{this_dir!r} (with {tree=})"
+    response_json = _retry_request(
+        query,
+        what=f"retrieving metadata for {kind}",
+        timeout=metadata_timeout,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+    )
+    if tag is None:
+        out = response_json["data"]["dataset"]["latestSnapshot"]
     else:
-        raise RuntimeError("Error when trying to fetch metadata.")
+        out = response_json["data"]["snapshot"]
+    assert isinstance(out, dict)
+    return out
+
+
+def _retry_request(
+    query: str, *, what: str, timeout: float, max_retries: int, retry_backoff: float
+) -> dict[str, Any]:
+    response_json: dict[str, Any] | None = None
+    for retry in reversed(range(max_retries + 1)):
+        response_json, request_timed_out = _safe_query(query, timeout=timeout)
+        # Sometimes we do get a response, but it contains a gateway timeout error
+        # message (504 or 502 status code)
+        if response_json is not None and "errors" in response_json:
+            message = response_json["errors"][0]["message"]
+            if message.startswith(
+                ("504", "502", "connect ECONNREFUSED")
+            ) or message.endswith("due to timeout"):
+                request_timed_out = True
+        if not request_timed_out:
+            break
+        if retry > 0:
+            _write_retry(what=what, retry=retry, backoff=retry_backoff)
+            time.sleep(retry_backoff)
+            retry_backoff *= 2
+    else:
+        raise RuntimeError(f"Timeout when {what}.")
+    if response_json is None:
+        raise RuntimeError(f"Error when {what}.")
+    assert isinstance(response_json, dict)
+    if "errors" in response_json:
+        msg = response_json["errors"][0]["message"]
+        if msg == "You do not have access to read this dataset.":
+            try:
+                # Do we have an API token?
+                get_token()
+                raise RuntimeError(
+                    "We were not permitted to download "
+                    f"this dataset ({what}). Perhaps your user "
+                    "does not have access to it, or "
+                    "your API token is wrong."
+                )
+            except ValueError as e:
+                # We don't have an API token.
+                raise RuntimeError(
+                    "It seems that this is a restricted "
+                    f"dataset ({what}). However, your API token is "
+                    "not configured properly, so we could "
+                    f"not log you in. {e}"
+                )
+        else:
+            raise RuntimeError(f'Query failed when {what}: "{msg}"')
+    return response_json
 
 
 async def _download_file(
@@ -279,6 +292,13 @@ async def _download_file(
         local_file_size = outfile.stat().st_size
     else:
         local_file_size = 0
+    # For debugging purposes, if there is a problem with a specific file, lines like
+    # this can help (used for https://github.com/OpenNeuroOrg/openneuro/issues/3665):
+    #
+    # tqdm.write(f"Downloading: {outfile.name} from {url}")
+    # tqdm.write(f"Query:       {query_str}")
+    # if outfile.name == "lh.sphere":
+    #     raise RuntimeError(query_str)
 
     # The OpenNeuro servers are sometimes very slow to respond, so use a
     # gigantic timeout for those.
@@ -325,13 +345,23 @@ async def _download_file(
                 remote_file_size = int(response.headers["content-length"])
             except KeyError:
                 # The server doesn't always set a Content-Length header.
-                remote_file_size = None
+                remote_file_size = api_file_size
+            if remote_file_size != api_file_size:
+                tqdm.write(
+                    _unicode(
+                        f"Warning: size mismatch for {outfile.name}: "
+                        f"API size {api_file_size} bytes, "
+                        f"server size {remote_file_size} bytes.",
+                        emoji="⚠️",
+                    )
+                )
 
     headers = user_agent_header.copy()
     headers["Accept-Encoding"] = ""  # Disable compression
 
+    mode: Literal["ab", "wb"] = "wb"
     if outfile.exists() and local_file_size == remote_file_size:
-        hash = hashlib.md5()
+        hash_ = hashlib.md5()
 
         if verify_hash and remote_file_hash is not None:
             async with aiofiles.open(outfile, "rb") as f:
@@ -339,15 +369,14 @@ async def _download_file(
                     data = await f.read(65536)
                     if not data:
                         break
-                    hash.update(data)
+                    hash_.update(data)
 
         if (
             verify_hash
             and remote_file_hash is not None
-            and hash.hexdigest() != remote_file_hash
+            and hash_.hexdigest() != remote_file_hash
         ):
             desc = f"Re-downloading {outfile.name}: file hash mismatch."
-            mode = "wb"
             outfile.unlink()
             local_file_size = 0
         else:
@@ -365,11 +394,7 @@ async def _download_file(
             )
             t.close()
             return
-    elif (
-        outfile.exists()
-        and remote_file_size is not None
-        and local_file_size < remote_file_size
-    ):
+    elif outfile.exists() and local_file_size < remote_file_size:
         # Download incomplete, resume.
         desc = f"Resuming {outfile.name}"
         headers["Range"] = f"bytes={local_file_size}-"
@@ -377,13 +402,11 @@ async def _download_file(
     elif outfile.exists():
         # Local file is larger than remote – overwrite.
         desc = f"Re-downloading {outfile.name}: file size mismatch."
-        mode = "wb"
         outfile.unlink()
         local_file_size = 0
     else:
         # File doesn't exist locally, download entirely.
         desc = outfile.name
-        mode = "wb"
 
     async with semaphore:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -459,12 +482,8 @@ async def _retry_download(
     semaphore: asyncio.Semaphore,
     query_str: str,
 ) -> None:
-    tqdm.write(
-        _unicode(
-            f"Request timed out while downloading {outfile}, retrying in "
-            f"{retry_backoff} sec",
-            emoji="🔄",
-        )
+    _write_retry(
+        what=f"downloading {outfile}", retry=max_retries, backoff=retry_backoff
     )
     await asyncio.sleep(retry_backoff)
     max_retries -= 1
@@ -490,7 +509,7 @@ async def _retrieve_and_write_to_disk(
     mode: Literal["ab", "wb"],
     desc: str,
     local_file_size: int,
-    remote_file_size: int | None,
+    remote_file_size: int,
     remote_file_hash: str | None,
     verify_hash: bool,
     verify_size: bool,
@@ -539,7 +558,7 @@ async def _retrieve_and_write_to_disk(
         if verify_size:
             await f.flush()
             local_file_size = outfile.stat().st_size
-            if remote_file_size is not None and not local_file_size == remote_file_size:
+            if local_file_size != remote_file_size:
                 raise RuntimeError(
                     f"Server claimed size of {outfile} would be "
                     f"{remote_file_size} bytes, but downloaded "
@@ -628,6 +647,7 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
         )
 
     local_doi = local_json["DatasetDOI"]
+    assert isinstance(local_doi, str)
     if local_doi.startswith("doi:"):
         # Remove the "protocol" prefix
         local_doi = local_doi[4:]
@@ -784,7 +804,7 @@ def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
 
 
 def _iterate_filenames(
-    files: Iterable[dict],
+    files: Iterable[dict[str, Any]],
     *,
     dataset_id: str,
     tag: str | None,
@@ -792,6 +812,7 @@ def _iterate_filenames(
     root: str = "",
     include: Iterable[str] = tuple(),
     parent_tree: str | None,
+    metadata_timeout: float,
 ) -> Generator[dict[str, Any], None, None]:
     """Iterate over all files in a dataset, yielding filenames."""
     directories = list()
@@ -826,6 +847,8 @@ def _iterate_filenames(
             tree=f'"{directory["key"]}"',
             max_retries=max_retries,
             check_snapshot=False,
+            metadata_timeout=metadata_timeout,
+            this_dir=this_dir,
         )
         yield from _iterate_filenames(
             metadata["files"],
@@ -835,6 +858,7 @@ def _iterate_filenames(
             root=this_dir,
             include=include,
             parent_tree=directory["key"],
+            metadata_timeout=metadata_timeout,
         )
 
 
@@ -865,6 +889,7 @@ def download(
     verify_size: bool = True,
     max_retries: int = 5,
     max_concurrent_downloads: int = 5,
+    metadata_timeout: float = 15.0,
 ) -> None:
     """Download datasets from OpenNeuro.
 
@@ -899,6 +924,8 @@ def download(
         Try the specified number of times to download a file before failing.
     max_concurrent_downloads
         The maximum number of downloads to run in parallel.
+    metadata_timeout
+        Timeout in seconds for metadata queries.
 
     """
     msg_problems = "problems 🤯" if stdout_unicode else "problems"
@@ -936,6 +963,8 @@ def download(
         tag=tag,
         max_retries=max_retries,
         retry_backoff=retry_backoff,
+        metadata_timeout=metadata_timeout,
+        this_dir="/",
     )
     del tag
     tag = metadata["id"].replace(f"{dataset}:", "")
@@ -974,6 +1003,7 @@ def download(
             max_retries=max_retries,
             include=include,
             parent_tree=None,
+            metadata_timeout=metadata_timeout,
         ),
         desc=_unicode(f"Traversing directories for {dataset}", end="", emoji="📁"),
         unit=" entities",
