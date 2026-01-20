@@ -133,6 +133,8 @@ on.download(dataset='ds000246', target_dir='data/bids')
 
 This project uses [uv](https://docs.astral.sh/uv/) for dependency management and building.
 
+Pre-commit hooks are run through [lefthook](https://lefthook.dev).
+
 ### Setup development environment
 
 ```shell
@@ -142,6 +144,9 @@ cd openneuro-py
 
 # Install dependencies and create virtual environment
 uv sync
+
+# Optional: Install pre-commit hooks
+uv run lefthook install
 
 # Run tests
 uv run pytest
