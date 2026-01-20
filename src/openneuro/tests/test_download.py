@@ -39,7 +39,7 @@ invalid_tag = "abcdefg"
             include_aws,
             exclude_aws,
             id="aws-ds000246",
-            marks=pytest.mark.xfail(reason="ECONNREFUSED"),
+            marks=pytest.mark.flaky(reruns=5, reruns_delay=5),
         ),
         pytest.param(dataset_id_on, tag_on, include_on, exclude_on, id="on-ds000117"),
     ],
