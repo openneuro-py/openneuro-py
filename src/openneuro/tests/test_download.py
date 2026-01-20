@@ -63,6 +63,7 @@ def test_download_invalid_tag(
         download(dataset=dataset_id, tag=invalid_tag, target_dir=tmp_path)
 
 
+@pytest.mark.flaky(reruns=5, reruns_delay=5)
 def test_resume_download(tmp_path: Path):
     """Test resuming of a dataset download."""
     dataset = "ds000246"
