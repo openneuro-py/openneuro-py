@@ -1,0 +1,1618 @@
+{
+  "null": {
+    "id": "ds000117:1.1.0",
+    "files": [
+      {
+        "filename": "dataset_description.json",
+        "urls": [
+          "http://example.com/dataset_description.json"
+        ],
+        "size": 1000,
+        "directory": false,
+        "id": "root1"
+      },
+      {
+        "filename": "participants.tsv",
+        "urls": [
+          "http://example.com/participants.tsv"
+        ],
+        "size": 500,
+        "directory": false,
+        "id": "root2"
+      },
+      {
+        "filename": "participants.json",
+        "urls": [
+          "http://example.com/participants.json"
+        ],
+        "size": 500,
+        "directory": false,
+        "id": "root3"
+      },
+      {
+        "filename": "README",
+        "urls": [
+          "http://example.com/README"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "root4"
+      },
+      {
+        "filename": "CHANGES",
+        "urls": [
+          "http://example.com/CHANGES"
+        ],
+        "size": 300,
+        "directory": false,
+        "id": "root5"
+      },
+      {
+        "filename": "derivatives",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives",
+        "id": "derivatives"
+      },
+      {
+        "filename": "sub-01",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1",
+        "id": "sub1"
+      },
+      {
+        "filename": "sub-02",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2",
+        "id": "sub2"
+      },
+      {
+        "filename": "sub-emptyroom",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub-emptyroom",
+        "id": "sub-emptyroom"
+      }
+    ]
+  },
+  "derivatives": {
+    "files": [
+      {
+        "filename": "freesurfer",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer",
+        "id": "derivatives_freesurfer"
+      },
+      {
+        "filename": "meg_derivatives",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_meg_derivatives",
+        "id": "derivatives_meg_derivatives"
+      }
+    ]
+  },
+  "derivatives_meg_derivatives": {
+    "files": [
+      {
+        "filename": "ct_sparse.fif",
+        "urls": [
+          "http://example.com/derivatives/meg_derivatives/ct_sparse.fif"
+        ],
+        "size": 1000,
+        "directory": false,
+        "id": "derivatives_meg_derivatives_ct_sparse"
+      },
+      {
+        "filename": "sss_cal.dat",
+        "urls": [
+          "http://example.com/derivatives/meg_derivatives/sss_cal.dat"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_meg_derivatives_sss_cal"
+      }
+    ]
+  },
+  "derivatives_freesurfer": {
+    "files": [
+      {
+        "filename": "README",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/file1.txt"
+        ],
+        "size": 123,
+        "directory": false,
+        "id": "derivatives_freesurfer_file1"
+      },
+      {
+        "filename": "sub-01",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub1",
+        "id": "derivatives_freesurfer_sub1"
+      },
+      {
+        "filename": "sub-02",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub2",
+        "id": "derivatives_freesurfer_sub2"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub1": {
+    "files": [
+      {
+        "filename": "ses-mri",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri",
+        "id": "derivatives_freesurfer_sub1_ses_mri"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub1_ses_mri": {
+    "files": [
+      {
+        "filename": "anat",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat",
+        "id": "derivatives_freesurfer_sub1_ses_mri_anat"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub1_ses_mri_anat": {
+    "files": [
+      {
+        "filename": "label",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat_label",
+        "id": "derivatives_freesurfer_sub1_ses_mri_anat_label"
+      },
+      {
+        "filename": "mri",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat_mri",
+        "id": "derivatives_freesurfer_sub1_ses_mri_anat_mri"
+      },
+      {
+        "filename": "surf",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub1_ses_mri_anat_surf",
+        "id": "derivatives_freesurfer_sub1_ses_mri_anat_surf"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub1_ses_mri_anat_label": {
+    "files": [
+      {
+        "filename": ".lh.BA.thresh.annot.f3h5wZ",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/.lh.BA.thresh.annot.f3h5wZ"
+        ],
+        "size": 1000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_hidden"
+      },
+      {
+        "filename": "lh.BA.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/lh.BA.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_lh_ba"
+      },
+      {
+        "filename": "lh.BA.thresh.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/lh.BA.thresh.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_lh_ba_thresh"
+      },
+      {
+        "filename": "lh.aparc.DKTatlas40.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/lh.aparc.DKTatlas40.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_lh_aparc_dkt"
+      },
+      {
+        "filename": "lh.aparc.a2009s.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/lh.aparc.a2009s.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_lh_aparc_a2009s"
+      },
+      {
+        "filename": "lh.aparc.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/lh.aparc.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_lh_aparc"
+      },
+      {
+        "filename": "rh.BA.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/rh.BA.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_rh_ba"
+      },
+      {
+        "filename": "rh.BA.thresh.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/rh.BA.thresh.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_rh_ba_thresh"
+      },
+      {
+        "filename": "rh.aparc.DKTatlas40.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/rh.aparc.DKTatlas40.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_rh_aparc_dkt"
+      },
+      {
+        "filename": "rh.aparc.a2009s.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/rh.aparc.a2009s.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_rh_aparc_a2009s"
+      },
+      {
+        "filename": "rh.aparc.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/label/rh.aparc.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_label_rh_aparc"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub1_ses_mri_anat_mri": {
+    "files": [
+      {
+        "filename": "T1.mgz",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/mri/T1.mgz"
+        ],
+        "size": 50000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_mri_t1"
+      },
+      {
+        "filename": "aseg.mgz",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/mri/aseg.mgz"
+        ],
+        "size": 10000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_mri_aseg"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub1_ses_mri_anat_surf": {
+    "files": [
+      {
+        "filename": "lh.pial",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/surf/lh.pial"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_surf_lh_pial"
+      },
+      {
+        "filename": "lh.sphere.reg",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/surf/lh.sphere.reg"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_surf_lh_sphere"
+      },
+      {
+        "filename": "lh.white",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/surf/lh.white"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_surf_lh_white"
+      },
+      {
+        "filename": "rh.pial",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/surf/rh.pial"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_surf_rh_pial"
+      },
+      {
+        "filename": "rh.sphere.reg",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/surf/rh.sphere.reg"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_surf_rh_sphere"
+      },
+      {
+        "filename": "rh.white",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-01/ses-mri/anat/surf/rh.white"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub1_surf_rh_white"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub2": {
+    "files": [
+      {
+        "filename": "ses-mri",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri",
+        "id": "derivatives_freesurfer_sub2_ses_mri"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub2_ses_mri": {
+    "files": [
+      {
+        "filename": "anat",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat",
+        "id": "derivatives_freesurfer_sub2_ses_mri_anat"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub2_ses_mri_anat": {
+    "files": [
+      {
+        "filename": "label",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat_label",
+        "id": "derivatives_freesurfer_sub2_ses_mri_anat_label"
+      },
+      {
+        "filename": "mri",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat_mri",
+        "id": "derivatives_freesurfer_sub2_ses_mri_anat_mri"
+      },
+      {
+        "filename": "surf",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "derivatives_freesurfer_sub2_ses_mri_anat_surf",
+        "id": "derivatives_freesurfer_sub2_ses_mri_anat_surf"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub2_ses_mri_anat_label": {
+    "files": [
+      {
+        "filename": "lh.BA.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/lh.BA.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_lh_ba"
+      },
+      {
+        "filename": "lh.BA.thresh.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/lh.BA.thresh.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_lh_ba_thresh"
+      },
+      {
+        "filename": "lh.aparc.DKTatlas40.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/lh.aparc.DKTatlas40.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_lh_aparc_dkt"
+      },
+      {
+        "filename": "lh.aparc.a2009s.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/lh.aparc.a2009s.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_lh_aparc_a2009s"
+      },
+      {
+        "filename": "lh.aparc.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/lh.aparc.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_lh_aparc"
+      },
+      {
+        "filename": "rh.BA.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/rh.BA.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_rh_ba"
+      },
+      {
+        "filename": "rh.BA.thresh.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/rh.BA.thresh.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_rh_ba_thresh"
+      },
+      {
+        "filename": "rh.aparc.DKTatlas40.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/rh.aparc.DKTatlas40.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_rh_aparc_dkt"
+      },
+      {
+        "filename": "rh.aparc.a2009s.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/rh.aparc.a2009s.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_rh_aparc_a2009s"
+      },
+      {
+        "filename": "rh.aparc.annot",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/label/rh.aparc.annot"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_label_rh_aparc"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub2_ses_mri_anat_mri": {
+    "files": [
+      {
+        "filename": "T1.mgz",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/mri/T1.mgz"
+        ],
+        "size": 50000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_mri_t1"
+      },
+      {
+        "filename": "aseg.mgz",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/mri/aseg.mgz"
+        ],
+        "size": 10000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_mri_aseg"
+      }
+    ]
+  },
+  "derivatives_freesurfer_sub2_ses_mri_anat_surf": {
+    "files": [
+      {
+        "filename": "lh.pial",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/surf/lh.pial"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_surf_lh_pial"
+      },
+      {
+        "filename": "lh.sphere.reg",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/surf/lh.sphere.reg"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_surf_lh_sphere"
+      },
+      {
+        "filename": "lh.white",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/surf/lh.white"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_surf_lh_white"
+      },
+      {
+        "filename": "rh.pial",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/surf/rh.pial"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_surf_rh_pial"
+      },
+      {
+        "filename": "rh.sphere.reg",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/surf/rh.sphere.reg"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_surf_rh_sphere"
+      },
+      {
+        "filename": "rh.white",
+        "urls": [
+          "http://example.com/derivatives/freesurfer/sub-02/ses-mri/anat/surf/rh.white"
+        ],
+        "size": 30000,
+        "directory": false,
+        "id": "derivatives_freesurfer_sub2_surf_rh_white"
+      }
+    ]
+  },
+  "sub1": {
+    "files": [
+      {
+        "filename": "ses-meg",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_meg",
+        "id": "sub1_ses_meg"
+      },
+      {
+        "filename": "ses-mri",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_mri",
+        "id": "sub1_ses_mri"
+      }
+    ]
+  },
+  "sub1_ses_meg": {
+    "files": [
+      {
+        "filename": "sub-01_ses-meg_scans.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/sub-01_ses-meg_scans.tsv"
+        ],
+        "size": 500,
+        "directory": false,
+        "id": "sub1_ses_meg_scans"
+      },
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_channels.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_channels.tsv"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_meg_channels"
+      },
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_meg.json",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_meg.json"
+        ],
+        "size": 1200,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_json"
+      },
+      {
+        "filename": "beh",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_meg_beh",
+        "id": "sub1_ses_meg_beh"
+      },
+      {
+        "filename": "meg",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_meg_meg",
+        "id": "sub1_ses_meg_meg"
+      }
+    ]
+  },
+  "sub1_ses_meg_beh": {
+    "files": [
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_events.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/beh/sub-01_ses-meg_task-facerecognition_events.tsv"
+        ],
+        "size": 600,
+        "directory": false,
+        "id": "sub1_ses_meg_beh_events"
+      }
+    ]
+  },
+  "sub1_ses_meg_meg": {
+    "files": [
+      {
+        "filename": "sub-01_ses-meg_coordsystem.json",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/meg/sub-01_ses-meg_coordsystem.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_coordsystem"
+      },
+      {
+        "filename": "sub-01_ses-meg_headshape.pos",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/meg/sub-01_ses-meg_headshape.pos"
+        ],
+        "size": 15000,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_headshape"
+      },
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_run-01_events.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_events.tsv"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_run01_events"
+      },
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_run-01_meg.fif",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_meg.fif"
+        ],
+        "size": 50000000,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_run01_fif"
+      },
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_run-02_events.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-02_events.tsv"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_run02_events"
+      },
+      {
+        "filename": "sub-01_ses-meg_task-facerecognition_run-02_meg.fif",
+        "urls": [
+          "http://example.com/sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-02_meg.fif"
+        ],
+        "size": 50000000,
+        "directory": false,
+        "id": "sub1_ses_meg_meg_run02_fif"
+      }
+    ]
+  },
+  "sub1_ses_mri": {
+    "files": [
+      {
+        "filename": "anat",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_mri_anat",
+        "id": "sub1_ses_mri_anat"
+      },
+      {
+        "filename": "dwi",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_mri_dwi",
+        "id": "sub1_ses_mri_dwi"
+      },
+      {
+        "filename": "func",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_mri_func",
+        "id": "sub1_ses_mri_func"
+      },
+      {
+        "filename": "fmap",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub1_ses_mri_fmap",
+        "id": "sub1_ses_mri_fmap"
+      }
+    ]
+  },
+  "sub1_ses_mri_anat": {
+    "files": [
+      {
+        "filename": "sub-01_ses-mri_acq-mprage_T1w.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_acq-mprage_T1w.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_t1w_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_acq-mprage_T1w.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_acq-mprage_T1w.nii.gz"
+        ],
+        "size": 50000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_t1w_nii"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo1"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-2_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-2_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo2"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-3_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-3_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo3"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-4_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-4_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo4"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-5_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-5_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo5"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-6_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-6_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo6"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-1_echo-7_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-7_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash1_echo7"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-1_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-1_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo1"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-2_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-2_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo2"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-3_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-3_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo3"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-4_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-4_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo4"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-5_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-5_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo5"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-6_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-6_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo6"
+      },
+      {
+        "filename": "sub-01_ses-mri_run-2_echo-7_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/anat/sub-01_ses-mri_run-2_echo-7_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub1_ses_mri_anat_flash2_echo7"
+      }
+    ]
+  },
+  "sub1_ses_mri_dwi": {
+    "files": [
+      {
+        "filename": "sub-01_ses-mri_dwi.bval",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.bval"
+        ],
+        "size": 1000,
+        "directory": false,
+        "id": "sub1_ses_mri_dwi_bval"
+      },
+      {
+        "filename": "sub-01_ses-mri_dwi.bvec",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.bvec"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "sub1_ses_mri_dwi_bvec"
+      },
+      {
+        "filename": "sub-01_ses-mri_dwi.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_mri_dwi_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_dwi.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.nii.gz"
+        ],
+        "size": 30000000,
+        "directory": false,
+        "id": "sub1_ses_mri_dwi_nii"
+      }
+    ]
+  },
+  "sub1_ses_mri_fmap": {
+    "files": [
+      {
+        "filename": "sub-01_ses-mri_magnitude1.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub1_ses_mri_fmap_mag1_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_magnitude1.nii",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii"
+        ],
+        "size": 10000000,
+        "directory": false,
+        "id": "sub1_ses_mri_fmap_mag1_nii"
+      },
+      {
+        "filename": "sub-01_ses-mri_magnitude2.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub1_ses_mri_fmap_mag2_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_magnitude2.nii",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii"
+        ],
+        "size": 10000000,
+        "directory": false,
+        "id": "sub1_ses_mri_fmap_mag2_nii"
+      },
+      {
+        "filename": "sub-01_ses-mri_phasediff.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub1_ses_mri_fmap_phasediff_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_phasediff.nii",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii"
+        ],
+        "size": 10000000,
+        "directory": false,
+        "id": "sub1_ses_mri_fmap_phasediff_nii"
+      }
+    ]
+  },
+  "sub1_ses_mri_func": {
+    "files": [
+      {
+        "filename": "sub-01_ses-mri_task-facerecognition_run-01_bold.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_mri_func_run01_bold_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_task-facerecognition_run-01_bold.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.nii.gz"
+        ],
+        "size": 40000000,
+        "directory": false,
+        "id": "sub1_ses_mri_func_run01_bold_nii"
+      },
+      {
+        "filename": "sub-01_ses-mri_task-facerecognition_run-01_events.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_events.tsv"
+        ],
+        "size": 600,
+        "directory": false,
+        "id": "sub1_ses_mri_func_run01_events"
+      },
+      {
+        "filename": "sub-01_ses-mri_task-facerecognition_run-02_bold.json",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub1_ses_mri_func_run02_bold_json"
+      },
+      {
+        "filename": "sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz"
+        ],
+        "size": 40000000,
+        "directory": false,
+        "id": "sub1_ses_mri_func_run02_bold_nii"
+      },
+      {
+        "filename": "sub-01_ses-mri_task-facerecognition_run-02_events.tsv",
+        "urls": [
+          "http://example.com/sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
+        ],
+        "size": 600,
+        "directory": false,
+        "id": "sub1_ses_mri_func_run02_events"
+      }
+    ]
+  },
+  "sub2": {
+    "files": [
+      {
+        "filename": "ses-meg",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_meg",
+        "id": "sub2_ses_meg"
+      },
+      {
+        "filename": "ses-mri",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_mri",
+        "id": "sub2_ses_mri"
+      }
+    ]
+  },
+  "sub2_ses_meg": {
+    "files": [
+      {
+        "filename": "sub-02_ses-meg_scans.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/sub-02_ses-meg_scans.tsv"
+        ],
+        "size": 500,
+        "directory": false,
+        "id": "sub2_ses_meg_scans"
+      },
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_channels.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/sub-02_ses-meg_task-facerecognition_channels.tsv"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_meg_channels"
+      },
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_meg.json",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/sub-02_ses-meg_task-facerecognition_meg.json"
+        ],
+        "size": 1200,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_json"
+      },
+      {
+        "filename": "beh",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_meg_beh",
+        "id": "sub2_ses_meg_beh"
+      },
+      {
+        "filename": "meg",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_meg_meg",
+        "id": "sub2_ses_meg_meg"
+      }
+    ]
+  },
+  "sub2_ses_meg_beh": {
+    "files": [
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_events.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/beh/sub-02_ses-meg_task-facerecognition_events.tsv"
+        ],
+        "size": 600,
+        "directory": false,
+        "id": "sub2_ses_meg_beh_events"
+      }
+    ]
+  },
+  "sub2_ses_meg_meg": {
+    "files": [
+      {
+        "filename": "sub-02_ses-meg_coordsystem.json",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/meg/sub-02_ses-meg_coordsystem.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_coordsystem"
+      },
+      {
+        "filename": "sub-02_ses-meg_headshape.pos",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/meg/sub-02_ses-meg_headshape.pos"
+        ],
+        "size": 15000,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_headshape"
+      },
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_run-01_events.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/meg/sub-02_ses-meg_task-facerecognition_run-01_events.tsv"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_run01_events"
+      },
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_run-01_meg.fif",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/meg/sub-02_ses-meg_task-facerecognition_run-01_meg.fif"
+        ],
+        "size": 50000000,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_run01_fif"
+      },
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_run-02_events.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/meg/sub-02_ses-meg_task-facerecognition_run-02_events.tsv"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_run02_events"
+      },
+      {
+        "filename": "sub-02_ses-meg_task-facerecognition_run-02_meg.fif",
+        "urls": [
+          "http://example.com/sub-02/ses-meg/meg/sub-02_ses-meg_task-facerecognition_run-02_meg.fif"
+        ],
+        "size": 50000000,
+        "directory": false,
+        "id": "sub2_ses_meg_meg_run02_fif"
+      }
+    ]
+  },
+  "sub2_ses_mri": {
+    "files": [
+      {
+        "filename": "anat",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_mri_anat",
+        "id": "sub2_ses_mri_anat"
+      },
+      {
+        "filename": "dwi",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_mri_dwi",
+        "id": "sub2_ses_mri_dwi"
+      },
+      {
+        "filename": "func",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_mri_func",
+        "id": "sub2_ses_mri_func"
+      },
+      {
+        "filename": "fmap",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub2_ses_mri_fmap",
+        "id": "sub2_ses_mri_fmap"
+      }
+    ]
+  },
+  "sub2_ses_mri_anat": {
+    "files": [
+      {
+        "filename": "sub-02_ses-mri_acq-mprage_T1w.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_acq-mprage_T1w.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_t1w_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_acq-mprage_T1w.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_acq-mprage_T1w.nii.gz"
+        ],
+        "size": 50000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_t1w_nii"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-1_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-1_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo1"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-2_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-2_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo2"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-3_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-3_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo3"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-4_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-4_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo4"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-5_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-5_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo5"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-6_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-6_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo6"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-1_echo-7_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-1_echo-7_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash1_echo7"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-1_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-1_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo1"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-2_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-2_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo2"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-3_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-3_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo3"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-4_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-4_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo4"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-5_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-5_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo5"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-6_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-6_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo6"
+      },
+      {
+        "filename": "sub-02_ses-mri_run-2_echo-7_FLASH.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/anat/sub-02_ses-mri_run-2_echo-7_FLASH.nii.gz"
+        ],
+        "size": 20000000,
+        "directory": false,
+        "id": "sub2_ses_mri_anat_flash2_echo7"
+      }
+    ]
+  },
+  "sub2_ses_mri_dwi": {
+    "files": [
+      {
+        "filename": "sub-02_ses-mri_dwi.bval",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/dwi/sub-02_ses-mri_dwi.bval"
+        ],
+        "size": 1000,
+        "directory": false,
+        "id": "sub2_ses_mri_dwi_bval"
+      },
+      {
+        "filename": "sub-02_ses-mri_dwi.bvec",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/dwi/sub-02_ses-mri_dwi.bvec"
+        ],
+        "size": 2000,
+        "directory": false,
+        "id": "sub2_ses_mri_dwi_bvec"
+      },
+      {
+        "filename": "sub-02_ses-mri_dwi.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/dwi/sub-02_ses-mri_dwi.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_mri_dwi_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_dwi.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/dwi/sub-02_ses-mri_dwi.nii.gz"
+        ],
+        "size": 30000000,
+        "directory": false,
+        "id": "sub2_ses_mri_dwi_nii"
+      }
+    ]
+  },
+  "sub2_ses_mri_fmap": {
+    "files": [
+      {
+        "filename": "sub-02_ses-mri_magnitude1.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/fmap/sub-02_ses-mri_magnitude1.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub2_ses_mri_fmap_mag1_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_magnitude1.nii",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/fmap/sub-02_ses-mri_magnitude1.nii"
+        ],
+        "size": 10000000,
+        "directory": false,
+        "id": "sub2_ses_mri_fmap_mag1_nii"
+      },
+      {
+        "filename": "sub-02_ses-mri_magnitude2.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/fmap/sub-02_ses-mri_magnitude2.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub2_ses_mri_fmap_mag2_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_magnitude2.nii",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/fmap/sub-02_ses-mri_magnitude2.nii"
+        ],
+        "size": 10000000,
+        "directory": false,
+        "id": "sub2_ses_mri_fmap_mag2_nii"
+      },
+      {
+        "filename": "sub-02_ses-mri_phasediff.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/fmap/sub-02_ses-mri_phasediff.json"
+        ],
+        "size": 400,
+        "directory": false,
+        "id": "sub2_ses_mri_fmap_phasediff_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_phasediff.nii",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/fmap/sub-02_ses-mri_phasediff.nii"
+        ],
+        "size": 10000000,
+        "directory": false,
+        "id": "sub2_ses_mri_fmap_phasediff_nii"
+      }
+    ]
+  },
+  "sub2_ses_mri_func": {
+    "files": [
+      {
+        "filename": "sub-02_ses-mri_task-facerecognition_run-01_bold.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-01_bold.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_mri_func_run01_bold_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_task-facerecognition_run-01_bold.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-01_bold.nii.gz"
+        ],
+        "size": 40000000,
+        "directory": false,
+        "id": "sub2_ses_mri_func_run01_bold_nii"
+      },
+      {
+        "filename": "sub-02_ses-mri_task-facerecognition_run-01_events.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-01_events.tsv"
+        ],
+        "size": 600,
+        "directory": false,
+        "id": "sub2_ses_mri_func_run01_events"
+      },
+      {
+        "filename": "sub-02_ses-mri_task-facerecognition_run-02_bold.json",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-02_bold.json"
+        ],
+        "size": 800,
+        "directory": false,
+        "id": "sub2_ses_mri_func_run02_bold_json"
+      },
+      {
+        "filename": "sub-02_ses-mri_task-facerecognition_run-02_bold.nii.gz",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-02_bold.nii.gz"
+        ],
+        "size": 40000000,
+        "directory": false,
+        "id": "sub2_ses_mri_func_run02_bold_nii"
+      },
+      {
+        "filename": "sub-02_ses-mri_task-facerecognition_run-02_events.tsv",
+        "urls": [
+          "http://example.com/sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-02_events.tsv"
+        ],
+        "size": 600,
+        "directory": false,
+        "id": "sub2_ses_mri_func_run02_events"
+      }
+    ]
+  },
+  "sub-emptyroom": {
+    "files": [
+      {
+        "filename": "ses-20090409",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub-emptyroom_ses-20090409",
+        "id": "sub-emptyroom_ses-20090409"
+      }
+    ]
+  },
+  "sub-emptyroom_ses-20090409": {
+    "files": [
+      {
+        "filename": "sub-emptyroom_ses-20090409_scans.tsv",
+        "urls": [
+          "http://example.com/sub-emptyroom/ses-20090409/sub-emptyroom_ses-20090409_scans.tsv"
+        ],
+        "size": 123,
+        "directory": false,
+        "id": "sub-emptyroom_ses-20090409_scans"
+      },
+      {
+        "filename": "meg",
+        "urls": [],
+        "size": 0,
+        "directory": true,
+        "key": "sub-emptyroom_ses-20090409_meg",
+        "id": "sub-emptyroom_ses-20090409_meg"
+      }
+    ]
+  },
+  "sub-emptyroom_ses-20090409_meg": {
+    "files": [
+      {
+        "filename": "sub-emptyroom_ses-20090409_task-noise_meg.fif",
+        "urls": [
+          "http://example.com/sub-emptyroom/ses-20090409/meg/sub-emptyroom_ses-20090409_task-noise_meg.fif"
+        ],
+        "size": 456,
+        "directory": false,
+        "id": "sub-emptyroom_ses-20090409_task-noise_meg"
+      }
+    ]
+  }
+}
