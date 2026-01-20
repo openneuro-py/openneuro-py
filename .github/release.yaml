@@ -3,3 +3,4 @@ changelog:
     authors:
       - dependabot[bot]
       - pre-commit-ci[bot]
+      - autofix-ci[bot]
