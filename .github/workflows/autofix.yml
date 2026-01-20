@@ -1,0 +1,23 @@
+name: autofix.ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install project
+        run: uv sync --locked
+
+      - name: Run formatters and linters with auto-fix
+        run: uv run lefthook run pre-commit --all-files
+
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
