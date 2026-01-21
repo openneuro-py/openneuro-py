@@ -41,7 +41,3 @@ jobs:
       run: uv build
     - name: Publish package
       run: uv publish
-    # - name: Publish package
-    #   uses: pypa/gh-action-pypi-publish@release/v1
-    #   with:
-    #     print-hash: true
