@@ -32,11 +32,11 @@ openneuro-py = "openneuro._cli:app"
 [dependency-groups]
 dev = [
   "lefthook>=1.10.4",
-  "mypy>=1.19.1",
   "pytest>=9.0.0",
   "pytest-rerunfailures",
   "ruff>=0.14.13",
   "tombi>=0.7.19",
+  "ty>=0.0.12",
   "types-aiofiles>=25.1.0.20251011",
   "types-requests>=2.32.4.20260107",
   "types-tqdm",
@@ -53,22 +53,6 @@ raw-options = { version_scheme = "release-branch-semver" }
 [tool.hatch.build.targets.wheel]
 packages = ["src/openneuro"]
 
-[tool.mypy]
-ignore_errors = false
-scripts_are_modules = true
-strict = true
-modules = ["openneuro"]
-
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disable_error_code = [
-  "no-untyped-def",
-]
-
-[[tool.mypy.overrides]]
-module = ["sgqlc.*"]
-ignore_missing_imports = true
-
 [tool.pytest]
 addopts = ["--durations=10", "--tb=short", "-ra", "-vv"]
 
@@ -78,3 +62,6 @@ ignore = [
   "D203",  # one-blank-line-before-class
   "D213",  # multi-line-summary-second-line
 ]
+
+[tool.ty.src]
+include = ["src"]

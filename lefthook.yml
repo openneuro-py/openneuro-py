@@ -7,12 +7,12 @@ pre-commit:
     ruff-format:
       glob: "*.py"
       run: uv run ruff format {staged_files}
-    mypy:
-      glob: "*.py"
-      run: uv run mypy {staged_files}
     tombi-format:
       glob: "*.toml"
       run: uv run tombi format {staged_files}
     tombi-lint:
       glob: "*.toml"
       run: uv run tombi lint {staged_files}
+    ty:
+      glob: "src/**/*.py"
+      run: uv run ty check {staged_files}

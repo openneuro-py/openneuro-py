@@ -21,6 +21,7 @@ download
 import asyncio
 import fnmatch
 import hashlib
+import io
 import json
 import shlex
 import string
@@ -42,7 +43,7 @@ from openneuro._config import BASE_URL, get_token, init_config
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
     stdout_unicode = True
-elif hasattr(sys.stdout, "reconfigure"):
+elif isinstance(sys.stdout, io.TextIOWrapper):
     sys.stdout.reconfigure(encoding="utf-8")
     stdout_unicode = True
 else:
