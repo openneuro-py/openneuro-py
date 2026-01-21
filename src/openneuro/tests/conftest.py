@@ -6,7 +6,7 @@ import pytest
 
 
 @pytest.fixture(scope="session")
-def openneuro_token() -> str:
+def openneuro_token() -> str | None:
     """Provide OpenNeuro API token from environment."""
     token = os.getenv("OPENNEURO_TEST_TOKEN")
     if not token:

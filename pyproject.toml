@@ -37,6 +37,7 @@ dev = [
   "pytest-rerunfailures",
   "ruff>=0.14.13",
   "tombi>=0.7.19",
+  "ty>=0.0.12",
   "types-aiofiles>=25.1.0.20251011",
   "types-requests>=2.32.4.20260107",
   "types-tqdm",
@@ -78,3 +79,7 @@ ignore = [
   "D203",  # one-blank-line-before-class
   "D213",  # multi-line-summary-second-line
 ]
+
+[tool.ty.src]
+include = ["src"]
+exclude = ["src/openneuro/tests/"]
