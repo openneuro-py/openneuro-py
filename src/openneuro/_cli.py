@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -14,15 +14,15 @@ def download_cli(
         str, typer.Option(help="The OpenNeuro dataset identifier.", show_default=False)
     ],
     tag: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The tag (version) of the dataset.", show_default=False),
     ] = None,
     target_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The directory to download to.", show_default=False),
     ] = None,
     include: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Only include the specified file or directory. "
             "Can be passed multiple times.",
@@ -30,7 +30,7 @@ def download_cli(
         ),
     ] = None,
     exclude: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Exclude the specified file or directory. "
             "Can be passed multiple times.",
@@ -96,7 +96,7 @@ def show_version_callback(show_version: bool) -> None:
 @app.callback()
 def main(
     version: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--version",
             help="Show the version of openneuro-py.",
