@@ -13,9 +13,6 @@ pre-commit:
     tombi-lint:
       glob: "*.toml"
       run: uv run tombi lint {staged_files}
-    mypy:
-      glob: "*.py"
-      run: uv run mypy {staged_files}
     ty:
       glob: "src/**/*.py"
       exclude:
