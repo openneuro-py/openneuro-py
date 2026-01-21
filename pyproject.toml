@@ -65,4 +65,3 @@ ignore = [
 
 [tool.ty.src]
 include = ["src"]
-exclude = ["tests/"]
