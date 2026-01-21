@@ -65,4 +65,4 @@ ignore = [
 
 [tool.ty.src]
 include = ["src"]
-exclude = ["src/openneuro/tests/"]
+exclude = ["tests/"]

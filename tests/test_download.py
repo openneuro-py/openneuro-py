@@ -14,7 +14,7 @@ from openneuro._download import (
     _traverse_directory,
     download,
 )
-from openneuro.tests.utils import load_json
+from tests.utils import load_json
 
 dataset_id_aws = "ds000246"
 tag_aws = "1.0.0"
