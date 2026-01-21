@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
        # Adjust for min and max supported Python versions
-        python-version: ["3.13"]
+        python-version: ["3.14"]
         os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
         include:
           - python-version: "3.10"
@@ -41,8 +41,10 @@ jobs:
       uses: astral-sh/setup-uv@v7
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Check if lockfile is up-to-date
+      run: uv lock --check
     - name: Install the project
-      run: uv sync --locked --all-extras --dev
+      run: uv sync --locked
     # Test building & distribution
     - name: Test building the distributions
       run: uv build
