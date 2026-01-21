@@ -17,5 +17,7 @@ pre-commit:
       glob: "*.py"
       run: uv run mypy {staged_files}
     ty:
-      glob: "*.py"
+      glob: "src/**/*.py"
+      exclude:
+        - "src/openneuro/tests/**"
       run: uv run ty check {staged_files}
