@@ -60,7 +60,7 @@ strict = true
 modules = ["openneuro"]
 
 [[tool.mypy.overrides]]
-module = ["openneuro.tests.*"]
+module = ["tests.*"]
 disable_error_code = [
   "no-untyped-def",
 ]
