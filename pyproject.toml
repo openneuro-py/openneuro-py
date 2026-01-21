@@ -19,7 +19,7 @@ dependencies = [
   "requests",
   "sgqlc",
   "tqdm",
-  "typer-slim[standard]>=0.16",
+  "typer-slim[standard]>=0.20",
 ]
 dynamic = ["version"]
 
