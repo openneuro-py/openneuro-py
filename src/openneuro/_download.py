@@ -236,9 +236,11 @@ def _retry_request(
         # message (504 or 502 status code)
         if response_json is not None and "errors" in response_json:
             message = response_json["errors"][0]["message"]
-            if message.startswith(
-                ("504", "502", "connect ECONNREFUSED")
-            ) or message.endswith("due to timeout"):
+            if (
+                message.startswith(("504", "502", "connect ECONNREFUSED"))
+                or message.endswith("due to timeout")
+                or message == "fetch failed"
+            ):
                 request_timed_out = True
         if not request_timed_out:
             break
