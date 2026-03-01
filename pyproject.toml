@@ -24,7 +24,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-homepage = "https://github.com/hoechenberger/openneuro-py"
+homepage = "https://github.com/openneuro-py/openneuro-py"
 
 [project.scripts]
 openneuro-py = "openneuro._cli:app"
