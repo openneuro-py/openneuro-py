@@ -1,18 +1,32 @@
 pre-commit:
-  parallel: true
-  commands:
-    ruff-lint:
-      glob: "*.py"
-      run: uv run ruff check --fix {staged_files}
-    ruff-format:
-      glob: "*.py"
-      run: uv run ruff format {staged_files}
-    tombi-format:
-      glob: "*.toml"
-      run: uv run tombi format {staged_files}
-    tombi-lint:
-      glob: "*.toml"
-      run: uv run tombi lint {staged_files}
-    ty:
+  jobs:
+    # Stage 1: Linting
+    - name: lint
+      group:
+        parallel: true
+        jobs:
+          - name: ruff-lint
+            glob: "*.py"
+            run: uv run ruff check --fix {staged_files}
+
+          - name: tombi-lint
+            glob: "*.toml"
+            run: uv run tombi lint {staged_files}
+
+    # Stage 2: Formatting
+    - name: format
+      group:
+        parallel: true
+        jobs:
+          - name: ruff-format
+            glob: "*.py"
+            run: uv run ruff format {staged_files}
+
+          - name: tombi-format
+            glob: "*.toml"
+            run: uv run tombi format {staged_files}
+
+    # Stage 3: Type checking
+    - name: type-check
       glob: "src/**/*.py"
       run: uv run ty check {staged_files}
