@@ -3,6 +3,7 @@
 ## Project management
 
 - Dependencies are managed through `uv`.
+- Always run the Python interpreter and Python tools via `uv run …`.
 
 ## Coding style
 
