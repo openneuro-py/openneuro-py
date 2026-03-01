@@ -406,14 +406,14 @@ wheels = [
 
 [[package]]
 name = "sgqlc"
-version = "16.5"
+version = "18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "graphql-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/d9/84bb065daa089fd1609f3216f5a1703ed9df7be5e1ac04a330194dee8d75/sgqlc-16.5.tar.gz", hash = "sha256:93edcd29ee138f5305d13f211a2b2091bd77873c404c87b87ae16a4023c62d4a", size = 241469, upload-time = "2025-06-04T18:45:33.056Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/13/60/3b8c93b3d5df873bd13bc8fe0a4021d5f7442ca7ee6b98c5152dd55e18c7/sgqlc-18.tar.gz", hash = "sha256:a09f76fb69a2760523144f8d3acbf06a1b3710f63bf87fbac142d3538b1d639b", size = 245818, upload-time = "2026-02-06T19:56:23.957Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ed/62/5b62d18b090546d978ad3788a027603f87b898b53b9772917bcf0eef846c/sgqlc-16.5-py3-none-any.whl", hash = "sha256:56952622e3fcd771e079de290cf8a244dc014cbd9b65059d04f262ec8d8f0f44", size = 82485, upload-time = "2025-06-04T18:45:30.046Z" },
+    { url = "https://files.pythonhosted.org/packages/da/96/8a5b972de8ede610aa088360927411b05c50ebcd669e52b0a3bfd1ed3ed9/sgqlc-18-py3-none-any.whl", hash = "sha256:7af53b5c1aab4602a98a36d6d32bd641e33f602b9b72468885f2505c59c536af", size = 86121, upload-time = "2026-02-06T19:56:22.07Z" },
 ]
 
 [[package]]
