@@ -34,20 +34,22 @@ pre-commit:
 post-merge:
   commands:
     check-deps-changed:
-      files: git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD
-      glob:
-        - .python-version
-        - pyproject.toml
-        - uv.lock
+      # We intentionally avoid using lefthook's `files:` and `glob:` directives
+      # here and instead run `git diff-tree` directly in the shell script. Using
+      # `files:`/`glob:` causes lefthook to run internal `git status`/`git diff`
+      # commands that can deadlock with git-lfs hooks holding the index lock.
       run: |
-        echo ""
-        echo "========================================================="
-        echo "⚠️ Project definition files have changed:"
-        echo ""
-        for file in {files}; do
-          echo "   • $file"
-        done
-        echo ""
-        echo "   👉 Run 'uv sync --locked' to update your environment"
-        echo "========================================================="
-        echo ""
+        changed=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- .python-version pyproject.toml uv.lock)
+        if [ -n "$changed" ]; then
+          echo ""
+          echo "========================================================="
+          echo "⚠️ Project definition files have changed:"
+          echo ""
+          echo "$changed" | while read -r file; do
+            echo "   • $file"
+          done
+          echo ""
+          echo "   👉 Run 'uv sync --locked' to update your environment"
+          echo "========================================================="
+          echo ""
+        fi
