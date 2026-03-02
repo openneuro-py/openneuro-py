@@ -1,3 +1,5 @@
+skip_lfs: true
+
 pre-commit:
   jobs:
     # Stage 1: Linting
