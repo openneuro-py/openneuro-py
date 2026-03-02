@@ -1,3 +1,5 @@
+# Prevent lefthook from calling git-lfs hooks, which can hold the index lock
+# and cause lefthook's internal `git status` calls to deadlock.
 skip_lfs: true
 
 pre-commit:
