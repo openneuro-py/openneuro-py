@@ -1,6 +1,3 @@
 {
-  "recommendations": [
-    "tombi-toml.tombi",
-    "astral-sh.ty"
-  ]
+  "recommendations": ["tombi-toml.tombi", "astral-sh.ty", "charliermarsh.ruff"]
 }

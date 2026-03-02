@@ -35,11 +35,16 @@ from typing import Any, Literal
 import aiofiles
 import httpx
 import requests
+import truststore
 from sgqlc.endpoint.requests import RequestsEndpoint
 from tqdm.auto import tqdm
 
 from openneuro import __version__
 from openneuro._config import BASE_URL, get_token, init_config
+
+# Use system trust store for SSL certificates, which is important for users in
+# enterprise environments with custom CAs.
+truststore.inject_into_ssl()
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
     stdout_unicode = True
