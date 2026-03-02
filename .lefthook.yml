@@ -1,3 +1,7 @@
+# Prevent lefthook from calling git-lfs hooks, which can hold the index lock
+# and cause lefthook's internal `git status` calls to deadlock.
+skip_lfs: true
+
 pre-commit:
   jobs:
     # Stage 1: Linting
@@ -30,3 +34,24 @@ pre-commit:
     - name: type-check
       glob: "src/**/*.py"
       run: uv run ty check {staged_files}
+
+post-merge:
+  commands:
+    check-deps-changed:
+      files: git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD
+      glob:
+        - .python-version
+        - pyproject.toml
+        - uv.lock
+      run: |
+        echo ""
+        echo "========================================================="
+        echo "⚠️ Project definition files have changed:"
+        echo ""
+        for file in {files}; do
+          echo "   • $file"
+        done
+        echo ""
+        echo "   👉 Run 'uv sync --locked' to update your environment"
+        echo "========================================================="
+        echo ""
