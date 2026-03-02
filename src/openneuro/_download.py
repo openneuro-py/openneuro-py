@@ -55,6 +55,8 @@ else:
     ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
+# Might not work on macOS
+# https://github.com/sethmlarson/truststore/issues/167
 class TruststoreAdapter(HTTPAdapter):
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
         return super().init_poolmanager(
