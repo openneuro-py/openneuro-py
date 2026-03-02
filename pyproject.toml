@@ -19,6 +19,7 @@ dependencies = [
   "requests",
   "sgqlc",
   "tqdm",
+  "truststore>=0.10.4",
   "typer>=0.24.0",
 ]
 dynamic = ["version"]

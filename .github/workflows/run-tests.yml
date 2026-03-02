@@ -59,6 +59,9 @@ jobs:
         uv run openneuro-py --version
         uv run openneuro-py download --help
         uv run openneuro-py login --help
+    - name: Test entry point
+      run: |
+        uv run python -m openneuro --help
     - name: Test with pytest
       env:
         OPENNEURO_TEST_TOKEN: ${{ secrets.OPENNEURO_TEST_TOKEN }}
