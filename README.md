@@ -11,10 +11,10 @@ You can run `openneuro-py` directly without installing it using `uvx`:
 
 ```shell
 # Download a dataset without installing the package
-uvx openneuro-py download --dataset=ds000246
+uvx openneuro-py@latest download --dataset=ds000246
 
 # Get help
-uvx openneuro-py --help
+uvx openneuro-py@latest --help
 ```
 
 ## Installation into a Python project
@@ -50,7 +50,9 @@ pip install ipywidgets
 
 ## Basic usage – command line interface
 
-> **Note:** If you're using `uvx` instead of installing the package, prefix all commands below with `uvx`. For example, `openneuro-py --help` becomes `uvx openneuro-py --help`.
+> **Note:** If you're using `uvx` instead of installing the package, prefix all commands below with `uvx` and
+> invoke `openneuro-py@latest` to use the latest released version.
+> For example, `openneuro-py --help` becomes `uvx openneuro-py@latest --help`.
 
 ### Getting help
 
