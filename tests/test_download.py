@@ -577,11 +577,24 @@ def test_truststore_adapter_passes_ssl_context():
         )
 
 
+def test_truststore_adapter_passes_ssl_context_to_proxy():
+    """Test that TruststoreAdapter passes ssl_context to proxy managers."""
+    adapter = _download.TruststoreAdapter()
+    with patch.object(
+        HTTPAdapter,
+        "proxy_manager_for",
+    ) as mock_proxy:
+        adapter.proxy_manager_for("https://proxy.example.com")
+        mock_proxy.assert_called_once_with(
+            "https://proxy.example.com", ssl_context=_download.ssl_context
+        )
+
+
 @pytest.mark.usefixtures("_restore_ssl_context")
 def test_ssl_fallback_on_import_error():
     """Test fallback to default SSL context when truststore is not installed."""
     with patch.dict(sys.modules, {"truststore": None}):
-        with pytest.warns(match="Could not use truststore"):
+        with pytest.warns(match="Could not use truststore.*falling back"):
             mod = importlib.reload(_download)
         assert isinstance(mod.ssl_context, ssl.SSLContext)
         assert type(mod.ssl_context) is ssl.SSLContext
@@ -593,7 +606,7 @@ def test_ssl_fallback_on_construction_error():
     mock_truststore = MagicMock()
     mock_truststore.SSLContext.side_effect = OSError("backend failure")
     with patch.dict(sys.modules, {"truststore": mock_truststore}):
-        with pytest.warns(match="Could not use truststore"):
+        with pytest.warns(match="Could not use truststore.*backend failure"):
             mod = importlib.reload(_download)
         assert isinstance(mod.ssl_context, ssl.SSLContext)
         assert type(mod.ssl_context) is ssl.SSLContext

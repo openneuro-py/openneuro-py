@@ -56,12 +56,11 @@ try:
     import truststore
 
     ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-except Exception:
+except (ImportError, OSError, ssl.SSLError) as exc:
     ssl_context = ssl.create_default_context()
     warnings.warn(
-        "Could not use truststore for SSL verification, falling back to "
-        "default certificate verification. Custom CA certificates from "
-        "the system trust store will not be used.",
+        f"Could not use truststore for SSL verification ({exc!r}); "
+        "falling back to Python/OpenSSL default certificate verification.",
         stacklevel=1,
     )
 
@@ -75,6 +74,10 @@ class TruststoreAdapter(HTTPAdapter):
             ssl_context=ssl_context,
             **pool_kwargs,
         )
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        proxy_kwargs.setdefault("ssl_context", ssl_context)
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
