@@ -67,11 +67,11 @@ except (ImportError, OSError, ssl.SSLError) as exc:
 
 class TruststoreAdapter(HTTPAdapter):
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs.setdefault("ssl_context", ssl_context)
         return super().init_poolmanager(
             connections,
             maxsize,
             block,
-            ssl_context=ssl_context,
             **pool_kwargs,
         )
 
