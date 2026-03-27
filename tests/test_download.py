@@ -1,11 +1,15 @@
 """Test downloading and authentication."""
 
 import copy
+import importlib
 import json
+import ssl
+import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from requests.adapters import HTTPAdapter
 
 import openneuro
 import openneuro._config
@@ -542,3 +546,54 @@ def test_download_file_count(
         assert len(files_arg) == expected_num_files, (
             f"Expected {expected_num_files} files, got {len(files_arg)}"
         )
+
+
+# -- SSL context tests --
+
+
+@pytest.fixture
+def _restore_ssl_context():
+    """Restore the original ssl_context after tests that reload _download."""
+    original = _download.ssl_context
+    yield
+    _download.ssl_context = original
+
+
+def test_ssl_context_is_set():
+    """Test that ssl_context is an ssl.SSLContext instance."""
+    assert isinstance(_download.ssl_context, ssl.SSLContext)
+
+
+def test_truststore_adapter_passes_ssl_context():
+    """Test that TruststoreAdapter passes ssl_context to the pool manager."""
+    adapter = _download.TruststoreAdapter()
+    with patch.object(
+        HTTPAdapter,
+        "init_poolmanager",
+    ) as mock_init:
+        adapter.init_poolmanager(1, 1)
+        mock_init.assert_called_once_with(
+            1, 1, False, ssl_context=_download.ssl_context
+        )
+
+
+@pytest.mark.usefixtures("_restore_ssl_context")
+def test_ssl_fallback_on_import_error():
+    """Test fallback to default SSL context when truststore is not installed."""
+    with patch.dict(sys.modules, {"truststore": None}):
+        with pytest.warns(match="Could not use truststore"):
+            mod = importlib.reload(_download)
+        assert isinstance(mod.ssl_context, ssl.SSLContext)
+        assert type(mod.ssl_context) is ssl.SSLContext
+
+
+@pytest.mark.usefixtures("_restore_ssl_context")
+def test_ssl_fallback_on_construction_error():
+    """Test fallback when truststore imports but SSLContext() raises."""
+    mock_truststore = MagicMock()
+    mock_truststore.SSLContext.side_effect = OSError("backend failure")
+    with patch.dict(sys.modules, {"truststore": mock_truststore}):
+        with pytest.warns(match="Could not use truststore"):
+            mod = importlib.reload(_download)
+        assert isinstance(mod.ssl_context, ssl.SSLContext)
+        assert type(mod.ssl_context) is ssl.SSLContext
