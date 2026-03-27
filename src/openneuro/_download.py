@@ -28,6 +28,7 @@ import ssl
 import string
 import sys
 import time
+import warnings
 from collections.abc import Generator, Iterable
 from difflib import get_close_matches
 from pathlib import Path, PurePosixPath
@@ -47,16 +48,24 @@ from openneuro._config import BASE_URL, get_token, init_config
 # enterprise environments with custom CAs.
 # https://truststore.readthedocs.io/en/latest/#using-truststore-with-requests
 # https://stackoverflow.com/questions/78219802/use-truststores-sslcontext-with-python-requests-session-object
+#
+# The SSLContext construction may fail on some platforms (e.g., macOS) even when
+# truststore is importable:
+# https://github.com/sethmlarson/truststore/issues/167
 try:
     import truststore
-except ImportError:
-    ssl_context = ssl.create_default_context()
-else:
+
     ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+except Exception:
+    ssl_context = ssl.create_default_context()
+    warnings.warn(
+        "Could not use truststore for SSL verification, falling back to "
+        "default certificate verification. Custom CA certificates from "
+        "the system trust store will not be used.",
+        stacklevel=1,
+    )
 
 
-# Might not work on macOS
-# https://github.com/sethmlarson/truststore/issues/167
 class TruststoreAdapter(HTTPAdapter):
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
         return super().init_poolmanager(
