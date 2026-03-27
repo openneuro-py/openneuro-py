@@ -143,7 +143,7 @@ git clone https://github.com/hoechenberger/openneuro-py.git
 cd openneuro-py
 
 # Install dependencies and create virtual environment
-uv sync
+uv sync --locked
 
 # Optional: Install pre-commit hooks
 uv run lefthook install
