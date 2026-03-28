@@ -13,9 +13,8 @@ download
     _get_download_metadata ...
   _download_files
     _download_file
-      _retry_download
-        _download_file ...
-      _retrieve_and_write_to_disk
+      _attempt_download
+        _retrieve_and_write_to_disk
 """
 
 import asyncio
@@ -97,6 +96,12 @@ def login() -> None:
 # HTTP server responses that indicate hopefully intermittent errors that
 # warrant a retry.
 allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
+
+
+class _RetryableError(Exception):
+    """Raised inside _attempt_download to signal the caller should retry."""
+
+
 allowed_retry_exceptions = (
     # For file downloads
     httpx.ConnectTimeout,
@@ -330,7 +335,43 @@ async def _download_file(
     semaphore: asyncio.Semaphore,
     query_str: str,
 ) -> None:
-    """Download an individual file."""
+    """Download an individual file, retrying on transient errors."""
+    for attempt in range(max_retries + 1):
+        try:
+            await _attempt_download(
+                url=url,
+                api_file_size=api_file_size,
+                outfile=outfile,
+                verify_hash=verify_hash,
+                verify_size=verify_size,
+                semaphore=semaphore,
+                query_str=query_str,
+            )
+            return
+        except _RetryableError:
+            if attempt < max_retries:
+                _write_retry(
+                    what=f"downloading {outfile}",
+                    retry=max_retries - attempt,
+                    backoff=retry_backoff,
+                )
+                await asyncio.sleep(retry_backoff)
+                retry_backoff *= 2
+            else:
+                raise RuntimeError(f"Timeout when trying to download {outfile}.")
+
+
+async def _attempt_download(
+    *,
+    url: str,
+    api_file_size: int,
+    outfile: Path,
+    verify_hash: bool,
+    verify_size: bool,
+    semaphore: asyncio.Semaphore,
+    query_str: str,
+) -> None:
+    """Single download attempt (HEAD → local check → GET)."""
     if outfile.exists():
         local_file_size = outfile.stat().st_size
     else:
@@ -350,142 +391,110 @@ async def _download_file(
     else:
         timeout = 5
 
-    # Check if we need to resume a download
-    # The file sizes provided via the API often do not match the sizes reported
-    # by the HTTP server. Rely on the sizes reported by the HTTP server.
-    async with semaphore:
-        async with httpx.AsyncClient(timeout=timeout, verify=ssl_context) as client:
-            try:
+    async with httpx.AsyncClient(timeout=timeout, verify=ssl_context) as client:
+        # Phase 1: HEAD request to get remote file hash and size.
+        # The file sizes provided via the API often do not match the sizes
+        # reported by the HTTP server. Rely on the HTTP server sizes.
+        try:
+            async with semaphore:
                 response = await client.head(url, headers=user_agent_header)
                 headers = response.headers
-            except allowed_retry_exceptions:
-                if max_retries > 0:
-                    await _retry_download(
-                        url=url,
-                        outfile=outfile,
-                        api_file_size=api_file_size,
-                        verify_hash=verify_hash,
-                        verify_size=verify_size,
-                        max_retries=max_retries,
-                        retry_backoff=retry_backoff,
-                        semaphore=semaphore,
-                        query_str=query_str,
-                    )
-                    return
-                else:
-                    raise RuntimeError(f"Timeout when trying to download {outfile}.")
+        except allowed_retry_exceptions:
+            raise _RetryableError
 
-            # Try to get the S3 MD5 hash for the file.
-            try:
-                etag_hash = headers["etag"].strip('"')
-                if len(etag_hash) == 32:
-                    remote_file_hash = etag_hash
-                else:  # It's not an MD5 hash.
-                    remote_file_hash = None
-            except KeyError:
+        # Try to get the S3 MD5 hash for the file.
+        try:
+            etag_hash = headers["etag"].strip('"')
+            if len(etag_hash) == 32:
+                remote_file_hash = etag_hash
+            else:  # It's not an MD5 hash.
                 remote_file_hash = None
+        except KeyError:
+            remote_file_hash = None
 
-            # Get the Content-Length.
-            try:
-                remote_file_size = int(response.headers["content-length"])
-            except KeyError:
-                # The server doesn't always set a Content-Length header.
-                remote_file_size = api_file_size
-            if remote_file_size != api_file_size:
-                tqdm.write(
-                    _unicode(
-                        f"Warning: size mismatch for {outfile.name}: "
-                        f"API size {api_file_size} bytes, "
-                        f"server size {remote_file_size} bytes.",
-                        emoji="⚠️",
-                    )
+        # Get the Content-Length.
+        try:
+            remote_file_size = int(response.headers["content-length"])
+        except KeyError:
+            # The server doesn't always set a Content-Length header.
+            remote_file_size = api_file_size
+        if remote_file_size != api_file_size:
+            tqdm.write(
+                _unicode(
+                    f"Warning: size mismatch for {outfile.name}: "
+                    f"API size {api_file_size} bytes, "
+                    f"server size {remote_file_size} bytes.",
+                    emoji="⚠️",
                 )
+            )
 
-    request_headers: dict[str, str] = user_agent_header.copy()
-    request_headers["Accept-Encoding"] = ""  # Disable compression
+        # Phase 2: Local file check (no semaphore held — allows other tasks
+        # to use network slots while we do local I/O).
+        request_headers: dict[str, str] = user_agent_header.copy()
+        request_headers["Accept-Encoding"] = ""  # Disable compression
 
-    mode: Literal["ab", "wb"] = "wb"
-    if outfile.exists() and local_file_size == remote_file_size:
-        hash_ = hashlib.md5()
+        mode: Literal["ab", "wb"] = "wb"
+        if outfile.exists() and local_file_size == remote_file_size:
+            hash_ = hashlib.md5()
 
-        if verify_hash and remote_file_hash is not None:
-            async with aiofiles.open(outfile, "rb") as f:
-                while True:
-                    data = await f.read(65536)
-                    if not data:
-                        break
-                    hash_.update(data)
+            if verify_hash and remote_file_hash is not None:
+                async with aiofiles.open(outfile, "rb") as f:
+                    while True:
+                        data = await f.read(65536)
+                        if not data:
+                            break
+                        hash_.update(data)
 
-        if (
-            verify_hash
-            and remote_file_hash is not None
-            and hash_.hexdigest() != remote_file_hash
-        ):
-            desc = f"Re-downloading {outfile.name}: file hash mismatch."
+            if (
+                verify_hash
+                and remote_file_hash is not None
+                and hash_.hexdigest() != remote_file_hash
+            ):
+                desc = f"Re-downloading {outfile.name}: file hash mismatch."
+                outfile.unlink()
+                local_file_size = 0
+            else:
+                # Download complete, skip.
+                tqdm.write(f"Skipping {outfile.name}: already downloaded.")
+                return
+        elif outfile.exists() and local_file_size < remote_file_size:
+            # Download incomplete, resume.
+            desc = f"Resuming {outfile.name}"
+            request_headers["Range"] = f"bytes={local_file_size}-"
+            mode = "ab"
+        elif outfile.exists():
+            # Local file is larger than remote – overwrite.
+            desc = f"Re-downloading {outfile.name}: file size mismatch."
             outfile.unlink()
             local_file_size = 0
         else:
-            # Download complete, skip.
-            desc = f"Skipping {outfile.name}: already downloaded."
-            t = tqdm(
-                iterable=response.aiter_bytes(),
-                desc=desc,
-                initial=local_file_size,
-                total=remote_file_size,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                leave=False,
-            )
-            t.close()
-            return
-    elif outfile.exists() and local_file_size < remote_file_size:
-        # Download incomplete, resume.
-        desc = f"Resuming {outfile.name}"
-        request_headers["Range"] = f"bytes={local_file_size}-"
-        mode = "ab"
-    elif outfile.exists():
-        # Local file is larger than remote – overwrite.
-        desc = f"Re-downloading {outfile.name}: file size mismatch."
-        outfile.unlink()
-        local_file_size = 0
-    else:
-        # File doesn't exist locally, download entirely.
-        desc = outfile.name
+            # File doesn't exist locally, download entirely.
+            desc = outfile.name
 
-    async with semaphore:
-        async with httpx.AsyncClient(timeout=timeout, verify=ssl_context) as client:
-            try:
+        # Phase 3: GET request to download the file (re-acquires semaphore).
+        try:
+            async with semaphore:
                 async with client.stream(
                     "GET", url=url, headers=request_headers
                 ) as response:
                     if not response.is_error:
                         pass  # All good!
-                    elif (
-                        response.status_code in allowed_retry_codes and max_retries > 0
-                    ):
-                        await _retry_download(
-                            url=url,
-                            outfile=outfile,
-                            api_file_size=api_file_size,
-                            verify_hash=verify_hash,
-                            verify_size=verify_size,
-                            max_retries=max_retries,
-                            retry_backoff=retry_backoff,
-                            semaphore=semaphore,
-                            query_str=query_str,
-                        )
-                        return
+                    elif response.status_code in allowed_retry_codes:
+                        raise _RetryableError
                     else:
                         raise RuntimeError(
-                            f"Error {response.status_code} when trying to download "
-                            f"{outfile}. If this is unexpected:\n\n"
-                            "1. Navigate to https://openneuro.org/crn/graphql\n"
-                            f"2. Enter and run the operation: `{query_str}`\n"
-                            '3. In the Response, try to manually download the "urls" '
-                            f'for "{outfile.name}", which should contain {url}\n\n'
+                            f"Error {response.status_code} when trying to "
+                            f"download {outfile}. If this is unexpected:\n\n"
+                            "1. Navigate to "
+                            "https://openneuro.org/crn/graphql\n"
+                            "2. Enter and run the operation: "
+                            f"`{query_str}`\n"
+                            "3. In the Response, try to manually download "
+                            f'the "urls" for "{outfile.name}", which should '
+                            f"contain {url}\n\n"
                             "If the download fails, open a GitHub issue like "
-                            "https://github.com/OpenNeuroOrg/openneuro/issues/3145"
+                            "https://github.com/OpenNeuroOrg/openneuro/"
+                            "issues/3145"
                         )
 
                     await _retrieve_and_write_to_disk(
@@ -499,54 +508,8 @@ async def _download_file(
                         verify_hash=verify_hash,
                         verify_size=verify_size,
                     )
-            except allowed_retry_exceptions:
-                if max_retries > 0:
-                    await _retry_download(
-                        url=url,
-                        outfile=outfile,
-                        api_file_size=api_file_size,
-                        verify_hash=verify_hash,
-                        verify_size=verify_size,
-                        max_retries=max_retries,
-                        retry_backoff=retry_backoff,
-                        semaphore=semaphore,
-                        query_str=query_str,
-                    )
-                    return
-                else:
-                    raise RuntimeError(f"Timeout when trying to download {outfile}.")
-
-
-async def _retry_download(
-    *,
-    url: str,
-    outfile: Path,
-    api_file_size: int,
-    verify_hash: bool,
-    verify_size: bool,
-    max_retries: int,
-    retry_backoff: float,
-    semaphore: asyncio.Semaphore,
-    query_str: str,
-) -> None:
-    _write_retry(
-        what=f"downloading {outfile}", retry=max_retries, backoff=retry_backoff
-    )
-    await asyncio.sleep(retry_backoff)
-    max_retries -= 1
-    retry_backoff *= 2
-    semaphore.release()
-    await _download_file(
-        url=url,
-        api_file_size=api_file_size,
-        outfile=outfile,
-        verify_hash=verify_hash,
-        verify_size=verify_size,
-        max_retries=max_retries,
-        retry_backoff=retry_backoff,
-        semaphore=semaphore,
-        query_str=query_str,
-    )
+        except allowed_retry_exceptions:
+            raise _RetryableError
 
 
 async def _retrieve_and_write_to_disk(
@@ -585,7 +548,6 @@ async def _retrieve_and_write_to_disk(
             leave=False,
         ) as progress:
             num_bytes_downloaded = response.num_bytes_downloaded
-            # TODO Add timeout handling here, too.
             async for chunk in response.aiter_bytes():
                 await f.write(chunk)
                 progress.update(response.num_bytes_downloaded - num_bytes_downloaded)

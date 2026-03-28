@@ -1,13 +1,15 @@
 """Test downloading and authentication."""
 
+import asyncio
 import copy
 import importlib
 import json
 import ssl
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from requests.adapters import HTTPAdapter
 
@@ -15,6 +17,7 @@ import openneuro
 import openneuro._config
 from openneuro import _download
 from openneuro._download import (
+    _download_file,
     _traverse_directory,
     download,
 )
@@ -610,3 +613,84 @@ def test_ssl_fallback_on_construction_error():
             mod = importlib.reload(_download)
         assert isinstance(mod.ssl_context, ssl.SSLContext)
         assert type(mod.ssl_context) is ssl.SSLContext
+
+
+def _make_fake_client(*, file_content: bytes, fail_head_n_times: int = 0):
+    """Create a mock ``httpx.AsyncClient`` for download tests.
+
+    Parameters
+    ----------
+    file_content
+        Bytes the fake GET response will yield.
+    fail_head_n_times
+        Number of initial HEAD requests that raise ``httpx.ReadTimeout``
+        before succeeding.
+
+    """
+    head_call_count = 0
+
+    async def head(url, *, headers=None):
+        nonlocal head_call_count
+        head_call_count += 1
+        if head_call_count <= fail_head_n_times:
+            raise httpx.ReadTimeout("simulated timeout")
+        resp = MagicMock()
+        resp.headers = {
+            "etag": '"d41d8cd98f00b204e9800998ecf8427e"',
+            "content-length": str(len(file_content)),
+        }
+        return resp
+
+    class _FakeStream:
+        def __init__(self):
+            self.is_error = False
+            self.status_code = 200
+            self.num_bytes_downloaded = len(file_content)
+
+        async def aiter_bytes(self):
+            yield file_content
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    client = AsyncMock()
+    client.head = head
+    client.stream = lambda method, *, url, headers=None: _FakeStream()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=False)
+    return client
+
+
+def test_semaphore_not_leaked_on_retry(tmp_path: Path):
+    """Semaphore value must be preserved after retries.
+
+    Regression test: the old recursive _retry_download() would call
+    semaphore.release() explicitly, then the enclosing ``async with
+    semaphore:`` would release again on exit — inflating the counter
+    on every retry.
+    """
+    semaphore = asyncio.Semaphore(2)
+    mock_client = _make_fake_client(file_content=b"hello", fail_head_n_times=1)
+
+    async def run():
+        await _download_file(
+            url="https://example.com/test.txt",
+            api_file_size=5,
+            outfile=tmp_path / "test.txt",
+            verify_hash=False,
+            verify_size=False,
+            max_retries=3,
+            retry_backoff=0.0,
+            semaphore=semaphore,
+            query_str="test query",
+        )
+
+    with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
+        asyncio.run(run())
+
+    assert semaphore._value == 2, (
+        f"Semaphore leaked: expected value 2, got {semaphore._value}"
+    )
