@@ -482,7 +482,10 @@ async def _attempt_download(
                     if not response.is_error:
                         pass  # All good!
                     elif response.status_code in allowed_retry_codes:
-                        raise _RetryableError
+                        raise _RetryableError(
+                            f"Retryable HTTP error {response.status_code} "
+                            f"when trying to download {outfile} from {url}"
+                        )
                     else:
                         raise RuntimeError(
                             f"Error {response.status_code} when trying to "
