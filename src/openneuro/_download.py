@@ -360,7 +360,7 @@ async def _download_file(
             else:
                 raise RuntimeError(
                     f"Failed to download {outfile} after {max_retries} retries."
-                ) from err.__cause__
+                ) from (err.__cause__ or err)
 
 
 async def _attempt_download(
