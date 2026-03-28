@@ -348,7 +348,7 @@ async def _download_file(
                 query_str=query_str,
             )
             return
-        except _RetryableError:
+        except _RetryableError as err:
             if attempt < max_retries:
                 _write_retry(
                     what=f"downloading {outfile}",
@@ -358,7 +358,9 @@ async def _download_file(
                 await asyncio.sleep(retry_backoff)
                 retry_backoff *= 2
             else:
-                raise RuntimeError(f"Timeout when trying to download {outfile}.")
+                raise RuntimeError(
+                    f"Failed to download {outfile} after {max_retries} retries."
+                ) from err.__cause__
 
 
 async def _attempt_download(
@@ -399,8 +401,8 @@ async def _attempt_download(
             async with semaphore:
                 response = await client.head(url, headers=user_agent_header)
                 headers = response.headers
-        except allowed_retry_exceptions:
-            raise _RetryableError
+        except allowed_retry_exceptions as exc:
+            raise _RetryableError from exc
 
         # Try to get the S3 MD5 hash for the file.
         try:
@@ -508,8 +510,8 @@ async def _attempt_download(
                         verify_hash=verify_hash,
                         verify_size=verify_size,
                     )
-        except allowed_retry_exceptions:
-            raise _RetryableError
+        except allowed_retry_exceptions as exc:
+            raise _RetryableError from exc
 
 
 async def _retrieve_and_write_to_disk(
