@@ -856,7 +856,9 @@ def download(
             files.append(file)
             # Keep track of include matches.
             if any(matches_keep):
-                include_counts[matches_keep.index(True)] += 1
+                for idx, matched in enumerate(matches_keep):
+                    if matched:
+                        include_counts[idx] += 1
 
     if include:
         for idx, count in enumerate(include_counts):
