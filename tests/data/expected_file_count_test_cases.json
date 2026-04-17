@@ -15,7 +15,7 @@
       "derivatives/meg_derivatives/ct_sparse.fif",
       "derivatives/meg_derivatives/sss_cal.dat"
     ],
-    19
+    17
   ],
   ["ds000117", ["**/ses-meg/**"], 25]
 ]

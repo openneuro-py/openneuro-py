@@ -1,28 +1,39 @@
 [
   [
     "ds000117",
-    [
-      "*.tsv"
-    ],
+    ["*.tsv"],
     [
       "dataset_description.json",
       "participants.tsv",
       "participants.json",
       "README",
-      "CHANGES"
+      "CHANGES",
+      "sub-01/ses-meg/sub-01_ses-meg_scans.tsv",
+      "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_channels.tsv",
+      "sub-01/ses-meg/beh/sub-01_ses-meg_task-facerecognition_events.tsv",
+      "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_events.tsv",
+      "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-02_events.tsv",
+      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_events.tsv",
+      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv",
+      "sub-02/ses-meg/sub-02_ses-meg_scans.tsv",
+      "sub-02/ses-meg/sub-02_ses-meg_task-facerecognition_channels.tsv",
+      "sub-02/ses-meg/beh/sub-02_ses-meg_task-facerecognition_events.tsv",
+      "sub-02/ses-meg/meg/sub-02_ses-meg_task-facerecognition_run-01_events.tsv",
+      "sub-02/ses-meg/meg/sub-02_ses-meg_task-facerecognition_run-02_events.tsv",
+      "sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-01_events.tsv",
+      "sub-02/ses-mri/func/sub-02_ses-mri_task-facerecognition_run-02_events.tsv",
+      "sub-emptyroom/ses-20090409/sub-emptyroom_ses-20090409_scans.tsv"
     ]
   ],
   [
     "ds000117",
+    ["sub-01"],
     [
-      "sub-01"
-    ],
-    [
-      "CHANGES",
-      "README",
       "dataset_description.json",
-      "participants.json",
       "participants.tsv",
+      "participants.json",
+      "README",
+      "CHANGES",
       "sub-01/ses-meg/sub-01_ses-meg_scans.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_channels.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_meg.json",
@@ -53,31 +64,29 @@
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.bvec",
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.json",
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.nii.gz",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.json",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.nii.gz",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_events.tsv",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.json",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
-      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
+      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii"
     ]
   ],
   [
     "ds000117",
+    ["sub-01/"],
     [
-      "sub-01/"
-    ],
-    [
-      "CHANGES",
-      "README",
       "dataset_description.json",
-      "participants.json",
       "participants.tsv",
+      "participants.json",
+      "README",
+      "CHANGES",
       "sub-01/ses-meg/sub-01_ses-meg_scans.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_channels.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_meg.json",
@@ -108,31 +117,29 @@
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.bvec",
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.json",
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.nii.gz",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.json",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.nii.gz",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_events.tsv",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.json",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
-      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
+      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii"
     ]
   ],
   [
     "ds000117",
+    ["sub-01/**"],
     [
-      "sub-01/**"
-    ],
-    [
-      "CHANGES",
-      "README",
       "dataset_description.json",
-      "participants.json",
       "participants.tsv",
+      "participants.json",
+      "README",
+      "CHANGES",
       "sub-01/ses-meg/sub-01_ses-meg_scans.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_channels.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_meg.json",
@@ -163,18 +170,18 @@
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.bvec",
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.json",
       "sub-01/ses-mri/dwi/sub-01_ses-mri_dwi.nii.gz",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json",
-      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.json",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_bold.nii.gz",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-01_events.tsv",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.json",
       "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_bold.nii.gz",
-      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv"
+      "sub-01/ses-mri/func/sub-01_ses-mri_task-facerecognition_run-02_events.tsv",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude1.nii",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_magnitude2.nii",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.json",
+      "sub-01/ses-mri/fmap/sub-01_ses-mri_phasediff.nii"
     ]
   ],
   [
@@ -190,18 +197,16 @@
       "derivatives/meg_derivatives/sss_cal.dat"
     ],
     [
-      "CHANGES",
-      "README",
       "dataset_description.json",
-      "participants.json",
       "participants.tsv",
+      "participants.json",
+      "README",
+      "CHANGES",
       "derivatives/meg_derivatives/ct_sparse.fif",
       "derivatives/meg_derivatives/sss_cal.dat",
       "sub-01/ses-meg/sub-01_ses-meg_scans.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_channels.tsv",
       "sub-01/ses-meg/sub-01_ses-meg_task-facerecognition_meg.json",
-      "sub-01/ses-meg/beh/sub-01_ses-meg_task-facerecognition_events.tsv",
-      "sub-01/ses-meg/meg/sub-01_ses-meg_coordsystem.json",
       "sub-01/ses-meg/meg/sub-01_ses-meg_headshape.pos",
       "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_events.tsv",
       "sub-01/ses-meg/meg/sub-01_ses-meg_task-facerecognition_run-01_meg.fif",

@@ -18,7 +18,6 @@ import openneuro._config
 from openneuro import _download
 from openneuro._download import (
     _download_file,
-    _traverse_directory,
     download,
 )
 from tests.utils import load_json
@@ -154,95 +153,6 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
         download(dataset="ds006412", include="README.txt", target_dir=tmp_path)
 
     assert (tmp_path / "README.txt").exists()
-
-
-_TEST_CASES_LIST = load_json("traverse_dir_test_cases.json")
-assert isinstance(_TEST_CASES_LIST, list)
-
-
-@pytest.mark.parametrize(
-    ("dir_path", "include_pattern", "expected"),
-    _TEST_CASES_LIST
-    + [
-        # TODO: These three tests cases are failing because directory
-        # should not be traversed for include_pattern that does not
-        # match dir_path itself
-        pytest.param(
-            "sub-01/ses-meg",
-            "sub-01/ses-meg/*.tsv",
-            False,
-            marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file"
-                "pattern that does not match directory itself"
-            ),
-        ),
-        pytest.param(
-            "sub-01/ses-meg/meg",
-            "sub-01/ses-meg/*.tsv",
-            False,
-            marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file"
-                "pattern that does not match directory itself"
-            ),
-        ),
-        pytest.param(
-            "sub-01/ses-meg/meg",
-            "*/*.json",
-            False,
-            marks=pytest.mark.xfail(
-                reason="Known bug: directory should not be traversed for file"
-                "pattern that does not match directory itself"
-            ),
-        ),
-    ],
-)
-def test_traverse_directory(
-    dir_path: str,
-    include_pattern: str,
-    expected: bool,
-):
-    """Test that the right directories are traversed.
-
-    This test uses realistic OpenNeuro directory structures
-    following BIDS standards, and tests against a comprehensive
-    set of include patterns commonly used in practice. It checks
-    if the right directories are traversed based on the include
-    pattern.
-
-    Test cases are loaded from `traverse_test_cases.json` which
-    contains an array of test case tuples. Each tuple has the
-    structure:
-    [dir_path, include_pattern, expected_result]
-
-    Where:
-    - dir_path: Directory path from OpenNeuro dataset (e.g.,
-      "sub-01", "sub-01/ses-meg", "derivatives")
-    - include_pattern: Glob pattern to match (e.g., "*.tsv",
-      "sub-01/**", "**/meg/**")
-    - expected_result: Boolean indicating if directory should
-      be traversed (true/false)
-
-    To add more test cases:
-    1. Open `src/openneuro/tests/data/traverse_test_cases.json`
-    2. Add new test case as: ["dir_path", "pattern", true/false]
-    3. Ensure JSON syntax is valid (commas, quotes, brackets)
-    4. Test cases should cover edge cases and common patterns
-
-    Parameters
-    ----------
-    dir_path : str
-        The directory path from a realistic OpenNeuro dataset.
-    include_pattern : str
-        The include pattern to match against
-    expected : bool
-        Expected result (True if directory should be traversed)
-
-    """
-    result = _traverse_directory(dir_path, include_pattern)
-    assert result == expected, (
-        f"_traverse_directory(dir_path={dir_path}, include_pattern={include_pattern}) "
-        f"returned {result}, expected {expected}"
-    )
 
 
 @pytest.mark.parametrize(
@@ -454,8 +364,7 @@ def test_download_file_list_generation(
     """
 
     def mock_get_download_metadata(*args, **kwargs):
-        tree = kwargs.get("tree", "null").strip('"').strip("'")
-        return copy.deepcopy(MOCK_METADATA[tree])
+        return copy.deepcopy(MOCK_METADATA)
 
     def mock_get_local_tag(*args, **kwargs):
         return None
@@ -463,6 +372,9 @@ def test_download_file_list_generation(
     async def _download_files_spy(*, files, **kwargs):
         """Spy on _download_files to capture the call arguments."""
         return None
+
+    # Load mock metadata
+    MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
 
     with (
         patch.object(
@@ -475,9 +387,6 @@ def test_download_file_list_generation(
             _download, "_download_files", side_effect=_download_files_spy
         ) as _download_files_spy,
     ):
-        # Load mock metadata
-        MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
-
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
@@ -530,8 +439,7 @@ def test_download_file_count(
     """
 
     def mock_get_download_metadata(*args, **kwargs):
-        tree = kwargs.get("tree", "null").strip('"').strip("'")
-        return copy.deepcopy(MOCK_METADATA[tree])
+        return copy.deepcopy(MOCK_METADATA)
 
     def mock_get_local_tag(*args, **kwargs):
         return None
@@ -539,6 +447,9 @@ def test_download_file_count(
     async def _download_files_spy(*, files, **kwargs):
         """Spy on _download_files to capture the call arguments."""
         return None
+
+    # Load mock metadata
+    MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
 
     with (
         patch.object(
@@ -551,9 +462,6 @@ def test_download_file_count(
             _download, "_download_files", side_effect=_download_files_spy
         ) as _download_files_spy,
     ):
-        # Load mock metadata
-        MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
-
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
