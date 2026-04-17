@@ -529,13 +529,31 @@ def test_download_file_count(
 
     """
 
+    def mock_get_download_metadata(*args, **kwargs):
+        tree = kwargs.get("tree", "null").strip('"').strip("'")
+        return copy.deepcopy(MOCK_METADATA[tree])
+
+    def mock_get_local_tag(*args, **kwargs):
+        return None
+
     async def _download_files_spy(*, files, **kwargs):
         """Spy on _download_files to capture the call arguments."""
         return None
 
-    with patch.object(
-        _download, "_download_files", side_effect=_download_files_spy
-    ) as _download_files_spy:
+    with (
+        patch.object(
+            _download,
+            "_get_download_metadata",
+            side_effect=mock_get_download_metadata,
+        ),
+        patch.object(_download, "_get_local_tag", side_effect=mock_get_local_tag),
+        patch.object(
+            _download, "_download_files", side_effect=_download_files_spy
+        ) as _download_files_spy,
+    ):
+        # Load mock metadata
+        MOCK_METADATA = load_json(f"mock_metadata_{dataset}.json")
+
         # Run the function with an include pattern
         _download.download(
             dataset=dataset,
