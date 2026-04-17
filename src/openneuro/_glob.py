@@ -14,7 +14,14 @@ def match(filename: str, pattern: str) -> bool:
 
     Unlike :func:`fnmatch.fnmatch`, ``*`` does not cross ``/`` boundaries,
     and ``**`` matches zero or more path segments (including the final one).
+
+    A leading ``/`` anchors the pattern to the root of the file tree.  Because
+    filenames stored on OpenNeuro never start with ``/``, we strip it here so
+    the regex can match against the bare filename.  Combined with ``*`` not
+    crossing ``/`` boundaries, this naturally restricts to root-level files.
     """
+    if pattern.startswith("/"):
+        pattern = pattern[1:]
     i, n = 0, len(pattern)
     regex = ""
     while i < n:

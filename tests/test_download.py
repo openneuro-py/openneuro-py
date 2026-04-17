@@ -477,6 +477,40 @@ def test_download_file_count(
         )
 
 
+# -- Glob matching tests --
+
+
+@pytest.mark.parametrize(
+    ("filename", "pattern", "expected"),
+    [
+        # Leading / anchors to root
+        ("participants.tsv", "/*.tsv", True),
+        ("README", "/*.tsv", False),
+        ("sub-01/ses-meg/file.tsv", "/*.tsv", False),
+        ("dataset_description.json", "/*.json", True),
+        ("sub-01/file.json", "/*.json", False),
+        # * does not cross /
+        ("sub-01/file.tsv", "sub-01/*.tsv", True),
+        ("sub-01/ses-meg/file.tsv", "sub-01/*.tsv", False),
+        # ** crosses /
+        ("sub-01/ses-meg/file.tsv", "sub-01/**/*.tsv", True),
+        ("sub-01/a/b/c/file.tsv", "sub-01/**/*.tsv", True),
+        # ** at end
+        ("sub-01/anything/here", "sub-01/**", True),
+        # ? matches single non-/ char
+        ("sub-01", "sub-0?", True),
+        ("sub-01/x", "sub-0?/x", True),
+        # No match
+        ("sub-02/file.tsv", "sub-01/*.tsv", False),
+    ],
+)
+def test_glob_match(filename: str, pattern: str, expected: bool):
+    """Test _glob.match against various patterns."""
+    from openneuro._glob import match
+
+    assert match(filename, pattern) is expected
+
+
 # -- SSL context tests --
 
 
