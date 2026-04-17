@@ -51,8 +51,7 @@ def match(filename: str, pattern: str) -> bool:
     the regex can match against the bare filename.  Combined with ``*`` not
     crossing ``/`` boundaries, this naturally restricts to root-level files.
     """
-    if pattern.startswith("/"):
-        pattern = pattern[1:]
+    pattern = pattern.removeprefix("/")
     return _compile_pattern(pattern).fullmatch(filename) is not None
 
 
