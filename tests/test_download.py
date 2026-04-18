@@ -511,6 +511,29 @@ def test_glob_match(filename: str, pattern: str, expected: bool):
     assert match(filename, pattern) is expected
 
 
+@pytest.mark.parametrize(
+    ("filename", "pattern", "expected"),
+    [
+        # Exact prefix with path boundary
+        ("sub-01/file.tsv", "sub-01", True),
+        ("sub-01/ses-meg/file.tsv", "sub-01", True),
+        ("sub-010/file.tsv", "sub-01", False),  # must not match similar prefix
+        ("sub-01", "sub-01", True),  # exact match
+        # Trailing slash
+        ("sub-01/file.tsv", "sub-01/", True),
+        ("sub-010/file.tsv", "sub-01/", False),
+        # Exclude similarly-prefixed paths
+        ("derivatives/meg_extra/file.fif", "derivatives/meg", False),
+        ("derivatives/meg/file.fif", "derivatives/meg", True),
+    ],
+)
+def test_prefix_match(filename: str, pattern: str, expected: bool):
+    """Test prefix_match enforces path boundaries."""
+    from openneuro._glob import prefix_match
+
+    assert prefix_match(filename, pattern) is expected
+
+
 # -- SSL context tests --
 
 

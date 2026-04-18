@@ -72,6 +72,17 @@ def expand_patterns(patterns: Iterable[str]) -> list[str]:
     return expanded
 
 
+def prefix_match(filename: str, pattern: str) -> bool:
+    """Check if *filename* falls under the directory prefix *pattern*.
+
+    Enforces a path boundary so that pattern ``sub-01`` matches
+    ``sub-01/file.tsv`` but **not** ``sub-010/file.tsv``.
+    """
+    if pattern.endswith("/"):
+        return filename.startswith(pattern)
+    return filename == pattern or filename.startswith(pattern + "/")
+
+
 def match_include_exclude(
     filename: str,
     *,
@@ -79,6 +90,6 @@ def match_include_exclude(
     exclude: Iterable[str],
 ) -> tuple[list[bool], list[bool]]:
     """Check if a filename matches an include or exclude pattern."""
-    matches_keep = [filename.startswith(i) or match(filename, i) for i in include]
-    matches_remove = [filename.startswith(e) or match(filename, e) for e in exclude]
+    matches_keep = [prefix_match(filename, i) or match(filename, i) for i in include]
+    matches_remove = [prefix_match(filename, e) or match(filename, e) for e in exclude]
     return matches_keep, matches_remove
