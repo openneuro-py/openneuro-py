@@ -625,6 +625,7 @@ async def _download_files(
     # coroutines.
     semaphore = asyncio.Semaphore(max_concurrent_downloads)
     download_tasks = []
+    normalized_query_str = " ".join(shlex.split(query_str, posix=False))
 
     for file in files:
         filename = Path(file["filename"])
@@ -633,7 +634,6 @@ async def _download_files(
 
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        this_query_str = " ".join(shlex.split(query_str, posix=False))
         download_task = _download_file(
             url=url,
             api_file_size=api_file_size,
@@ -643,7 +643,7 @@ async def _download_files(
             max_retries=max_retries,
             retry_backoff=retry_backoff,
             semaphore=semaphore,
-            query_str=this_query_str,
+            query_str=normalized_query_str,
         )
         download_tasks.append(download_task)
 

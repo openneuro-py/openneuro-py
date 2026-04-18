@@ -183,8 +183,8 @@ def test_download_file_list_generation(
     The test uses `mock_metadata_ds000117.json` which contains
     mock OpenNeuro metadata for dataset ds000117. This file
     simulates the API response with file listings including
-    filenames, URLs, sizes, and directory flags for realistic
-    testing without requiring actual API calls. Having a mock
+    filenames, URLs, and sizes for realistic testing without
+    requiring actual API calls. Having a mock
     metadata makes it easy to control which files should be
     selected with different include patterns. The `mock_metadata_ds000117.json`
     file was built manually using the following directory structure:
