@@ -734,9 +734,21 @@ def download(
         root (e.g., ``'/*.json'``). As an example, if you would like to
         download only subject '1' and run '01' files, you can do so via:
         ``'sub-1/**/*run-01*'``.
+
+        .. note::
+            Consistent with ``.gitignore`` semantics, ``*`` and ``**`` do **not**
+            match dot-prefixed (hidden) filenames. To include such files, use an
+            explicit pattern like ``'**/.*'``. The BIDS specification reserves
+            dotfiles for system use, so they are rarely needed.
     exclude
         Files and directories to exclude from downloading.
         Uses the same glob-style matching as ``include``.
+
+        .. note::
+            Certain essential BIDS metadata files are always downloaded
+            regardless of ``exclude`` patterns: ``dataset_description.json``,
+            ``participants.tsv``, ``participants.json``, ``README``, and
+            ``CHANGES``.
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size

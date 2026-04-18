@@ -19,6 +19,9 @@ def glob_filter(
       patterns (``sub-01``, ``sub-0001/anat``) match all files underneath.
     * A leading ``/`` anchors the pattern to the dataset root and disables
       basename matching.
+    * Consistent with ``.gitignore``, ``*`` and ``**`` do **not** match
+      dot-prefixed filenames. Use an explicit ``.`` prefix (e.g. ``'**/.*'``)
+      to match hidden files.
     """
     filenames = list(all_filenames)
     base_flags = glob.GLOBSTAR
