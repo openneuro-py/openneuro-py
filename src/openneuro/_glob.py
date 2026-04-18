@@ -21,7 +21,7 @@ def glob_filter(
       basename matching.
     """
     filenames = list(all_filenames)
-    base_flags = glob.GLOBSTAR | glob.DOTMATCH
+    base_flags = glob.GLOBSTAR
     results: dict[str, set[str]] = {}
 
     for pattern in patterns:
