@@ -617,9 +617,6 @@ def test_ssl_fallback_on_construction_error():
 # -- _safe_query tests --
 
 
-# -- _safe_query tests --
-
-
 @pytest.fixture
 def _no_token():
     """Stub out get_token so _safe_query skips authentication."""
