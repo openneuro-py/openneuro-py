@@ -58,14 +58,14 @@ def match(filename: str, pattern: str) -> bool:
 def expand_patterns(patterns: Iterable[str]) -> list[str]:
     """Auto-expand bare glob patterns to match at any depth.
 
-    Patterns without a ``/`` that contain glob characters (``*``, ``?``, ``[``)
+    Patterns without a ``/`` that contain supported glob characters (``*``, ``?``)
     are prepended with ``**/``, e.g. ``*.tsv`` becomes ``**/*.tsv``. This
     mirrors ``.gitignore`` behavior and preserves backward compatibility with
     older fnmatch-based matching.
     """
     expanded = []
     for p in patterns:
-        if "/" not in p and any(c in p for c in "*?["):
+        if "/" not in p and any(c in p for c in "*?"):
             expanded.append(f"**/{p}")
         else:
             expanded.append(p)
