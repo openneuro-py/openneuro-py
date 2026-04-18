@@ -17,8 +17,6 @@ dependencies = [
   "aiofiles",
   "httpx >= 0.15",
   "platformdirs",
-  "requests",
-  "sgqlc",
   "tqdm",
   "truststore>=0.10.4",
   "typer>=0.24.0",
@@ -40,7 +38,6 @@ dev = [
   "tombi>=0.7.19",
   "ty>=0.0.12",
   "types-aiofiles>=25.1.0.20251011",
-  "types-requests>=2.32.4.20260107",
   "types-tqdm",
 ]
 

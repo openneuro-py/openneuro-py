@@ -36,9 +36,6 @@ from typing import Any, Literal
 
 import aiofiles
 import httpx
-import requests
-from requests.adapters import HTTPAdapter
-from sgqlc.endpoint.requests import RequestsEndpoint
 from tqdm.auto import tqdm
 
 from openneuro import __version__
@@ -46,18 +43,13 @@ from openneuro._config import BASE_URL, get_token, init_config
 
 # Use system trust store for SSL certificates, which is important for users in
 # enterprise environments with custom CAs.
-# https://truststore.readthedocs.io/en/latest/#using-truststore-with-requests
-# https://stackoverflow.com/questions/78219802/use-truststores-sslcontext-with-python-requests-session-object
 #
 # The SSLContext construction may fail on some platforms (e.g., macOS) even when
 # truststore is importable:
 # https://github.com/sethmlarson/truststore/issues/167
 #
-# truststore temporarily sets verify_mode=CERT_NONE on the context during
-# wrap_socket(), so a single SSLContext shared across threads triggers spurious
-# InsecureRequestWarnings from urllib3.  Each TruststoreAdapter therefore gets
-# its own context; only the httpx path (async, single-threaded) keeps a
-# module-level instance.
+# httpx accepts verify=ssl_context directly and does not use urllib3, so a
+# single module-level SSLContext shared across threads is safe.
 _use_truststore = True
 try:
     import truststore
@@ -71,28 +63,6 @@ except (ImportError, OSError, ssl.SSLError) as exc:
         "falling back to Python/OpenSSL default certificate verification.",
         stacklevel=1,
     )
-
-
-class TruststoreAdapter(HTTPAdapter):
-    def __init__(self, **kwargs: Any) -> None:
-        if _use_truststore:
-            self._ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        else:
-            self._ssl_context = ssl.create_default_context()
-        super().__init__(**kwargs)
-
-    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        pool_kwargs.setdefault("ssl_context", self._ssl_context)
-        return super().init_poolmanager(
-            connections,
-            maxsize,
-            block,
-            **pool_kwargs,
-        )
-
-    def proxy_manager_for(self, proxy, **proxy_kwargs):
-        proxy_kwargs.setdefault("ssl_context", self._ssl_context)
-        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
@@ -119,14 +89,10 @@ class _RetryableError(Exception):
 
 
 allowed_retry_exceptions = (
-    # For file downloads
     httpx.ConnectTimeout,
     httpx.ReadTimeout,
     httpx.ReadError,
     httpx.ConnectError,  # [Errno -3] Temporary failure in name resolution
-    # For GraphQL requests via sgqlc (doesn't support httpx)
-    requests.exceptions.ConnectTimeout,
-    requests.exceptions.ReadTimeout,
     # "peer closed connection without sending complete message body
     #  (incomplete chunked read)"
     httpx.RemoteProtocolError,
@@ -190,25 +156,33 @@ snapshot_query_template = string.Template(
 def _safe_query(
     query: str, *, timeout: float | None = None
 ) -> tuple[dict[str, Any] | None, bool]:
-    with requests.Session() as session:
-        session.mount("https://", TruststoreAdapter())
-        session.headers.update(user_agent_header)
-        try:
-            token = get_token()
-            session.cookies.set_cookie(
-                requests.cookies.create_cookie("accessToken", token)  # type: ignore[no-untyped-call]
-            )
-            tqdm.write("🍪 Using API token to log in")
-        except ValueError:
-            pass  # No login
-        gql_endpoint = RequestsEndpoint(url=gql_url, session=session, timeout=timeout)
-        try:
-            response_json = gql_endpoint(query=query)
-            request_timed_out = False
-        except allowed_retry_exceptions:
-            response_json = None
-            request_timed_out = True
-    return response_json, request_timed_out
+    cookies: dict[str, str] = {}
+    try:
+        token = get_token()
+        cookies["accessToken"] = token
+        tqdm.write("🍪 Using API token to log in")
+    except ValueError:
+        pass  # No login
+
+    try:
+        with httpx.Client(
+            verify=ssl_context,
+            headers=user_agent_header,
+            cookies=cookies,
+        ) as client:
+            response = client.post(gql_url, json={"query": query}, timeout=timeout)
+    except allowed_retry_exceptions:
+        return None, True
+
+    if response.status_code in allowed_retry_codes:
+        return None, True
+
+    try:
+        response_json = response.json()
+    except json.JSONDecodeError:
+        raise RuntimeError(f"GraphQL request failed (HTTP {response.status_code})")
+
+    return response_json, False
 
 
 def _write_retry(*, what: str, reason: str, retry: int, backoff: float) -> None:

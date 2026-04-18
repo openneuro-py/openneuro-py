@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from requests.adapters import HTTPAdapter
 
 import openneuro
 import openneuro._config
@@ -593,37 +592,6 @@ def test_ssl_context_is_set():
     assert isinstance(_download.ssl_context, ssl.SSLContext)
 
 
-def test_truststore_adapter_passes_ssl_context():
-    """Test that TruststoreAdapter passes its own ssl_context to the pool manager."""
-    adapter = _download.TruststoreAdapter()
-    with patch.object(
-        HTTPAdapter,
-        "init_poolmanager",
-    ) as mock_init:
-        adapter.init_poolmanager(1, 1)
-        mock_init.assert_called_once_with(1, 1, False, ssl_context=adapter._ssl_context)
-
-
-def test_truststore_adapter_passes_ssl_context_to_proxy():
-    """Test that TruststoreAdapter passes its own ssl_context to proxy managers."""
-    adapter = _download.TruststoreAdapter()
-    with patch.object(
-        HTTPAdapter,
-        "proxy_manager_for",
-    ) as mock_proxy:
-        adapter.proxy_manager_for("https://proxy.example.com")
-        mock_proxy.assert_called_once_with(
-            "https://proxy.example.com", ssl_context=adapter._ssl_context
-        )
-
-
-def test_truststore_adapter_creates_unique_contexts():
-    """Test that each TruststoreAdapter instance gets its own SSLContext."""
-    adapter_a = _download.TruststoreAdapter()
-    adapter_b = _download.TruststoreAdapter()
-    assert adapter_a._ssl_context is not adapter_b._ssl_context
-
-
 @pytest.mark.usefixtures("_restore_ssl_context")
 def test_ssl_fallback_on_import_error():
     """Test fallback to default SSL context when truststore is not installed."""
@@ -644,6 +612,88 @@ def test_ssl_fallback_on_construction_error():
             mod = importlib.reload(_download)
         assert isinstance(mod.ssl_context, ssl.SSLContext)
         assert type(mod.ssl_context) is ssl.SSLContext
+
+
+# -- _safe_query tests --
+
+
+# -- _safe_query tests --
+
+
+@pytest.fixture
+def _no_token():
+    """Stub out get_token so _safe_query skips authentication."""
+    with patch("openneuro._download.get_token", side_effect=ValueError):
+        yield
+
+
+@pytest.fixture
+def _mock_gql_response(request):
+    """Patch httpx.Client to return a mock response from _safe_query.
+
+    Use ``@pytest.mark.parametrize("_mock_gql_response", [...], indirect=True)``
+    to set ``status_code`` and, optionally, ``json_data`` or ``json_error``.
+    """
+    params = request.param
+    mock_response = MagicMock()
+    mock_response.status_code = params["status_code"]
+    if "json_error" in params:
+        mock_response.json.side_effect = params["json_error"]
+    else:
+        mock_response.json.return_value = params.get("json_data")
+
+    mock_client = MagicMock()
+    mock_client.post.return_value = mock_response
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+
+    with patch("openneuro._download.httpx.Client", return_value=mock_client):
+        yield mock_client
+
+
+@pytest.mark.parametrize(
+    "_mock_gql_response",
+    [{"status_code": 200, "json_data": {"data": {"dataset": {}}}}],
+    indirect=True,
+)
+@pytest.mark.usefixtures("_no_token")
+def test_safe_query_posts_json_payload(_mock_gql_response):
+    """Test that _safe_query sends a correct JSON POST to the GraphQL endpoint."""
+    result, timed_out = _download._safe_query("query { test }")
+
+    assert result == {"data": {"dataset": {}}}
+    assert timed_out is False
+    _mock_gql_response.post.assert_called_once_with(
+        _download.gql_url,
+        json={"query": "query { test }"},
+        timeout=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "_mock_gql_response",
+    [{"status_code": 502}],
+    indirect=True,
+)
+@pytest.mark.usefixtures("_no_token", "_mock_gql_response")
+def test_safe_query_retries_on_retryable_status():
+    """Test that _safe_query returns (None, True) for retryable HTTP status codes."""
+    result, timed_out = _download._safe_query("query { test }")
+
+    assert result is None
+    assert timed_out is True
+
+
+@pytest.mark.parametrize(
+    "_mock_gql_response",
+    [{"status_code": 401, "json_error": json.JSONDecodeError("", "", 0)}],
+    indirect=True,
+)
+@pytest.mark.usefixtures("_no_token", "_mock_gql_response")
+def test_safe_query_raises_on_non_retryable_non_json():
+    """_safe_query raises RuntimeError for non-retryable non-JSON responses."""
+    with pytest.raises(RuntimeError, match="HTTP 401"):
+        _download._safe_query("query { test }")
 
 
 def _make_fake_client(*, file_content: bytes, fail_head_n_times: int = 0):
