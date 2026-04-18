@@ -481,57 +481,151 @@ def test_download_file_count(
 
 
 @pytest.mark.parametrize(
-    ("filename", "pattern", "expected"),
+    ("filenames", "patterns", "expected"),
     [
         # Leading / anchors to root
-        ("participants.tsv", "/*.tsv", True),
-        ("README", "/*.tsv", False),
-        ("sub-01/ses-meg/file.tsv", "/*.tsv", False),
-        ("dataset_description.json", "/*.json", True),
-        ("sub-01/file.json", "/*.json", False),
+        (
+            ["participants.tsv", "README", "sub-01/ses-meg/file.tsv"],
+            ["/*.tsv"],
+            {"/*.tsv": {"participants.tsv"}},
+        ),
         # * does not cross /
-        ("sub-01/file.tsv", "sub-01/*.tsv", True),
-        ("sub-01/ses-meg/file.tsv", "sub-01/*.tsv", False),
+        (
+            ["sub-01/file.tsv", "sub-01/ses-meg/file.tsv"],
+            ["sub-01/*.tsv"],
+            {"sub-01/*.tsv": {"sub-01/file.tsv"}},
+        ),
         # ** crosses /
-        ("sub-01/ses-meg/file.tsv", "sub-01/**/*.tsv", True),
-        ("sub-01/a/b/c/file.tsv", "sub-01/**/*.tsv", True),
+        (
+            ["sub-01/ses-meg/file.tsv", "sub-01/a/b/c/file.tsv", "sub-02/file.tsv"],
+            ["sub-01/**/*.tsv"],
+            {"sub-01/**/*.tsv": {"sub-01/ses-meg/file.tsv", "sub-01/a/b/c/file.tsv"}},
+        ),
+        # Bare pattern without / expands as directory prefix
+        (
+            ["sub-01/file.tsv", "sub-01/ses-meg/file.tsv", "sub-010/file.tsv"],
+            ["sub-01"],
+            {"sub-01": {"sub-01/file.tsv", "sub-01/ses-meg/file.tsv"}},
+        ),
+        # Bare wildcard pattern expands as directory prefix
+        (
+            [
+                "sub-01/file.tsv",
+                "sub-02/file.tsv",
+                "sub-010/file.tsv",
+                "participants.tsv",
+            ],
+            ["sub-0?"],
+            {
+                "sub-0?": {
+                    "sub-01/file.tsv",
+                    "sub-02/file.tsv",
+                },
+            },
+        ),
         # ** at end
-        ("sub-01/anything/here", "sub-01/**", True),
-        # ? matches single non-/ char
-        ("sub-01", "sub-0?", True),
-        ("sub-01/x", "sub-0?/x", True),
-        # No match
-        ("sub-02/file.tsv", "sub-01/*.tsv", False),
+        (
+            ["sub-01/anything/here", "sub-02/other"],
+            ["sub-01/**"],
+            {"sub-01/**": {"sub-01/anything/here"}},
+        ),
+        # **/*.tsv matches .tsv files at any depth
+        (
+            ["participants.tsv", "sub-01/file.tsv", "sub-01/ses-meg/file.tsv"],
+            ["**/*.tsv"],
+            {
+                "**/*.tsv": {
+                    "participants.tsv",
+                    "sub-01/file.tsv",
+                    "sub-01/ses-meg/file.tsv",
+                }
+            },
+        ),
+        # * alone matches everything via directory expansion
+        (
+            ["participants.tsv", "sub-01/file.tsv"],
+            ["*"],
+            {"*": {"participants.tsv", "sub-01/file.tsv"}},
+        ),
+        # Combined include/exclude scenario
+        (
+            ["sub-01/a.tsv", "sub-01/b.nii", "sub-02/a.tsv"],
+            ["sub-01/**/*.tsv"],
+            {"sub-01/**/*.tsv": {"sub-01/a.tsv"}},
+        ),
+        # No match returns empty set
+        (
+            ["sub-01/file.tsv"],
+            ["sub-99"],
+            {"sub-99": set()},
+        ),
+        # MATCHBASE: bare *.ext matches at any depth (gitignore semantics)
+        (
+            [
+                "sub-01/meg/run.fif",
+                "sub-01/ses-meg/meg/run.fif",
+                "root.fif",
+            ],
+            ["*.fif"],
+            {
+                "*.fif": {
+                    "sub-01/meg/run.fif",
+                    "sub-01/ses-meg/meg/run.fif",
+                    "root.fif",
+                }
+            },
+        ),
+        # *.tsv matches at any depth via MATCHBASE
+        (
+            ["participants.tsv", "sub-01/file.tsv", "sub-01/ses-meg/file.tsv"],
+            ["*.tsv"],
+            {
+                "*.tsv": {
+                    "participants.tsv",
+                    "sub-01/file.tsv",
+                    "sub-01/ses-meg/file.tsv",
+                }
+            },
+        ),
+        # Directory path with / expands via /**
+        (
+            [
+                "sub-0001/anat/T1w.nii",
+                "sub-0001/anat/bold.json",
+                "sub-0001/func/run.nii",
+            ],
+            ["sub-0001/anat"],
+            {
+                "sub-0001/anat": {
+                    "sub-0001/anat/T1w.nii",
+                    "sub-0001/anat/bold.json",
+                }
+            },
+        ),
+        # Trailing slash pattern
+        (
+            ["sub-01/file.tsv", "sub-01/ses-meg/file.tsv"],
+            ["sub-01/"],
+            {"sub-01/": {"sub-01/file.tsv", "sub-01/ses-meg/file.tsv"}},
+        ),
+        # Anchored pattern with / disables MATCHBASE
+        (
+            ["participants.tsv", "sub-01/file.tsv"],
+            ["/*.tsv"],
+            {"/*.tsv": {"participants.tsv"}},
+        ),
     ],
 )
-def test_glob_match(filename: str, pattern: str, expected: bool):
-    """Test _glob.match against various patterns."""
-    from openneuro._glob import match
+def test_glob_filter(
+    filenames: list[str],
+    patterns: list[str],
+    expected: dict[str, set[str]],
+):
+    """Test _glob.glob_filter against various patterns."""
+    from openneuro._glob import glob_filter
 
-    assert match(filename, pattern) is expected
-
-
-@pytest.mark.parametrize(
-    ("filename", "pattern", "expected"),
-    [
-        # Exact prefix with path boundary
-        ("sub-01/file.tsv", "sub-01", True),
-        ("sub-01/ses-meg/file.tsv", "sub-01", True),
-        ("sub-010/file.tsv", "sub-01", False),  # must not match similar prefix
-        ("sub-01", "sub-01", True),  # exact match
-        # Trailing slash
-        ("sub-01/file.tsv", "sub-01/", True),
-        ("sub-010/file.tsv", "sub-01/", False),
-        # Exclude similarly-prefixed paths
-        ("derivatives/meg_extra/file.fif", "derivatives/meg", False),
-        ("derivatives/meg/file.fif", "derivatives/meg", True),
-    ],
-)
-def test_prefix_match(filename: str, pattern: str, expected: bool):
-    """Test prefix_match enforces path boundaries."""
-    from openneuro._glob import prefix_match
-
-    assert prefix_match(filename, pattern) is expected
+    result = glob_filter(filenames, patterns)
+    assert result == expected
 
 
 # -- SSL context tests --

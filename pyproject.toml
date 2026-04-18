@@ -22,6 +22,7 @@ dependencies = [
   "tqdm",
   "truststore>=0.10.4",
   "typer>=0.24.0",
+  "wcmatch>=10.1",
 ]
 dynamic = ["version"]
 

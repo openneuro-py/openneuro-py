@@ -1,95 +1,48 @@
-"""Glob-style pattern matching for OpenNeuro file paths.
+"""Glob-style pattern matching for OpenNeuro file paths."""
 
-Once we require Python 3.13+, ``match()`` can be replaced with
-:meth:`pathlib.PurePosixPath.full_match`, which handles ``*`` vs ``**``
-correctly. See https://docs.python.org/3.13/library/pathlib.html#pathlib.PurePath.full_match
-"""
-
-import functools
-import re
 from collections.abc import Iterable
 
-
-@functools.lru_cache
-def _compile_pattern(pattern: str) -> re.Pattern[str]:
-    """Compile a glob pattern into a regex, caching the result."""
-    i, n = 0, len(pattern)
-    regex = ""
-    while i < n:
-        c = pattern[i]
-        if c == "*":
-            if i + 1 < n and pattern[i + 1] == "*":
-                # **/ matches zero or more directories
-                if i + 2 < n and pattern[i + 2] == "/":
-                    regex += "(?:.+/)?"
-                    i += 3
-                else:
-                    # ** at end or before non-/ matches everything
-                    regex += ".*"
-                    i += 2
-                continue
-            else:
-                regex += "[^/]*"
-        elif c == "?":
-            regex += "[^/]"
-        elif c in r".+^${}()|[]\\":
-            regex += "\\" + c
-        else:
-            regex += c
-        i += 1
-    return re.compile(regex)
+from wcmatch import glob
 
 
-def match(filename: str, pattern: str) -> bool:
-    """Match a filename against a glob pattern.
+def glob_filter(
+    all_filenames: Iterable[str],
+    patterns: Iterable[str],
+) -> dict[str, set[str]]:
+    """Match filenames against glob patterns, returning per-pattern results.
 
-    Unlike :func:`fnmatch.fnmatch`, ``*`` does not cross ``/`` boundaries,
-    and ``**`` matches zero or more path segments (including the final one).
+    Uses ``.gitignore``-style semantics:
 
-    A leading ``/`` anchors the pattern to the root of the file tree.  Because
-    filenames stored on OpenNeuro never start with ``/``, we strip it here so
-    the regex can match against the bare filename.  Combined with ``*`` not
-    crossing ``/`` boundaries, this naturally restricts to root-level files.
+    * Bare patterns (no ``/``) match the basename at any depth, so ``*.fif``
+      excludes ``.fif`` files everywhere, not just at the root.
+    * Every pattern is also tried with ``/**`` appended so that directory-like
+      patterns (``sub-01``, ``sub-0001/anat``) include all files underneath.
+    * A leading ``/`` anchors the pattern to the dataset root and disables
+      basename matching.
     """
-    pattern = pattern.removeprefix("/")
-    return _compile_pattern(pattern).fullmatch(filename) is not None
+    filenames = list(all_filenames)
+    base_flags = glob.GLOBSTAR | glob.DOTMATCH
+    results: dict[str, set[str]] = {}
 
+    for pattern in patterns:
+        original = pattern
+        anchored = pattern.startswith("/")
+        pattern = pattern.removeprefix("/")
+        stripped = pattern.rstrip("/")
+        bare = "/" not in stripped
 
-def expand_patterns(patterns: Iterable[str]) -> list[str]:
-    """Auto-expand bare glob patterns to match at any depth.
+        # Bare, non-anchored patterns match basenames at any depth (MATCHBASE)
+        flags = base_flags | glob.MATCHBASE if bare and not anchored else base_flags
+        matched: set[str] = {
+            str(p) for p in glob.globfilter(filenames, pattern, flags=flags)
+        }
 
-    Patterns without a ``/`` that contain supported glob characters (``*``, ``?``)
-    are prepended with ``**/``, e.g. ``*.tsv`` becomes ``**/*.tsv``. This
-    mirrors ``.gitignore`` behavior and preserves backward compatibility with
-    older fnmatch-based matching.
-    """
-    expanded = []
-    for p in patterns:
-        if "/" not in p and any(c in p for c in "*?"):
-            expanded.append(f"**/{p}")
-        else:
-            expanded.append(p)
-    return expanded
+        # Always also try as a directory prefix
+        matched |= {
+            str(p)
+            for p in glob.globfilter(filenames, stripped + "/**", flags=base_flags)
+        }
 
+        results[original] = matched
 
-def prefix_match(filename: str, pattern: str) -> bool:
-    """Check if *filename* falls under the directory prefix *pattern*.
-
-    Enforces a path boundary so that pattern ``sub-01`` matches
-    ``sub-01/file.tsv`` but **not** ``sub-010/file.tsv``.
-    """
-    if pattern.endswith("/"):
-        return filename.startswith(pattern)
-    return filename == pattern or filename.startswith(pattern + "/")
-
-
-def match_include_exclude(
-    filename: str,
-    *,
-    include: Iterable[str],
-    exclude: Iterable[str],
-) -> tuple[list[bool], list[bool]]:
-    """Check if a filename matches an include or exclude pattern."""
-    matches_keep = [prefix_match(filename, i) or match(filename, i) for i in include]
-    matches_remove = [prefix_match(filename, e) or match(filename, e) for e in exclude]
-    return matches_keep, matches_remove
+    return results

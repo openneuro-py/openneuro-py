@@ -728,17 +728,16 @@ def download(
         Files and directories to download. **Only** these files and directories
         will be retrieved. Uses glob-style matching: ``*`` matches any characters
         except ``/``, ``**`` matches across directory boundaries, and ``?``
-        matches a single non-``/`` character. Patterns without a ``/`` are
-        automatically expanded to match at any depth (e.g., ``'*.tsv'`` becomes
-        ``'**/*.tsv'``). Use a leading ``/`` to restrict to the dataset root
-        (e.g., ``'/*.json'``). As an example, if you would like to download
-        only subject '1' and run '01' files, you can do so via:
-        ``'sub-1/**/*run-01*'``. The pattern “**” will match any files and
-        zero or more directories, subdirectories and symbolic links to directories.
+        matches a single non-``/`` character. Patterns without a ``/`` also
+        match as directory prefixes (e.g., ``'sub-01'`` includes all files
+        under ``sub-01/``, and ``'sub-0*'`` includes all files under every
+        matching directory). Use a leading ``/`` to restrict to the dataset
+        root (e.g., ``'/*.json'``). As an example, if you would like to
+        download only subject '1' and run '01' files, you can do so via:
+        ``'sub-1/**/*run-01*'``.
     exclude
         Files and directories to exclude from downloading.
-        Uses Unix path expansion (``*`` for any number of wildcard characters
-        and ``?`` for one wildcard character; e.g. ``'sub-1_task-*.fif'``)
+        Uses the same glob-style matching as ``include``.
     verify_hash
         Whether to calculate and print the SHA256 hash of each downloaded file.
     verify_size
@@ -784,9 +783,6 @@ def download(
     exclude = [exclude] if isinstance(exclude, str) else exclude
     exclude = [] if exclude is None else list(exclude)
 
-    include = _glob.expand_patterns(include)
-    exclude = _glob.expand_patterns(exclude)
-
     retry_backoff = 0.5  # seconds
     metadata = _get_download_metadata(
         dataset_id=dataset,
@@ -820,51 +816,37 @@ def download(
                     f"specify a different target directory, and try again."
                 )
 
-    files: list[dict[str, Any]] = []
-    include_counts = [0] * len(include)  # Keep track of include matches.
-    filenames = []
+    essential_files = {
+        "dataset_description.json",
+        "participants.tsv",
+        "participants.json",
+        "README",
+        "CHANGES",
+    }
+
     all_files = metadata["files"]
     del metadata
-
-    for file in all_files:
-        filename: str = file["filename"]
-        filenames.append(filename)
-
-        # Always include essential BIDS files.
-        if filename in (
-            "dataset_description.json",
-            "participants.tsv",
-            "participants.json",
-            "README",
-            "CHANGES",
-        ):
-            files.append(file)
-
-            # Keep track of include matches.
-            matches_to_include = [inc for inc in include if _glob.match(filename, inc)]
-            if filename in include:
-                include_counts[include.index(filename)] += 1
-            elif matches_to_include:
-                for m in matches_to_include:
-                    include_counts[include.index(m)] += 1
-            continue
-
-        matches_keep, matches_exclude = _glob.match_include_exclude(
-            filename, include=include, exclude=exclude
-        )
-        if (not include or any(matches_keep)) and not any(matches_exclude):
-            files.append(file)
-            # Keep track of include matches.
-            if any(matches_keep):
-                for idx, matched in enumerate(matches_keep):
-                    if matched:
-                        include_counts[idx] += 1
+    filenames = [f["filename"] for f in all_files]
 
     if include:
-        for idx, count in enumerate(include_counts):
-            if count == 0:
-                this = include[idx]
-                maybe = get_close_matches(this, filenames)
+        included = _glob.glob_filter(filenames, include)
+        included_set = {f for matches in included.values() for f in matches}
+    else:
+        included_set = set(filenames)
+
+    if exclude:
+        excluded = _glob.glob_filter(filenames, exclude)
+        excluded_set = {f for matches in excluded.values() for f in matches}
+    else:
+        excluded_set = set()
+
+    keep = (included_set - excluded_set) | (essential_files & set(filenames))
+    files: list[dict[str, Any]] = [f for f in all_files if f["filename"] in keep]
+
+    if include:
+        for pattern, matches in included.items():
+            if not matches:
+                maybe = get_close_matches(pattern, filenames)
                 if maybe:
                     extra = (
                         "Perhaps you mean one of these paths:\n- "
@@ -874,7 +856,7 @@ def download(
                 else:
                     extra = "There were no similar filenames found in the metadata. "
                 raise RuntimeError(
-                    f"Could not find path in the dataset:\n- {this}\n{extra}"
+                    f"Could not find path in the dataset:\n- {pattern}\n{extra}"
                     "Please check your includes."
                 )
 
