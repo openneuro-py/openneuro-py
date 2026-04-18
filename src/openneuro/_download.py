@@ -845,7 +845,8 @@ def download(
     if include:
         for pattern, matches in included.items():
             if not matches:
-                maybe = get_close_matches(pattern, filenames)
+                has_glob = any(c in pattern for c in "*?[")
+                maybe = [] if has_glob else get_close_matches(pattern, filenames)
                 if maybe:
                     extra = (
                         "Perhaps you mean one of these paths:\n- "
