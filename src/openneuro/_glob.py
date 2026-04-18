@@ -5,6 +5,11 @@ from collections.abc import Iterable
 from wcmatch import glob
 
 
+def is_dotfile(path: str) -> bool:
+    """Check whether any component of *path* starts with a dot."""
+    return any(part.startswith(".") for part in path.split("/"))
+
+
 def glob_filter(
     all_filenames: Iterable[str],
     patterns: Iterable[str],

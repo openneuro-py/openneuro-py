@@ -843,7 +843,7 @@ def download(
         included = _glob.glob_filter(filenames, include)
         included_set = {f for matches in included.values() for f in matches}
     else:
-        included_set = set(filenames)
+        included_set = {f for f in filenames if not _glob.is_dotfile(f)}
 
     if exclude:
         excluded = _glob.glob_filter(filenames, exclude)
