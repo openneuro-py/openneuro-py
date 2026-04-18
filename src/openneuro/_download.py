@@ -37,7 +37,7 @@ from sgqlc.endpoint.requests import RequestsEndpoint
 from tqdm.auto import tqdm
 
 from openneuro import __version__, _glob
-from openneuro._config import BASE_URL, get_token, init_config
+from openneuro._config import get_token, init_config
 
 # Use system trust store for SSL certificates, which is important for users in
 # enterprise environments with custom CAs.
@@ -239,7 +239,6 @@ def _check_snapshot_exists(
 
 def _get_download_metadata(
     *,
-    base_url: str = BASE_URL,
     dataset_id: str,
     tag: str | None = None,
     max_retries: int,
