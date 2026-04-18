@@ -7,7 +7,7 @@ download
     _check_snapshot_exists
         _safe_query
   _get_local_tag
-  match_include_exclude
+  _glob.glob_filter
   _download_files
     _download_file
       _attempt_download
