@@ -629,6 +629,11 @@ async def _download_files(
     for file in files:
         filename = Path(file["filename"])
         api_file_size = file["size"]
+        if not file.get("urls"):
+            raise RuntimeError(
+                f"No download URLs for {filename}. The file may have been "
+                "removed from the dataset."
+            )
         url = file["urls"][0]
 
         outfile = target_dir / filename
@@ -750,7 +755,7 @@ def download(
             ``participants.tsv``, ``participants.json``, ``README``, and
             ``CHANGES``.
     verify_hash
-        Whether to calculate and print the SHA256 hash of each downloaded file.
+        Whether to calculate and verify the MD5 hash of each downloaded file.
     verify_size
         Whether to check if the downloaded file size matches what the server
         announced.

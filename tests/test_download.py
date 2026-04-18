@@ -104,7 +104,7 @@ def test_resume_download(tmp_path: Path):
     with pytest.raises(RuntimeError, match=r'does not contain "DatasetDOI"'):
         download(dataset=dataset, target_dir=tmp_path)
 
-    # We should be able to resume a download even if "datset_description.jon"
+    # We should be able to resume a download even if "dataset_description.json"
     # is missing
     json_path.unlink()
     include = ["sub-0001/meg/sub-0001_coordsystem.json"]
