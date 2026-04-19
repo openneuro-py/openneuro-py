@@ -1,5 +1,5 @@
 [
-  ["ds000117", ["*"], 131],
+  ["ds000117", ["*"], 130],
   ["ds000117", ["sub-01"], 47],
   ["ds000117", ["sub-01/**/*.tsv"], 12],
   ["ds000117", ["sub-01/**"], 47],
@@ -15,7 +15,7 @@
       "derivatives/meg_derivatives/ct_sparse.fif",
       "derivatives/meg_derivatives/sss_cal.dat"
     ],
-    19
+    17
   ],
   ["ds000117", ["**/ses-meg/**"], 25]
 ]

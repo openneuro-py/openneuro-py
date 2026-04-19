@@ -7,10 +7,7 @@ download
     _check_snapshot_exists
         _safe_query
   _get_local_tag
-  _match_include_exclude
-  _iterate_filenames
-    _match_include_exclude
-    _get_download_metadata ...
+  _glob.glob_filter
   _download_files
     _download_file
       _attempt_download
@@ -18,7 +15,6 @@ download
 """
 
 import asyncio
-import fnmatch
 import hashlib
 import io
 import json
@@ -28,18 +24,17 @@ import string
 import sys
 import time
 import warnings
-from collections.abc import Generator, Iterable
-from concurrent.futures import Executor, ThreadPoolExecutor
+from collections.abc import Iterable
 from difflib import get_close_matches
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Literal
 
 import aiofiles
 import httpx
 from tqdm.auto import tqdm
 
-from openneuro import __version__
-from openneuro._config import BASE_URL, get_token, init_config
+from openneuro import __version__, _glob
+from openneuro._config import get_token, init_config
 
 # Use system trust store for SSL certificates, which is important for users in
 # enterprise environments with custom CAs.
@@ -102,7 +97,6 @@ user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"
 # GraphQL endpoint and queries.
 
 gql_url = "https://openneuro.org/crn/graphql"
-_MAX_CONCURRENT_METADATA_REQUESTS = 10
 
 dataset_query_template = string.Template(
     """
@@ -110,11 +104,10 @@ dataset_query_template = string.Template(
         dataset(id: "$dataset_id") {
             latestSnapshot {
                 id
-                files {
+                files(recursive: true) {
                     filename
                     urls
                     size
-                    directory
                     id
                 }
             }
@@ -140,11 +133,10 @@ snapshot_query_template = string.Template(
     query {
         snapshot(datasetId: "$dataset_id", tag: "$tag") {
             id
-            files(tree: $tree) {
+            files(recursive: true) {
                 filename
                 urls
                 size
-                directory
                 id
             }
         }
@@ -221,35 +213,27 @@ def _check_snapshot_exists(
 
 def _get_download_metadata(
     *,
-    base_url: str = BASE_URL,
     dataset_id: str,
     tag: str | None = None,
-    tree: str = "null",
     max_retries: int,
     retry_backoff: float = 0.5,
-    check_snapshot: bool = True,
     metadata_timeout: float = 15.0,
-    this_dir: str,
 ) -> dict[str, Any]:
     """Retrieve dataset metadata required for the download."""
     if tag is None:
         query = dataset_query_template.substitute(dataset_id=dataset_id)
     else:
-        if check_snapshot:
-            _check_snapshot_exists(
-                dataset_id=dataset_id,
-                tag=tag,
-                max_retries=max_retries,
-                retry_backoff=retry_backoff,
-            )
-        query = snapshot_query_template.substitute(
-            dataset_id=dataset_id, tag=tag, tree=tree
+        _check_snapshot_exists(
+            dataset_id=dataset_id,
+            tag=tag,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
         )
+        query = snapshot_query_template.substitute(dataset_id=dataset_id, tag=tag)
 
-    kind = "dataset" if tree == "null" else f"{this_dir!r} (with {tree=})"
     response_json = _retry_request(
         query,
-        what=f"retrieving metadata for {kind}",
+        what=f"retrieving metadata for {dataset_id}",
         timeout=metadata_timeout,
         max_retries=max_retries,
         retry_backoff=retry_backoff,
@@ -614,18 +598,20 @@ async def _download_files(
     # coroutines.
     semaphore = asyncio.Semaphore(max_concurrent_downloads)
     download_tasks = []
+    normalized_query_str = " ".join(shlex.split(query_str, posix=False))
 
     for file in files:
         filename = Path(file["filename"])
         api_file_size = file["size"]
+        if not file.get("urls"):
+            raise RuntimeError(
+                f"No download URLs for {filename}. The file may have been "
+                "removed from the dataset."
+            )
         url = file["urls"][0]
 
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        this_query_str = string.Template(query_str).substitute(
-            tree=f'"{file["parent_tree"]}"',
-        )
-        this_query_str = " ".join(shlex.split(this_query_str, posix=False))
         download_task = _download_file(
             url=url,
             api_file_size=api_file_size,
@@ -635,7 +621,7 @@ async def _download_files(
             max_retries=max_retries,
             retry_backoff=retry_backoff,
             semaphore=semaphore,
-            query_str=this_query_str,
+            query_str=normalized_query_str,
         )
         download_tasks.append(download_task)
 
@@ -683,217 +669,12 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     return local_version
 
 
-def _traverse_directory(dir_path: str, include_pattern: str) -> bool:
-    """Determine if a directory should be traversed based on include pattern.
-
-    Parameters
-    ----------
-    dir_path
-        The directory path to check.
-    include_pattern
-        Single include pattern to match against.
-
-    Returns
-    -------
-    bool
-        True if the directory should be traversed, False otherwise.
-
-    """
-    # Normalize pattern across OSes
-    dir_path = str(PurePosixPath(dir_path))
-    include_pattern = str(PurePosixPath(include_pattern))
-    # ----------------------------------------------------------
-    # Directory Traversal Logic for Include Patterns
-    #
-    # This block determines whether a directory should be traversed
-    # based on the provided "include" pattern. The logic covers
-    # several cases, each with clear examples.
-    # ----------------------------------------------------------
-
-    # -----------------------------------------------------------------
-    # 1. Exact Directory Match
-    #    - Traverse if the directory path exactly matches the include pattern.
-    #    - Examples:
-    #        ✔ dir_path = "sub-01", inc = "sub-01"         --> traverse
-    #        ✘ dir_path = "sub-02", inc = "sub-01"         --> do not traverse
-    # -----------------------------------------------------------------
-    if dir_path == include_pattern:
-        return True
-
-    # -----------------------------------------------------------------
-    # 2. Directory (dir_path) is a Parent of the Include Pattern
-    # - Traverse if the directory is a parent of the include pattern.
-    # - This allows traversal down to subdirectories/files that match.
-    # - Examples:
-    #     ✔ dir_path = "sub-01", inc = "sub-01/*"                --> traverse
-    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-meg/*"        --> traverse
-    #     ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg/*" --> do not traverse
-    # - Logic: Compare path parts; traverse if all parts of dir_path
-    #     match the start of inc_parts.
-    # -----------------------------------------------------------------
-    inc_parts = PurePosixPath(include_pattern).parts
-    dir_parts = PurePosixPath(dir_path).parts
-
-    if len(dir_parts) <= len(inc_parts) and all(
-        d == i for d, i in zip(dir_parts, inc_parts)
-    ):
-        return True
-
-    # -----------------------------------------------------------------
-    # 3. Directory (dir_path) or Subdirectory Match (No Wildcards)
-    # - Traverse if the include pattern is a directory (no wildcards)
-    #     and matches this directory or any of its subdirectories.
-    # - Examples:
-    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-emg"  --> traverse
-    #     ✔ dir_path = "sub-01", inc = "sub-01/ses-emg/" --> traverse
-    #     ✘ dir_path = "sub-01/ses-mri", inc = "sub-01/ses-meg" --> do not traverse
-    # - Logic: If inc has no wildcards and dir_path is equal to inc
-    #     (with or without trailing slash), or is a subdirectory.
-    # -----------------------------------------------------------------
-    if dir_path == include_pattern.rstrip("/") or (
-        not any(char in include_pattern for char in "*?")
-        and (
-            dir_path == include_pattern
-            or dir_path.startswith(include_pattern.rstrip("/") + "/")
-        )
-    ):
-        return True
-
-    # -----------------------------------------------------------------
-    # 4. Wildcard Pattern Prefix Match
-    # - Traverse if the directory path (dir_path) matches the prefix of an
-    #     include pattern containing a wildcard.
-    # - Examples:
-    #     ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*"     --> traverse
-    #     ✔ dir_path = "sub-01/ses-meg/meg", inc = "sub-01/*"  --> traverse
-    #     ✘ dir_path = "sub-01", inc = "*.json"                --> do not traverse
-    #     ✔ dir_path = "sub-01/ses-meg", inc = "sub-01/*.json" --> do not traverse
-    #     ✘ dir_path = "sub-02/ses-meg", inc = "sub-01/*"      --> do not traverse
-    # - Logic: Use the part of inc before the '*' as a prefix.
-    # -----------------------------------------------------------------
-    if "*" in include_pattern and not include_pattern.startswith("*."):
-        pattern_prefix = include_pattern.split("*")[0]
-        if dir_path.startswith(pattern_prefix):
-            return True
-
-    # -----------------------------------------------------------------
-    # 5. Double Wildcard (**) Pattern Match
-    # - Traverse if the include pattern contains ** and the directory
-    #     could potentially match the pattern.
-    # - Examples:
-    #     ✔ dir_path = "sub-01", inc = "**/ses-meg/**"     --> traverse
-    #     ✔ dir_path = "sub-01/ses-meg", inc = "**/ses-meg/**" --> traverse
-    #     ✔ dir_path = "sub-01/ses-meg/meg", inc = "**/ses-meg/**" --> traverse
-    #     ✘ dir_path = "sub-01/ses-mri", inc = "**/ses-meg/**" --> do not traverse
-    # - Logic: If pattern contains **, check if any part of the pattern
-    #     (excluding **) could match the directory path.
-    # -----------------------------------------------------------------
-    if "**" in include_pattern:
-        # Split the pattern by ** and check if any part could match
-        pattern_parts = include_pattern.split("**")
-        for i, part in enumerate(pattern_parts):
-            if part and not part.startswith("/"):
-                # This part should match somewhere in the path
-                if part in dir_path:
-                    return True
-            elif part and part.startswith("/"):
-                # This part should match at the end of the path
-                if dir_path.endswith(part.rstrip("/")):
-                    return True
-        # If pattern is just ** or **/, always traverse
-        if include_pattern in ("**", "**/"):
-            return True
-
-    # -----------------------------------------------------------------
-    # If none of the above cases matched, do not traverse this directory.
-    # -----------------------------------------------------------------
-    return False
-
-
 def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
     if stdout_unicode:
         msg = f"{emoji} {msg} {end}"
     elif end == "…":
         msg = f"{msg} ..."
     return msg
-
-
-def _iterate_filenames(
-    files: Iterable[dict[str, Any]],
-    *,
-    dataset_id: str,
-    tag: str | None,
-    max_retries: int,
-    executor: Executor,
-    root: str = "",
-    include: Iterable[str] = tuple(),
-    parent_tree: str | None,
-    metadata_timeout: float,
-) -> Generator[dict[str, Any], None, None]:
-    """Iterate over all files in a dataset, yielding filenames."""
-    directories = list()
-    for entity in files:
-        entity["parent_tree"] = parent_tree
-        if root:
-            entity["filename"] = f"{root}/{entity['filename']}"
-        if entity["directory"]:
-            directories.append(entity)
-        else:
-            yield entity
-
-    # Filter to directories we actually need to traverse.
-    dirs_to_fetch = []
-    for directory in directories:
-        if include:
-            dir_path = directory["filename"]
-            if not any(_traverse_directory(dir_path, inc) for inc in include):
-                continue
-        dirs_to_fetch.append(directory)
-
-    if not dirs_to_fetch:
-        return
-
-    # Fetch metadata for sibling directories in parallel.
-    def _fetch_dir_metadata(d: dict[str, Any]) -> dict[str, Any]:
-        return _get_download_metadata(
-            dataset_id=dataset_id,
-            tag=tag,
-            tree=f'"{d["id"]}"',
-            max_retries=max_retries,
-            check_snapshot=False,
-            metadata_timeout=metadata_timeout,
-            this_dir=d["filename"],
-        )
-
-    metadatas = executor.map(_fetch_dir_metadata, dirs_to_fetch)
-    for directory, metadata in zip(dirs_to_fetch, metadatas):
-        yield from _iterate_filenames(
-            metadata["files"],
-            dataset_id=dataset_id,
-            tag=tag,
-            max_retries=max_retries,
-            executor=executor,
-            root=directory["filename"],
-            include=include,
-            parent_tree=directory["id"],
-            metadata_timeout=metadata_timeout,
-        )
-
-
-def _match_include_exclude(
-    filename: str,
-    *,
-    include: Iterable[str],
-    exclude: Iterable[str],
-) -> tuple[list[bool], list[bool]]:
-    """Check if a filename matches an include or exclude pattern."""
-    matches_keep = [
-        filename.startswith(i) or fnmatch.fnmatch(filename, i) for i in include
-    ]
-    matches_remove = [
-        filename.startswith(e) or fnmatch.fnmatch(filename, e) for e in exclude
-    ]
-    return matches_keep, matches_remove
 
 
 def download(
@@ -923,18 +704,32 @@ def download(
         directory.
     include
         Files and directories to download. **Only** these files and directories
-        will be retrieved. Uses Unix path expansion (``*`` for any number of
-        wildcard characters and ``?`` for one wildcard character;
-        e.g. ``'sub-1_task-*.fif'``). As an example, if you would like to download
-        only subject '1' and run '01' files, you can do so via:
-        ``'sub-1/**/*run-01*'``. The pattern “**” will match any files and
-        zero or more directories, subdirectories and symbolic links to directories.
+        will be retrieved. Uses glob-style matching: ``*`` matches any characters
+        except ``/``, ``**`` matches across directory boundaries, and ``?``
+        matches a single non-``/`` character. Patterns without a ``/`` also
+        match as directory prefixes (e.g., ``'sub-01'`` includes all files
+        under ``sub-01/``, and ``'sub-0*'`` includes all files under every
+        matching directory). Use a leading ``/`` to restrict to the dataset
+        root (e.g., ``'/*.json'``). As an example, if you would like to
+        download only subject '1' and run '01' files, you can do so via:
+        ``'sub-1/**/*run-01*'``.
+
+        .. note::
+            Consistent with ``.gitignore`` semantics, ``*`` and ``**`` do **not**
+            match dot-prefixed (hidden) filenames. To include such files, use an
+            explicit pattern like ``'**/.*'``. The BIDS specification reserves
+            dotfiles for system use, so they are rarely needed.
     exclude
         Files and directories to exclude from downloading.
-        Uses Unix path expansion (``*`` for any number of wildcard characters
-        and ``?`` for one wildcard character; e.g. ``'sub-1_task-*.fif'``)
+        Uses the same glob-style matching as ``include``.
+
+        .. note::
+            Certain essential BIDS metadata files are always downloaded
+            regardless of ``exclude`` patterns: ``dataset_description.json``,
+            ``participants.tsv``, ``participants.json``, ``README``, and
+            ``CHANGES``.
     verify_hash
-        Whether to calculate and print the SHA256 hash of each downloaded file.
+        Whether to calculate and verify the MD5 hash of each downloaded file.
     verify_size
         Whether to check if the downloaded file size matches what the server
         announced.
@@ -985,7 +780,6 @@ def download(
         max_retries=max_retries,
         retry_backoff=retry_backoff,
         metadata_timeout=metadata_timeout,
-        this_dir="/",
     )
     del tag
     tag = metadata["id"].replace(f"{dataset}:", "")
@@ -1012,65 +806,38 @@ def download(
                     f"specify a different target directory, and try again."
                 )
 
-    files: list[dict[str, Any]] = []
-    include_counts = [0] * len(include)  # Keep track of include matches.
-    filenames = []
-    these_files = metadata["files"]
+    essential_files = {
+        "dataset_description.json",
+        "participants.tsv",
+        "participants.json",
+        "README",
+        "CHANGES",
+    }
+
+    all_files = metadata["files"]
     del metadata
-
-    with ThreadPoolExecutor(max_workers=_MAX_CONCURRENT_METADATA_REQUESTS) as executor:
-        for file in tqdm(
-            _iterate_filenames(
-                these_files,
-                dataset_id=dataset,
-                tag=tag,
-                max_retries=max_retries,
-                executor=executor,
-                include=include,
-                parent_tree=None,
-                metadata_timeout=metadata_timeout,
-            ),
-            desc=_unicode(f"Traversing directories for {dataset}", end="", emoji="📁"),
-            unit=" entities",
-        ):
-            filename: str = file["filename"]  # TODO properly define metadata type
-            filenames.append(filename)
-
-            # Always include essential BIDS files.
-            if filename in (
-                "dataset_description.json",
-                "participants.tsv",
-                "participants.json",
-                "README",
-                "CHANGES",
-            ):
-                files.append(file)
-
-                # Keep track of include matches.
-                matches_to_include = [
-                    inc for inc in include if fnmatch.fnmatch(filename, inc)
-                ]
-                if filename in include:
-                    include_counts[include.index(filename)] += 1
-                elif matches_to_include:
-                    for match in matches_to_include:
-                        include_counts[include.index(match)] += 1
-                continue
-
-            matches_keep, matches_exclude = _match_include_exclude(
-                filename, include=include, exclude=exclude
-            )
-            if (not include or any(matches_keep)) and not any(matches_exclude):
-                files.append(file)
-                # Keep track of include matches.
-                if any(matches_keep):
-                    include_counts[matches_keep.index(True)] += 1
+    filenames = [f["filename"] for f in all_files]
 
     if include:
-        for idx, count in enumerate(include_counts):
-            if count == 0:
-                this = include[idx]
-                maybe = get_close_matches(this, filenames)
+        included = _glob.glob_filter(filenames, include)
+        included_set = {f for matches in included.values() for f in matches}
+    else:
+        included_set = {f for f in filenames if not _glob.is_dotfile(f)}
+
+    if exclude:
+        excluded = _glob.glob_filter(filenames, exclude)
+        excluded_set = {f for matches in excluded.values() for f in matches}
+    else:
+        excluded_set = set()
+
+    keep = (included_set - excluded_set) | (essential_files & set(filenames))
+    files: list[dict[str, Any]] = [f for f in all_files if f["filename"] in keep]
+
+    if include:
+        for pattern, matches in included.items():
+            if not matches:
+                has_glob = any(c in pattern for c in "*?[")
+                maybe = [] if has_glob else get_close_matches(pattern, filenames)
                 if maybe:
                     extra = (
                         "Perhaps you mean one of these paths:\n- "
@@ -1080,7 +847,7 @@ def download(
                 else:
                     extra = "There were no similar filenames found in the metadata. "
                 raise RuntimeError(
-                    f"Could not find path in the dataset:\n- {this}\n{extra}"
+                    f"Could not find path in the dataset:\n- {pattern}\n{extra}"
                     "Please check your includes."
                 )
 
