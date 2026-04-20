@@ -677,6 +677,7 @@ async def _download_files(
         unit="B",
         unit_scale=True,
         unit_divisor=1024,
+        miniters=1,
         leave=True,
     ) as overall_progress:
         download_tasks = [
