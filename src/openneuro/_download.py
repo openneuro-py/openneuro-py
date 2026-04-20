@@ -15,6 +15,7 @@ download
 """
 
 import asyncio
+import dataclasses
 import hashlib
 import io
 import json
@@ -83,6 +84,14 @@ allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
 
 class _RetryableError(Exception):
     """Raised inside _attempt_download to signal the caller should retry."""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _FileInfo:
+    url: str
+    api_file_size: int | None
+    outfile: Path
+    remote_path: str
 
 
 allowed_retry_exceptions = (
@@ -650,7 +659,7 @@ async def _download_files(
 
     # Collect file metadata before creating tasks so the overall progress
     # bar can be created first and passed to each coroutine.
-    file_infos: list[tuple[str, int | None, Path, str]] = []
+    file_infos: list[_FileInfo] = []
     for file in files:
         filename = Path(file.filename)
         api_file_size = file.size
@@ -663,7 +672,14 @@ async def _download_files(
 
         outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        file_infos.append((url, api_file_size, outfile, file.filename))
+        file_infos.append(
+            _FileInfo(
+                url=url,
+                api_file_size=api_file_size,
+                outfile=outfile,
+                remote_path=file.filename,
+            )
+        )
 
     with tqdm(
         total=len(file_infos),
@@ -673,10 +689,10 @@ async def _download_files(
     ) as overall_progress:
         download_tasks = [
             _download_file(
-                url=url,
-                api_file_size=api_file_size,
-                outfile=outfile,
-                remote_path=remote_path,
+                url=fi.url,
+                api_file_size=fi.api_file_size,
+                outfile=fi.outfile,
+                remote_path=fi.remote_path,
                 verify_hash=verify_hash,
                 verify_size=verify_size,
                 max_retries=max_retries,
@@ -686,7 +702,7 @@ async def _download_files(
                 query_str=normalized_query_str,
                 overall_progress=overall_progress,
             )
-            for url, api_file_size, outfile, remote_path in file_infos
+            for fi in file_infos
         ]
         await asyncio.gather(*download_tasks)
 
