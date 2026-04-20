@@ -950,6 +950,7 @@ def download(
         f"({max_concurrent_downloads} concurrent downloads)."
     )
     tqdm.write(_unicode(msg, emoji="📥", end=""))
+    tqdm.write("")  # Blank line before progress bars
 
     query_str = snapshot_query_template.safe_substitute(
         tag=tag or "null",
