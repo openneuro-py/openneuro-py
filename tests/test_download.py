@@ -836,17 +836,18 @@ def test_max_concurrent_downloads_cli_validation():
     assert result.exit_code == 2
 
 
-def test_semaphore_not_leaked_on_retry(tmp_path: Path):
-    """Semaphore value must be preserved after retries.
-
-    Regression test: the old recursive _retry_download() would call
-    semaphore.release() explicitly, then the enclosing ``async with
-    semaphore:`` would release again on exit — inflating the counter
-    on every retry.
-    """
-    semaphore = asyncio.Semaphore(2)
-    head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
-    mock_client = _make_fake_client(file_content=b"hello", fail_head_n_times=1)
+def _run_download_file(
+    tmp_path: Path,
+    mock_client: AsyncMock,
+    *,
+    semaphore: asyncio.Semaphore | None = None,
+    head_semaphore: asyncio.Semaphore | None = None,
+) -> None:
+    """Run ``_download_file`` with a mocked ``httpx.AsyncClient``."""
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(2)
+    if head_semaphore is None:
+        head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
 
     async def run():
         await _download_file(
@@ -864,6 +865,26 @@ def test_semaphore_not_leaked_on_retry(tmp_path: Path):
 
     with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
         asyncio.run(run())
+
+
+def test_semaphore_not_leaked_on_retry(tmp_path: Path):
+    """Semaphore value must be preserved after retries.
+
+    Regression test: the old recursive _retry_download() would call
+    semaphore.release() explicitly, then the enclosing ``async with
+    semaphore:`` would release again on exit — inflating the counter
+    on every retry.
+    """
+    semaphore = asyncio.Semaphore(2)
+    head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
+    mock_client = _make_fake_client(file_content=b"hello", fail_head_n_times=1)
+
+    _run_download_file(
+        tmp_path,
+        mock_client,
+        semaphore=semaphore,
+        head_semaphore=head_semaphore,
+    )
 
     assert semaphore._value == 2, (
         f"Semaphore leaked: expected value 2, got {semaphore._value}"
@@ -877,59 +898,24 @@ def test_semaphore_not_leaked_on_retry(tmp_path: Path):
 
 def test_head_retryable_status_code(tmp_path: Path):
     """A retryable HEAD status code (e.g. 503) should be retried."""
-    semaphore = asyncio.Semaphore(2)
-    head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
     mock_client = _make_fake_client(
         file_content=b"hello",
         fail_head_n_times=1,
         fail_head_status_code=503,
     )
 
-    async def run():
-        await _download_file(
-            url="https://example.com/test.txt",
-            api_file_size=5,
-            outfile=tmp_path / "test.txt",
-            verify_hash=False,
-            verify_size=False,
-            max_retries=3,
-            retry_backoff=0.0,
-            semaphore=semaphore,
-            head_semaphore=head_semaphore,
-            query_str="test query",
-        )
+    _run_download_file(tmp_path, mock_client)
 
-    with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
-        asyncio.run(run())
-
-    # The file should have been downloaded successfully after the retry.
     assert (tmp_path / "test.txt").read_bytes() == b"hello"
 
 
 def test_head_non_retryable_status_code(tmp_path: Path):
     """A non-retryable HEAD status code (e.g. 404) should raise RuntimeError."""
-    semaphore = asyncio.Semaphore(2)
-    head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
     mock_client = _make_fake_client(
         file_content=b"hello",
         fail_head_n_times=99,
         fail_head_status_code=404,
     )
 
-    async def run():
-        await _download_file(
-            url="https://example.com/test.txt",
-            api_file_size=5,
-            outfile=tmp_path / "test.txt",
-            verify_hash=False,
-            verify_size=False,
-            max_retries=3,
-            retry_backoff=0.0,
-            semaphore=semaphore,
-            head_semaphore=head_semaphore,
-            query_str="test query",
-        )
-
-    with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(RuntimeError, match="HEAD request failed with HTTP 404"):
-            asyncio.run(run())
+    with pytest.raises(RuntimeError, match="HEAD request failed with HTTP 404"):
+        _run_download_file(tmp_path, mock_client)
