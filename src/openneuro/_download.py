@@ -706,6 +706,7 @@ async def _download_files(
             )
             for fi in file_infos
         ]
+        del file_infos
         await asyncio.gather(*download_tasks)
 
 

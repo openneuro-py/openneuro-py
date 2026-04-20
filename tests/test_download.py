@@ -849,20 +849,21 @@ def _run_download_file(
         head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
 
     async def run():
-        await _download_file(
-            url="https://example.com/test.txt",
-            api_file_size=5,
-            outfile=tmp_path / "test.txt",
-            remote_path="test.txt",
-            verify_hash=False,
-            verify_size=False,
-            max_retries=3,
-            retry_backoff=0.0,
-            semaphore=semaphore,
-            head_semaphore=head_semaphore,
-            query_str="test query",
-            overall_progress=tqdm(total=1, disable=True),
-        )
+        with tqdm(total=1, disable=True) as overall_progress:
+            await _download_file(
+                url="https://example.com/test.txt",
+                api_file_size=5,
+                outfile=tmp_path / "test.txt",
+                remote_path="test.txt",
+                verify_hash=False,
+                verify_size=False,
+                max_retries=3,
+                retry_backoff=0.0,
+                semaphore=semaphore,
+                head_semaphore=head_semaphore,
+                query_str="test query",
+                overall_progress=overall_progress,
+            )
 
     with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
         asyncio.run(run())
