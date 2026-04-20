@@ -749,7 +749,12 @@ def test_safe_query_raises_on_non_retryable_non_json():
         _download._safe_query("query { test }")
 
 
-def _make_fake_client(*, file_content: bytes, fail_head_n_times: int = 0):
+def _make_fake_client(
+    *,
+    file_content: bytes,
+    fail_head_n_times: int = 0,
+    fail_head_status_code: int | None = None,
+):
     """Create a mock ``httpx.AsyncClient`` for download tests.
 
     Parameters
@@ -757,8 +762,10 @@ def _make_fake_client(*, file_content: bytes, fail_head_n_times: int = 0):
     file_content
         Bytes the fake GET response will yield.
     fail_head_n_times
-        Number of initial HEAD requests that raise ``httpx.ReadTimeout``
-        before succeeding.
+        Number of initial HEAD requests that fail before succeeding.
+    fail_head_status_code
+        If set, failing HEAD requests return this HTTP status code instead
+        of raising ``httpx.ReadTimeout``.
 
     """
     head_call_count = 0
@@ -767,8 +774,16 @@ def _make_fake_client(*, file_content: bytes, fail_head_n_times: int = 0):
         nonlocal head_call_count
         head_call_count += 1
         if head_call_count <= fail_head_n_times:
+            if fail_head_status_code is not None:
+                resp = MagicMock()
+                resp.status_code = fail_head_status_code
+                resp.is_error = fail_head_status_code >= 400
+                resp.headers = {}
+                return resp
             raise httpx.ReadTimeout("simulated timeout")
         resp = MagicMock()
+        resp.status_code = 200
+        resp.is_error = False
         resp.headers = {
             "etag": '"d41d8cd98f00b204e9800998ecf8427e"',
             "content-length": str(len(file_content)),
@@ -818,16 +833,18 @@ def test_max_concurrent_downloads_cli_validation():
     assert result.exit_code == 2
 
 
-def test_semaphore_not_leaked_on_retry(tmp_path: Path):
-    """Semaphore value must be preserved after retries.
-
-    Regression test: the old recursive _retry_download() would call
-    semaphore.release() explicitly, then the enclosing ``async with
-    semaphore:`` would release again on exit — inflating the counter
-    on every retry.
-    """
-    semaphore = asyncio.Semaphore(2)
-    mock_client = _make_fake_client(file_content=b"hello", fail_head_n_times=1)
+def _run_download_file(
+    tmp_path: Path,
+    mock_client: AsyncMock,
+    *,
+    semaphore: asyncio.Semaphore | None = None,
+    head_semaphore: asyncio.Semaphore | None = None,
+) -> None:
+    """Run ``_download_file`` with a mocked ``httpx.AsyncClient``."""
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(2)
+    if head_semaphore is None:
+        head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
 
     async def run():
         await _download_file(
@@ -839,12 +856,63 @@ def test_semaphore_not_leaked_on_retry(tmp_path: Path):
             max_retries=3,
             retry_backoff=0.0,
             semaphore=semaphore,
+            head_semaphore=head_semaphore,
             query_str="test query",
         )
 
     with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
         asyncio.run(run())
 
+
+def test_semaphore_not_leaked_on_retry(tmp_path: Path):
+    """Semaphore value must be preserved after retries.
+
+    Regression test: the old recursive _retry_download() would call
+    semaphore.release() explicitly, then the enclosing ``async with
+    semaphore:`` would release again on exit — inflating the counter
+    on every retry.
+    """
+    semaphore = asyncio.Semaphore(2)
+    head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
+    mock_client = _make_fake_client(file_content=b"hello", fail_head_n_times=1)
+
+    _run_download_file(
+        tmp_path,
+        mock_client,
+        semaphore=semaphore,
+        head_semaphore=head_semaphore,
+    )
+
     assert semaphore._value == 2, (
         f"Semaphore leaked: expected value 2, got {semaphore._value}"
     )
+    assert head_semaphore._value == _download._MAX_CONCURRENT_HEAD_REQUESTS, (
+        f"HEAD semaphore leaked: expected value "
+        f"{_download._MAX_CONCURRENT_HEAD_REQUESTS}, "
+        f"got {head_semaphore._value}"
+    )
+
+
+def test_head_retryable_status_code(tmp_path: Path):
+    """A retryable HEAD status code (e.g. 503) should be retried."""
+    mock_client = _make_fake_client(
+        file_content=b"hello",
+        fail_head_n_times=1,
+        fail_head_status_code=503,
+    )
+
+    _run_download_file(tmp_path, mock_client)
+
+    assert (tmp_path / "test.txt").read_bytes() == b"hello"
+
+
+def test_head_non_retryable_status_code(tmp_path: Path):
+    """A non-retryable HEAD status code (e.g. 404) should raise RuntimeError."""
+    mock_client = _make_fake_client(
+        file_content=b"hello",
+        fail_head_n_times=99,
+        fail_head_status_code=404,
+    )
+
+    with pytest.raises(RuntimeError, match="HEAD request failed with HTTP 404"):
+        _run_download_file(tmp_path, mock_client)
