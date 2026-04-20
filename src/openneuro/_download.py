@@ -482,8 +482,9 @@ async def _attempt_download(
             request_headers["Range"] = f"bytes={local_file_size}-"
             mode = "ab"
         elif outfile.exists():
-            # Local file is larger than remote – overwrite.
-            desc = f"Re-downloading {outfile.name}: file size mismatch."
+            # Remote size unknown or local file is larger than remote –
+            # re-download.
+            desc = f"Re-downloading {outfile.name}: remote file size unknown."
             outfile.unlink()
             local_file_size = 0
         else:
@@ -583,10 +584,10 @@ async def _retrieve_and_write_to_disk(
                 )
 
         # Check the file was completely downloaded.
-        if verify_size and remote_file_size is not None:
+        if verify_size:
             await f.flush()
             local_file_size = outfile.stat().st_size
-            if local_file_size != remote_file_size:
+            if remote_file_size is not None and local_file_size != remote_file_size:
                 raise RuntimeError(
                     f"Server claimed size of {outfile} would be "
                     f"{remote_file_size} bytes, but downloaded "

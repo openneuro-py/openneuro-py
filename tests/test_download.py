@@ -17,6 +17,7 @@ import openneuro._config
 from openneuro import _download
 from openneuro._download import (
     _download_file,
+    _retrieve_and_write_to_disk,
     download,
 )
 from openneuro._models import Snapshot
@@ -916,3 +917,34 @@ def test_head_non_retryable_status_code(tmp_path: Path):
 
     with pytest.raises(RuntimeError, match="HEAD request failed with HTTP 404"):
         _run_download_file(tmp_path, mock_client)
+
+
+# -- _retrieve_and_write_to_disk with remote_file_size=None --
+
+
+def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
+    """verify_size=True with remote_file_size=None must not crash."""
+    outfile = tmp_path / "test.txt"
+    content = b"hello world"
+    response = AsyncMock()
+    response.num_bytes_downloaded = len(content)
+
+    async def aiter_bytes():
+        yield content
+
+    response.aiter_bytes = aiter_bytes
+
+    asyncio.run(
+        _retrieve_and_write_to_disk(
+            response=response,
+            outfile=outfile,
+            mode="wb",
+            desc="test",
+            local_file_size=0,
+            remote_file_size=None,
+            remote_file_hash=None,
+            verify_hash=False,
+            verify_size=True,
+        )
+    )
+    assert outfile.read_bytes() == content
