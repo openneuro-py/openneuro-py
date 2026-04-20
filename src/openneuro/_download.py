@@ -86,7 +86,7 @@ class _RetryableError(Exception):
     """Raised inside _attempt_download to signal the caller should retry."""
 
 
-@dataclasses.dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True)
 class _FileInfo:
     url: str
     api_file_size: int | None
