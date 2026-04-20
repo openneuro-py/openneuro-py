@@ -371,6 +371,7 @@ async def _download_file(
                 head_semaphore=head_semaphore,
                 query_str=query_str,
                 overall_progress=overall_progress,
+                is_retry=attempt > 0,
             )
             return
         except _RetryableError as err:
@@ -411,6 +412,7 @@ async def _attempt_download(
     head_semaphore: asyncio.Semaphore,
     query_str: str,
     overall_progress: tqdm,
+    is_retry: bool,
 ) -> None:
     """Single download attempt (HEAD → local check → GET)."""
     if outfile.exists():
@@ -492,7 +494,8 @@ async def _attempt_download(
                 local_file_size = 0
             else:
                 # Download complete, skip.
-                overall_progress.update(remote_file_size or 0)
+                if not is_retry:
+                    overall_progress.update(remote_file_size or 0)
                 return
         elif (
             outfile.exists()
@@ -503,7 +506,8 @@ async def _attempt_download(
             desc = f"Resuming {outfile.name}"
             request_headers["Range"] = f"bytes={local_file_size}-"
             mode = "ab"
-            overall_progress.update(local_file_size)
+            if not is_retry:
+                overall_progress.update(local_file_size)
         elif (
             outfile.exists()
             and remote_file_size is not None
