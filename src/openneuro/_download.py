@@ -481,9 +481,17 @@ async def _attempt_download(
             desc = f"Resuming {outfile.name}"
             request_headers["Range"] = f"bytes={local_file_size}-"
             mode = "ab"
+        elif (
+            outfile.exists()
+            and remote_file_size is not None
+            and local_file_size > remote_file_size
+        ):
+            # Local file is larger than remote – overwrite.
+            desc = f"Re-downloading {outfile.name}: file size mismatch."
+            outfile.unlink()
+            local_file_size = 0
         elif outfile.exists():
-            # Remote size unknown or local file is larger than remote –
-            # re-download.
+            # Remote size unknown – re-download to be safe.
             desc = f"Re-downloading {outfile.name}: remote file size unknown."
             outfile.unlink()
             local_file_size = 0

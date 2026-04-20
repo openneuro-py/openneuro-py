@@ -19,6 +19,18 @@ def test_dataset_file():
     assert fi.size == 1234
     assert fi.id == "abc123"
 
+    # Null size (GraphQL `size: null`)
+    fi_null = DatasetFile.model_validate(
+        {
+            "filename": "sub-01/anat/T1w.nii.gz",
+            "urls": None,
+            "size": None,
+            "id": "abc123",
+        }
+    )
+    assert fi_null.size is None
+    assert fi_null.urls is None
+
 
 def test_snapshot_from_mock_data():
     """Parse real mock metadata into a Snapshot."""
