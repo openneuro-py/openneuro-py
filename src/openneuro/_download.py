@@ -394,7 +394,7 @@ async def _attempt_download(
             async with head_semaphore:
                 response = await client.head(url, headers=user_agent_header)
                 if response.status_code in allowed_retry_codes:
-                    raise _RetryableError
+                    raise _RetryableError(f"HTTP {response.status_code}")
                 if response.is_error:
                     raise RuntimeError(
                         f"HEAD request failed with HTTP "
