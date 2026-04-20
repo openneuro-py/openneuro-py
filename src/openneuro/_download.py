@@ -469,7 +469,6 @@ async def _attempt_download(
                 local_file_size = 0
             else:
                 # Download complete, skip.
-                tqdm.write(f"Skipping {outfile.name}: already downloaded.")
                 overall_progress.update(remote_file_size or 0)
                 return
         elif (
