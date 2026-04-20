@@ -436,7 +436,7 @@ async def _attempt_download(
                     raise RuntimeError(
                         f"HEAD request failed with HTTP "
                         f"{response.status_code} for "
-                        f"{remote_path}. {hint}"
+                        f"{remote_path} (url: {url}). {hint}"
                     )
                 headers = response.headers
         except allowed_retry_exceptions as exc:
