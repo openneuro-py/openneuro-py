@@ -480,6 +480,7 @@ async def _attempt_download(
             desc = f"Resuming {outfile.name}"
             request_headers["Range"] = f"bytes={local_file_size}-"
             mode = "ab"
+            overall_progress.update(local_file_size)
         elif (
             outfile.exists()
             and remote_file_size is not None
