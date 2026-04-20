@@ -88,6 +88,8 @@ class _RetryableError(Exception):
 
 @dataclasses.dataclass(frozen=True)
 class _FileInfo:
+    """Per-file metadata collected in ``_download_files`` before task creation."""
+
     url: str
     api_file_size: int | None
     outfile: Path
