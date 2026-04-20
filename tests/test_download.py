@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from tqdm.auto import tqdm
 
 import openneuro
 import openneuro._config
@@ -860,6 +861,7 @@ def _run_download_file(
             semaphore=semaphore,
             head_semaphore=head_semaphore,
             query_str="test query",
+            overall_progress=tqdm(total=1, disable=True),
         )
 
     with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
