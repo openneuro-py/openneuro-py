@@ -788,7 +788,6 @@ def _make_fake_client(
         resp.is_error = False
         resp.headers = {
             "etag": '"d41d8cd98f00b204e9800998ecf8427e"',
-            "content-length": str(len(file_content)),
         }
         return resp
 
@@ -852,7 +851,7 @@ def _run_download_file(
         with tqdm(total=1, disable=True) as overall_progress:
             await _download_file(
                 url="https://example.com/test.txt",
-                api_file_size=5,
+                remote_file_size=5,
                 outfile=tmp_path / "test.txt",
                 remote_path="test.txt",
                 verify_hash=False,

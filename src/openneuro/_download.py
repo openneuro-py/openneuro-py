@@ -91,7 +91,7 @@ class _FileInfo:
     """Per-file metadata collected in ``_download_files`` before task creation."""
 
     url: str
-    api_file_size: int | None
+    size: int | None
     outfile: Path
     remote_path: str
 
@@ -331,7 +331,7 @@ def _retry_request(
 async def _download_file(
     *,
     url: str,
-    api_file_size: int | None,
+    remote_file_size: int | None,
     outfile: Path,
     remote_path: str,
     verify_hash: bool,
@@ -348,7 +348,7 @@ async def _download_file(
         try:
             await _attempt_download(
                 url=url,
-                api_file_size=api_file_size,
+                remote_file_size=remote_file_size,
                 outfile=outfile,
                 remote_path=remote_path,
                 verify_hash=verify_hash,
@@ -385,7 +385,7 @@ async def _download_file(
 async def _attempt_download(
     *,
     url: str,
-    api_file_size: int | None,
+    remote_file_size: int | None,
     outfile: Path,
     remote_path: str,
     verify_hash: bool,
@@ -415,9 +415,7 @@ async def _attempt_download(
         timeout = 5
 
     async with httpx.AsyncClient(timeout=timeout, verify=ssl_context) as client:
-        # Phase 1: HEAD request to get remote file hash and size.
-        # The file sizes provided via the API often do not match the sizes
-        # reported by the HTTP server. Rely on the HTTP server sizes.
+        # Phase 1: HEAD request to get remote file hash.
         try:
             async with head_semaphore:
                 response = await client.head(url, headers=user_agent_header)
@@ -438,22 +436,6 @@ async def _attempt_download(
         remote_file_hash = (
             etag_hash if (etag_hash is not None and len(etag_hash) == 32) else None
         )
-
-        # The server doesn't always set a Content-Length header.
-        content_length = response.headers.get("content-length")
-        remote_file_size = (
-            api_file_size if content_length is None else int(content_length)
-        )
-
-        if api_file_size is not None and remote_file_size != api_file_size:
-            tqdm.write(
-                _unicode(
-                    f"Warning: size mismatch for {outfile.name}: "
-                    f"API size {api_file_size} bytes, "
-                    f"server size {remote_file_size} bytes.",
-                    emoji="⚠️",
-                )
-            )
 
         # Phase 2: Local file check (no semaphore held — allows other tasks
         # to use network slots while we do local I/O).
@@ -664,7 +646,6 @@ async def _download_files(
     file_infos: list[_FileInfo] = []
     for file in files:
         filename = Path(file.filename)
-        api_file_size = file.size
         if not file.urls:
             raise RuntimeError(
                 f"No download URLs for {filename}. The file may have been "
@@ -677,7 +658,7 @@ async def _download_files(
         file_infos.append(
             _FileInfo(
                 url=url,
-                api_file_size=api_file_size,
+                size=file.size,
                 outfile=outfile,
                 remote_path=file.filename,
             )
@@ -692,7 +673,7 @@ async def _download_files(
         download_tasks = [
             _download_file(
                 url=fi.url,
-                api_file_size=fi.api_file_size,
+                remote_file_size=fi.size,
                 outfile=fi.outfile,
                 remote_path=fi.remote_path,
                 verify_hash=verify_hash,
