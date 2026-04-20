@@ -852,6 +852,7 @@ def _run_download_file(
             url="https://example.com/test.txt",
             api_file_size=5,
             outfile=tmp_path / "test.txt",
+            dataset_path="test.txt",
             verify_hash=False,
             verify_size=False,
             max_retries=3,
@@ -938,6 +939,7 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
         _retrieve_and_write_to_disk(
             response=response,
             outfile=outfile,
+            dataset_path="test.txt",
             mode="wb",
             desc="test",
             local_file_size=0,
