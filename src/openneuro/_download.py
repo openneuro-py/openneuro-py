@@ -160,6 +160,20 @@ snapshot_query_template = string.Template(
 )
 
 
+def _download_debug_hint(*, remote_path: str, url: str, query_str: str) -> str:
+    """Return debugging guidance for download errors."""
+    return (
+        "If this is unexpected:\n\n"
+        f"1. Navigate to {gql_url}\n"
+        f"2. Enter and run the operation: `{query_str}`\n"
+        "3. In the Response, try to manually download "
+        f'the "urls" for "{remote_path}", which should '
+        f"contain {url}\n\n"
+        "If the download fails, open a GitHub issue like "
+        "https://github.com/OpenNeuroOrg/openneuro/issues/3145"
+    )
+
+
 def _safe_query(
     query: str, *, timeout: float | None = None
 ) -> tuple[dict[str, Any] | None, bool]:
@@ -376,9 +390,12 @@ async def _download_file(
                 await asyncio.sleep(retry_backoff)
                 retry_backoff *= 2
             else:
+                hint = _download_debug_hint(
+                    remote_path=remote_path, url=url, query_str=query_str
+                )
                 raise RuntimeError(
                     f"Failed to download {remote_path} from {url} "
-                    f"after {max_retries} retries."
+                    f"after {max_retries} retries. {hint}"
                 ) from (err.__cause__ or err)
 
 
@@ -423,9 +440,15 @@ async def _attempt_download(
                 if response.status_code in allowed_retry_codes:
                     raise _RetryableError(f"HTTP {response.status_code}")
                 if response.is_error:
+                    hint = _download_debug_hint(
+                        remote_path=remote_path,
+                        url=url,
+                        query_str=query_str,
+                    )
                     raise RuntimeError(
                         f"HEAD request failed with HTTP "
-                        f"{response.status_code} for {url}"
+                        f"{response.status_code} for "
+                        f"{remote_path} (url: {url}). {hint}"
                     )
                 headers = response.headers
         except allowed_retry_exceptions as exc:
@@ -510,20 +533,14 @@ async def _attempt_download(
                     elif response.status_code in allowed_retry_codes:
                         raise _RetryableError(f"HTTP {response.status_code}")
                     else:
+                        hint = _download_debug_hint(
+                            remote_path=remote_path,
+                            url=url,
+                            query_str=query_str,
+                        )
                         raise RuntimeError(
                             f"Error {response.status_code} when trying to "
-                            f"download {remote_path}. If this is "
-                            "unexpected:\n\n"
-                            "1. Navigate to "
-                            "https://openneuro.org/crn/graphql\n"
-                            "2. Enter and run the operation: "
-                            f"`{query_str}`\n"
-                            "3. In the Response, try to manually download "
-                            f'the "urls" for "{remote_path}", which should '
-                            f"contain {url}\n\n"
-                            "If the download fails, open a GitHub issue like "
-                            "https://github.com/OpenNeuroOrg/openneuro/"
-                            "issues/3145"
+                            f"download {remote_path}. {hint}"
                         )
 
                     await _retrieve_and_write_to_disk(
