@@ -356,8 +356,8 @@ async def _download_file(
                 semaphore=semaphore,
                 head_semaphore=head_semaphore,
                 query_str=query_str,
+                overall_progress=overall_progress,
             )
-            overall_progress.update(1)
             return
         except _RetryableError as err:
             if attempt < max_retries:
@@ -393,6 +393,7 @@ async def _attempt_download(
     semaphore: asyncio.Semaphore,
     head_semaphore: asyncio.Semaphore,
     query_str: str,
+    overall_progress: tqdm,
 ) -> None:
     """Single download attempt (HEAD → local check → GET)."""
     if outfile.exists():
@@ -469,6 +470,7 @@ async def _attempt_download(
             else:
                 # Download complete, skip.
                 tqdm.write(f"Skipping {outfile.name}: already downloaded.")
+                overall_progress.update(remote_file_size or 0)
                 return
         elif (
             outfile.exists()
@@ -535,6 +537,7 @@ async def _attempt_download(
                         remote_file_hash=remote_file_hash,
                         verify_hash=verify_hash,
                         verify_size=verify_size,
+                        overall_progress=overall_progress,
                     )
         except allowed_retry_exceptions as exc:
             raise _RetryableError from exc
@@ -552,6 +555,7 @@ async def _retrieve_and_write_to_disk(
     remote_file_hash: str | None,
     verify_hash: bool,
     verify_size: bool,
+    overall_progress: tqdm,
 ) -> None:
     hash = hashlib.md5()
 
@@ -579,7 +583,9 @@ async def _retrieve_and_write_to_disk(
             num_bytes_downloaded = response.num_bytes_downloaded
             async for chunk in response.aiter_bytes():
                 await f.write(chunk)
-                progress.update(response.num_bytes_downloaded - num_bytes_downloaded)
+                chunk_bytes = response.num_bytes_downloaded - num_bytes_downloaded
+                progress.update(chunk_bytes)
+                overall_progress.update(chunk_bytes)
                 num_bytes_downloaded = response.num_bytes_downloaded
                 if verify_hash:
                     hash.update(chunk)
@@ -664,10 +670,13 @@ async def _download_files(
             )
         )
 
+    total_bytes = sum(fi.size or 0 for fi in file_infos)
     with tqdm(
-        total=len(file_infos),
+        total=total_bytes,
         desc="Overall",
-        unit="file",
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
         leave=True,
     ) as overall_progress:
         download_tasks = [
