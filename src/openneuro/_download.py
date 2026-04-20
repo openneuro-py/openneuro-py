@@ -365,7 +365,18 @@ async def _download_file(
             else:
                 raise RuntimeError(
                     f"Failed to download {remote_path} from {url} "
-                    f"after {max_retries} retries."
+                    f"after {max_retries} retries. If this is "
+                    "unexpected:\n\n"
+                    "1. Navigate to "
+                    "https://openneuro.org/crn/graphql\n"
+                    "2. Enter and run the operation: "
+                    f"`{query_str}`\n"
+                    "3. In the Response, try to manually download "
+                    f'the "urls" for "{remote_path}", which should '
+                    f"contain {url}\n\n"
+                    "If the download fails, open a GitHub issue like "
+                    "https://github.com/OpenNeuroOrg/openneuro/"
+                    "issues/3145"
                 ) from (err.__cause__ or err)
 
 
@@ -413,7 +424,19 @@ async def _attempt_download(
                 if response.is_error:
                     raise RuntimeError(
                         f"HEAD request failed with HTTP "
-                        f"{response.status_code} for {url}"
+                        f"{response.status_code} for "
+                        f"{remote_path}. If this is "
+                        "unexpected:\n\n"
+                        "1. Navigate to "
+                        "https://openneuro.org/crn/graphql\n"
+                        "2. Enter and run the operation: "
+                        f"`{query_str}`\n"
+                        "3. In the Response, try to manually download "
+                        f'the "urls" for "{remote_path}", which should '
+                        f"contain {url}\n\n"
+                        "If the download fails, open a GitHub issue like "
+                        "https://github.com/OpenNeuroOrg/openneuro/"
+                        "issues/3145"
                     )
                 headers = response.headers
         except allowed_retry_exceptions as exc:
