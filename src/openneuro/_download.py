@@ -515,13 +515,14 @@ async def _attempt_download(
                     else:
                         raise RuntimeError(
                             f"Error {response.status_code} when trying to "
-                            f"download {outfile}. If this is unexpected:\n\n"
+                            f"download {remote_path}. If this is "
+                            "unexpected:\n\n"
                             "1. Navigate to "
                             "https://openneuro.org/crn/graphql\n"
                             "2. Enter and run the operation: "
                             f"`{query_str}`\n"
                             "3. In the Response, try to manually download "
-                            f'the "urls" for "{outfile.name}", which should '
+                            f'the "urls" for "{remote_path}", which should '
                             f"contain {url}\n\n"
                             "If the download fails, open a GitHub issue like "
                             "https://github.com/OpenNeuroOrg/openneuro/"

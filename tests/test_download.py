@@ -923,10 +923,7 @@ def test_head_non_retryable_status_code(tmp_path: Path):
 # -- _retrieve_and_write_to_disk with remote_file_size=None --
 
 
-def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
-    """verify_size=True with remote_file_size=None must not crash."""
-    outfile = tmp_path / "test.txt"
-    content = b"hello world"
+def _mock_response(content: bytes) -> AsyncMock:
     response = AsyncMock()
     response.num_bytes_downloaded = len(content)
 
@@ -934,10 +931,17 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
         yield content
 
     response.aiter_bytes = aiter_bytes
+    return response
+
+
+def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
+    """verify_size=True with remote_file_size=None must not crash."""
+    outfile = tmp_path / "test.txt"
+    content = b"hello world"
 
     asyncio.run(
         _retrieve_and_write_to_disk(
-            response=response,
+            response=_mock_response(content),
             outfile=outfile,
             remote_path="test.txt",
             mode="wb",
@@ -950,3 +954,24 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
         )
     )
     assert outfile.read_bytes() == content
+
+
+def test_size_mismatch_uses_remote_path(tmp_path: Path):
+    """Error message must contain remote_path, not the local outfile path."""
+    remote_path = "sub-01/meg/file.fif"
+    with pytest.raises(RuntimeError, match=remote_path) as exc_info:
+        asyncio.run(
+            _retrieve_and_write_to_disk(
+                response=_mock_response(b"hello"),
+                outfile=tmp_path / "test.txt",
+                remote_path=remote_path,
+                mode="wb",
+                desc="test",
+                local_file_size=0,
+                remote_file_size=999_999,  # intentional mismatch
+                remote_file_hash=None,
+                verify_hash=False,
+                verify_size=True,
+            )
+        )
+    assert str(tmp_path) not in str(exc_info.value)
