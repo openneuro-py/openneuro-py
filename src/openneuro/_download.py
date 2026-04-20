@@ -322,6 +322,7 @@ async def _download_file(
     url: str,
     api_file_size: int | None,
     outfile: Path,
+    remote_path: str,
     verify_hash: bool,
     verify_size: bool,
     max_retries: int,
@@ -337,6 +338,7 @@ async def _download_file(
                 url=url,
                 api_file_size=api_file_size,
                 outfile=outfile,
+                remote_path=remote_path,
                 verify_hash=verify_hash,
                 verify_size=verify_size,
                 semaphore=semaphore,
@@ -353,7 +355,7 @@ async def _download_file(
                 else:
                     reason = str(err) or "Error"
                 _write_retry(
-                    what=f"downloading {outfile}",
+                    what=f"downloading {remote_path}",
                     reason=reason,
                     retry=max_retries - attempt,
                     backoff=retry_backoff,
@@ -362,7 +364,7 @@ async def _download_file(
                 retry_backoff *= 2
             else:
                 raise RuntimeError(
-                    f"Failed to download {outfile} from {url} "
+                    f"Failed to download {remote_path} from {url} "
                     f"after {max_retries} retries."
                 ) from (err.__cause__ or err)
 
@@ -372,6 +374,7 @@ async def _attempt_download(
     url: str,
     api_file_size: int | None,
     outfile: Path,
+    remote_path: str,
     verify_hash: bool,
     verify_size: bool,
     semaphore: asyncio.Semaphore,
@@ -512,13 +515,14 @@ async def _attempt_download(
                     else:
                         raise RuntimeError(
                             f"Error {response.status_code} when trying to "
-                            f"download {outfile}. If this is unexpected:\n\n"
+                            f"download {remote_path}. If this is "
+                            "unexpected:\n\n"
                             "1. Navigate to "
                             "https://openneuro.org/crn/graphql\n"
                             "2. Enter and run the operation: "
                             f"`{query_str}`\n"
                             "3. In the Response, try to manually download "
-                            f'the "urls" for "{outfile.name}", which should '
+                            f'the "urls" for "{remote_path}", which should '
                             f"contain {url}\n\n"
                             "If the download fails, open a GitHub issue like "
                             "https://github.com/OpenNeuroOrg/openneuro/"
@@ -528,6 +532,7 @@ async def _attempt_download(
                     await _retrieve_and_write_to_disk(
                         response=response,
                         outfile=outfile,
+                        remote_path=remote_path,
                         mode=mode,
                         desc=desc,
                         local_file_size=local_file_size,
@@ -544,6 +549,7 @@ async def _retrieve_and_write_to_disk(
     *,
     response: httpx.Response,
     outfile: Path,
+    remote_path: str,
     mode: Literal["ab", "wb"],
     desc: str,
     local_file_size: int,
@@ -587,7 +593,7 @@ async def _retrieve_and_write_to_disk(
             got = hash.hexdigest()
             if got != remote_file_hash:
                 raise RuntimeError(
-                    f"Hash mismatch for:\n{outfile}\n"
+                    f"Hash mismatch for:\n{remote_path}\n"
                     f"Expected:\n{remote_file_hash}\nGot:\n{got}"
                 )
 
@@ -597,7 +603,7 @@ async def _retrieve_and_write_to_disk(
             local_file_size = outfile.stat().st_size
             if remote_file_size is not None and local_file_size != remote_file_size:
                 raise RuntimeError(
-                    f"Server claimed size of {outfile} would be "
+                    f"Size mismatch for {remote_path}: expected "
                     f"{remote_file_size} bytes, but downloaded "
                     f"{local_file_size} bytes."
                 )
@@ -615,7 +621,7 @@ async def _retrieve_and_write_to_disk(
         else:
             if isinstance(data, dict) and list(data) == ["error"]:
                 raise RuntimeError(
-                    f"Error downloading:\n{outfile}:\n"
+                    f"Error downloading:\n{remote_path}:\n"
                     f"Got JSON error response contents:\n{data}"
                 )
 
@@ -657,6 +663,7 @@ async def _download_files(
             url=url,
             api_file_size=api_file_size,
             outfile=outfile,
+            remote_path=file.filename,
             verify_hash=verify_hash,
             verify_size=verify_size,
             max_retries=max_retries,
