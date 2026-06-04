@@ -107,7 +107,7 @@ allowed_retry_exceptions = (
 )
 user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"}
 
-_MAX_CONCURRENT_HEAD_REQUESTS = 50
+_MAX_CONCURRENT_HEAD_REQUESTS = 5
 
 # GraphQL endpoint and queries.
 
