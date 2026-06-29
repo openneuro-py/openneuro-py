@@ -22,7 +22,7 @@ def download_cli(
         typer.Option(help="The directory to download to.", show_default=False),
     ] = None,
     include: Annotated[
-        str | None,
+        list[str] | None,
         typer.Option(
             help="Only include the specified file or directory. "
             "Can be passed multiple times.",
@@ -30,7 +30,7 @@ def download_cli(
         ),
     ] = None,
     exclude: Annotated[
-        str | None,
+        list[str] | None,
         typer.Option(
             help="Exclude the specified file or directory. "
             "Can be passed multiple times.",

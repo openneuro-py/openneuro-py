@@ -834,6 +834,33 @@ def test_max_concurrent_downloads_cli_validation():
     assert result.exit_code == 2
 
 
+def test_multiple_include_options_cli():
+    """The CLI should honor multiple --include (and --exclude) options."""
+    from typer.testing import CliRunner
+
+    from openneuro._cli import app
+
+    runner = CliRunner()
+    with patch("openneuro._cli.download") as mock_download:
+        result = runner.invoke(
+            app,
+            [
+                "download",
+                "--dataset=ds000117",
+                "--include=sub-0001",
+                "--include=sub-0002",
+                "--exclude=*.fif",
+                "--exclude=*.json",
+            ],
+        )
+
+    assert result.exit_code == 0
+    mock_download.assert_called_once()
+    _, kwargs = mock_download.call_args
+    assert kwargs["include"] == ["sub-0001", "sub-0002"]
+    assert kwargs["exclude"] == ["*.fif", "*.json"]
+
+
 def _run_download_file(
     tmp_path: Path,
     mock_client: AsyncMock,
