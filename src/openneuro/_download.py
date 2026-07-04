@@ -344,6 +344,7 @@ def _retry_request(
 
 async def _download_file(
     *,
+    client: httpx.AsyncClient,
     url: str,
     remote_file_size: int | None,
     outfile: Path,
@@ -361,6 +362,7 @@ async def _download_file(
     for attempt in range(max_retries + 1):
         try:
             await _attempt_download(
+                client=client,
                 url=url,
                 remote_file_size=remote_file_size,
                 outfile=outfile,
@@ -402,6 +404,7 @@ async def _download_file(
 
 async def _attempt_download(
     *,
+    client: httpx.AsyncClient,
     url: str,
     remote_file_size: int | None,
     outfile: Path,
@@ -428,140 +431,143 @@ async def _attempt_download(
     #     raise RuntimeError(query_str)
 
     # The OpenNeuro servers are sometimes very slow to respond, so use a
-    # gigantic timeout for those.
+    # gigantic timeout for those. The pool timeout is disabled: tasks may
+    # legitimately wait a long time for a connection from the shared client's
+    # pool, and the semaphores are the sole concurrency throttle.
     if url.startswith("https://openneuro.org/crn/"):
-        timeout = 60
+        timeout = httpx.Timeout(60, pool=None)
     else:
-        timeout = 5
+        timeout = httpx.Timeout(5, pool=None)
 
-    async with httpx.AsyncClient(timeout=timeout, verify=ssl_context) as client:
-        # Phase 1: HEAD request to get remote file hash.
-        try:
-            async with head_semaphore:
-                response = await client.head(url, headers=user_agent_header)
-                if response.status_code in allowed_retry_codes:
+    # Phase 1: HEAD request to get remote file hash.
+    try:
+        async with head_semaphore:
+            response = await client.head(
+                url, headers=user_agent_header, timeout=timeout
+            )
+            if response.status_code in allowed_retry_codes:
+                raise _RetryableError(f"HTTP {response.status_code}")
+            if response.is_error:
+                hint = _download_debug_hint(
+                    remote_path=remote_path,
+                    url=url,
+                    query_str=query_str,
+                )
+                raise RuntimeError(
+                    f"HEAD request failed with HTTP "
+                    f"{response.status_code} for "
+                    f"{remote_path} (url: {url}). {hint}"
+                )
+            headers = response.headers
+    except allowed_retry_exceptions as exc:
+        raise _RetryableError from exc
+
+    # Try to get the S3 MD5 hash for the file.
+    etag = headers.get("etag")
+    etag_hash = etag.strip('"') if etag is not None else None
+    remote_file_hash = (
+        etag_hash if (etag_hash is not None and len(etag_hash) == 32) else None
+    )
+
+    # Phase 2: Local file check (no semaphore held — allows other tasks
+    # to use network slots while we do local I/O).
+    request_headers: dict[str, str] = user_agent_header.copy()
+    request_headers["Accept-Encoding"] = ""  # Disable compression
+
+    mode: Literal["ab", "wb"] = "wb"
+    if (
+        outfile.exists()
+        and remote_file_size is not None
+        and local_file_size == remote_file_size
+    ):
+        hash_ = hashlib.md5()
+
+        if verify_hash and remote_file_hash is not None:
+            async with aiofiles.open(outfile, "rb") as f:
+                while True:
+                    data = await f.read(65536)
+                    if not data:
+                        break
+                    hash_.update(data)
+
+        if (
+            verify_hash
+            and remote_file_hash is not None
+            and hash_.hexdigest() != remote_file_hash
+        ):
+            desc = f"Re-downloading {outfile.name}: file hash mismatch."
+            outfile.unlink()
+            local_file_size = 0
+        else:
+            # Download complete, skip.
+            if not is_retry:
+                overall_progress.update(remote_file_size or 0)
+            return
+    elif (
+        outfile.exists()
+        and remote_file_size is not None
+        and local_file_size < remote_file_size
+    ):
+        # Download incomplete, resume.
+        desc = f"Resuming {outfile.name}"
+        request_headers["Range"] = f"bytes={local_file_size}-"
+        mode = "ab"
+        if not is_retry:
+            overall_progress.update(local_file_size)
+    elif (
+        outfile.exists()
+        and remote_file_size is not None
+        and local_file_size > remote_file_size
+    ):
+        # Local file is larger than remote – overwrite.
+        desc = f"Re-downloading {outfile.name}: file size mismatch."
+        outfile.unlink()
+        local_file_size = 0
+    elif outfile.exists():
+        # Remote size unknown – re-download to be safe.
+        desc = f"Re-downloading {outfile.name}: remote file size unknown."
+        outfile.unlink()
+        local_file_size = 0
+    else:
+        # File doesn't exist locally, download entirely.
+        desc = outfile.name
+
+    # Phase 3: GET request to download the file (re-acquires semaphore).
+    try:
+        async with semaphore:
+            async with client.stream(
+                "GET", url=url, headers=request_headers, timeout=timeout
+            ) as response:
+                if not response.is_error:
+                    pass  # All good!
+                elif response.status_code in allowed_retry_codes:
                     raise _RetryableError(f"HTTP {response.status_code}")
-                if response.is_error:
+                else:
                     hint = _download_debug_hint(
                         remote_path=remote_path,
                         url=url,
                         query_str=query_str,
                     )
                     raise RuntimeError(
-                        f"HEAD request failed with HTTP "
-                        f"{response.status_code} for "
-                        f"{remote_path} (url: {url}). {hint}"
+                        f"Error {response.status_code} when trying to "
+                        f"download {remote_path}. {hint}"
                     )
-                headers = response.headers
-        except allowed_retry_exceptions as exc:
-            raise _RetryableError from exc
 
-        # Try to get the S3 MD5 hash for the file.
-        etag = headers.get("etag")
-        etag_hash = etag.strip('"') if etag is not None else None
-        remote_file_hash = (
-            etag_hash if (etag_hash is not None and len(etag_hash) == 32) else None
-        )
-
-        # Phase 2: Local file check (no semaphore held — allows other tasks
-        # to use network slots while we do local I/O).
-        request_headers: dict[str, str] = user_agent_header.copy()
-        request_headers["Accept-Encoding"] = ""  # Disable compression
-
-        mode: Literal["ab", "wb"] = "wb"
-        if (
-            outfile.exists()
-            and remote_file_size is not None
-            and local_file_size == remote_file_size
-        ):
-            hash_ = hashlib.md5()
-
-            if verify_hash and remote_file_hash is not None:
-                async with aiofiles.open(outfile, "rb") as f:
-                    while True:
-                        data = await f.read(65536)
-                        if not data:
-                            break
-                        hash_.update(data)
-
-            if (
-                verify_hash
-                and remote_file_hash is not None
-                and hash_.hexdigest() != remote_file_hash
-            ):
-                desc = f"Re-downloading {outfile.name}: file hash mismatch."
-                outfile.unlink()
-                local_file_size = 0
-            else:
-                # Download complete, skip.
-                if not is_retry:
-                    overall_progress.update(remote_file_size or 0)
-                return
-        elif (
-            outfile.exists()
-            and remote_file_size is not None
-            and local_file_size < remote_file_size
-        ):
-            # Download incomplete, resume.
-            desc = f"Resuming {outfile.name}"
-            request_headers["Range"] = f"bytes={local_file_size}-"
-            mode = "ab"
-            if not is_retry:
-                overall_progress.update(local_file_size)
-        elif (
-            outfile.exists()
-            and remote_file_size is not None
-            and local_file_size > remote_file_size
-        ):
-            # Local file is larger than remote – overwrite.
-            desc = f"Re-downloading {outfile.name}: file size mismatch."
-            outfile.unlink()
-            local_file_size = 0
-        elif outfile.exists():
-            # Remote size unknown – re-download to be safe.
-            desc = f"Re-downloading {outfile.name}: remote file size unknown."
-            outfile.unlink()
-            local_file_size = 0
-        else:
-            # File doesn't exist locally, download entirely.
-            desc = outfile.name
-
-        # Phase 3: GET request to download the file (re-acquires semaphore).
-        try:
-            async with semaphore:
-                async with client.stream(
-                    "GET", url=url, headers=request_headers
-                ) as response:
-                    if not response.is_error:
-                        pass  # All good!
-                    elif response.status_code in allowed_retry_codes:
-                        raise _RetryableError(f"HTTP {response.status_code}")
-                    else:
-                        hint = _download_debug_hint(
-                            remote_path=remote_path,
-                            url=url,
-                            query_str=query_str,
-                        )
-                        raise RuntimeError(
-                            f"Error {response.status_code} when trying to "
-                            f"download {remote_path}. {hint}"
-                        )
-
-                    await _retrieve_and_write_to_disk(
-                        response=response,
-                        outfile=outfile,
-                        remote_path=remote_path,
-                        mode=mode,
-                        desc=desc,
-                        local_file_size=local_file_size,
-                        remote_file_size=remote_file_size,
-                        remote_file_hash=remote_file_hash,
-                        verify_hash=verify_hash,
-                        verify_size=verify_size,
-                        overall_progress=overall_progress,
-                    )
-        except allowed_retry_exceptions as exc:
-            raise _RetryableError from exc
+                await _retrieve_and_write_to_disk(
+                    response=response,
+                    outfile=outfile,
+                    remote_path=remote_path,
+                    mode=mode,
+                    desc=desc,
+                    local_file_size=local_file_size,
+                    remote_file_size=remote_file_size,
+                    remote_file_hash=remote_file_hash,
+                    verify_hash=verify_hash,
+                    verify_size=verify_size,
+                    overall_progress=overall_progress,
+                )
+    except allowed_retry_exceptions as exc:
+        raise _RetryableError from exc
 
 
 async def _retrieve_and_write_to_disk(
@@ -692,34 +698,44 @@ async def _download_files(
         )
 
     total_bytes = sum(fi.size or 0 for fi in file_infos)
-    with tqdm(
-        total=total_bytes,
-        desc="Overall",
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        miniters=1,
-        leave=True,
-    ) as overall_progress:
-        download_tasks = [
-            _download_file(
-                url=fi.url,
-                remote_file_size=fi.size,
-                outfile=fi.outfile,
-                remote_path=fi.remote_path,
-                verify_hash=verify_hash,
-                verify_size=verify_size,
-                max_retries=max_retries,
-                retry_backoff=retry_backoff,
-                semaphore=semaphore,
-                head_semaphore=head_semaphore,
-                query_str=normalized_query_str,
-                overall_progress=overall_progress,
-            )
-            for fi in file_infos
-        ]
-        del file_infos
-        await asyncio.gather(*download_tasks)
+    # A single client shared by all download tasks, so open connections are
+    # bounded by the pool size instead of the file count. The pool is sized
+    # to never throttle below the semaphores: it bounds socket usage, while
+    # the semaphores remain the sole queuing mechanism.
+    limits = httpx.Limits(
+        max_connections=max_concurrent_downloads + _MAX_CONCURRENT_HEAD_REQUESTS,
+        max_keepalive_connections=max_concurrent_downloads,
+    )
+    async with httpx.AsyncClient(verify=ssl_context, limits=limits) as client:
+        with tqdm(
+            total=total_bytes,
+            desc="Overall",
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            miniters=1,
+            leave=True,
+        ) as overall_progress:
+            download_tasks = [
+                _download_file(
+                    client=client,
+                    url=fi.url,
+                    remote_file_size=fi.size,
+                    outfile=fi.outfile,
+                    remote_path=fi.remote_path,
+                    verify_hash=verify_hash,
+                    verify_size=verify_size,
+                    max_retries=max_retries,
+                    retry_backoff=retry_backoff,
+                    semaphore=semaphore,
+                    head_semaphore=head_semaphore,
+                    query_str=normalized_query_str,
+                    overall_progress=overall_progress,
+                )
+                for fi in file_infos
+            ]
+            del file_infos
+            await asyncio.gather(*download_tasks)
 
 
 def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
