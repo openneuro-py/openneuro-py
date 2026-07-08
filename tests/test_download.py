@@ -21,7 +21,7 @@ from openneuro._download import (
     _retrieve_and_write_to_disk,
     download,
 )
-from openneuro._models import Snapshot
+from openneuro._models import DatasetFile, Snapshot
 from tests.utils import load_json
 
 dataset_id_aws = "ds000246"
@@ -772,7 +772,7 @@ def _make_fake_client(
     """
     head_call_count = 0
 
-    async def head(url, *, headers=None):
+    async def head(url, *, headers=None, timeout=None):
         nonlocal head_call_count
         head_call_count += 1
         if head_call_count <= fail_head_n_times:
@@ -808,9 +808,7 @@ def _make_fake_client(
 
     client = AsyncMock()
     client.head = head
-    client.stream = lambda method, *, url, headers=None: _FakeStream()
-    client.__aenter__ = AsyncMock(return_value=client)
-    client.__aexit__ = AsyncMock(return_value=False)
+    client.stream = lambda method, *, url, headers=None, timeout=None: _FakeStream()
     return client
 
 
@@ -877,6 +875,7 @@ def _run_download_file(
     async def run():
         with tqdm(total=5, disable=True) as overall_progress:
             await _download_file(
+                client=mock_client,
                 url="https://example.com/test.txt",
                 remote_file_size=5,
                 outfile=tmp_path / "test.txt",
@@ -891,8 +890,7 @@ def _run_download_file(
                 overall_progress=overall_progress,
             )
 
-    with patch("openneuro._download.httpx.AsyncClient", return_value=mock_client):
-        asyncio.run(run())
+    asyncio.run(run())
 
 
 def test_semaphore_not_leaked_on_retry(tmp_path: Path):
@@ -985,6 +983,86 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
             )
         )
     assert outfile.read_bytes() == content
+
+
+# -- shared-client connection bounding (gh-317) --
+
+
+async def _serve_counting_http(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    conn_stats: dict[str, int],
+    body: bytes,
+) -> None:
+    """Minimal keep-alive HTTP/1.1 handler that tracks open connections."""
+    conn_stats["open"] += 1
+    conn_stats["peak"] = max(conn_stats["peak"], conn_stats["open"])
+    try:
+        while True:
+            request = await reader.readuntil(b"\r\n\r\n")
+            method = request.split(b" ", 1)[0].decode()
+            writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n" % len(body))
+            if method == "GET":
+                writer.write(body)
+            await writer.drain()
+    except (asyncio.IncompleteReadError, ConnectionResetError):
+        pass  # Client closed the connection.
+    finally:
+        conn_stats["open"] -= 1
+        writer.close()
+
+
+def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
+    """Open connections must stay bounded by the pool size, not the file count.
+
+    Regression test for gh-317: a per-file ``httpx.AsyncClient`` meant every
+    dispatched task held an open connection while waiting for a download
+    slot, so connection count grew with the number of files in the dataset.
+    """
+    max_concurrent_downloads = 3
+    connection_bound = (
+        max_concurrent_downloads + _download._MAX_CONCURRENT_HEAD_REQUESTS
+    )
+    n_files = 3 * connection_bound  # Enough that per-file clients would exceed it.
+    body = b"0123456789"
+    conn_stats = {"open": 0, "peak": 0}
+
+    async def run() -> None:
+        server = await asyncio.start_server(
+            lambda r, w: _serve_counting_http(r, w, conn_stats, body),
+            "127.0.0.1",
+            0,
+        )
+        port = server.sockets[0].getsockname()[1]
+        files = [
+            DatasetFile(
+                filename=f"file_{i}.txt",
+                urls=[f"http://127.0.0.1:{port}/file_{i}.txt"],
+                size=len(body),
+                id=f"id_{i}",
+            )
+            for i in range(n_files)
+        ]
+        async with server:
+            await _download._download_files(
+                target_dir=tmp_path,
+                files=files,
+                verify_hash=False,
+                verify_size=True,
+                max_retries=0,
+                retry_backoff=0.0,
+                max_concurrent_downloads=max_concurrent_downloads,
+                query_str="test",
+            )
+
+    asyncio.run(run())
+
+    assert conn_stats["peak"] <= connection_bound, (
+        f"Peak connections ({conn_stats['peak']}) exceeded the pool bound "
+        f"({connection_bound}) for {n_files} files"
+    )
+    for i in range(n_files):
+        assert (tmp_path / f"file_{i}.txt").read_bytes() == body
 
 
 def test_size_mismatch_uses_remote_path(tmp_path: Path):
