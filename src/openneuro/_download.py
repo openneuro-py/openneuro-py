@@ -90,13 +90,15 @@ class _DownloadStats:
 
 
 allowed_retry_exceptions = (
-    # Connect timeouts, connect errors, read errors, and DNS failures
-    # ("[Errno -3] Temporary failure in name resolution") are all
-    # ``ConnectionError`` subclasses.
+    # Connection errors (refused/reset/aborted) and DNS failures
+    # ("[Errno -3] Temporary failure in name resolution"). Connect timeouts land
+    # here too, since ``ConnectTimeout`` is itself a ``ConnectionError``.
     niquests.ConnectionError,
+    # Read timeouts are a ``Timeout``, not a ``ConnectionError``, so list them
+    # separately.
     niquests.ReadTimeout,
-    # "peer closed connection without sending complete message body
-    #  (incomplete chunked read)"
+    # Incomplete chunked reads: "peer closed connection without sending
+    # complete message body".
     niquests.exceptions.ChunkedEncodingError,
 )
 user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"}
