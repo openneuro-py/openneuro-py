@@ -857,6 +857,8 @@ def _run_coroutine_blocking(coroutine: Coroutine[Any, Any, None]) -> None:
     thread.start()
     thread.join()
     if "exc" in error:
+        # `raise exc` preserves `exc.__traceback__`, so the caller still sees the
+        # original worker-thread stack down to the real failure site.
         raise error["exc"]
 
 

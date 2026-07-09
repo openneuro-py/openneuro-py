@@ -716,8 +716,8 @@ def _no_token():
 def _mock_gql_response(request):
     """Patch httpx.Client to return a mock response from _safe_query.
 
-    Use ``@pytest.mark.parametrize("_mock_gql_response", [...], indirect=True)``
-    to set ``status_code`` and, optionally, ``json_data`` or ``json_error``.
+    Use `@pytest.mark.parametrize("_mock_gql_response", [...], indirect=True)`
+    to set `status_code` and, optionally, `json_data` or `json_error`.
     """
     params = request.param
     mock_response = MagicMock()
@@ -787,7 +787,7 @@ def _make_fake_client(
     fail_head_n_times: int = 0,
     fail_head_status_code: int | None = None,
 ):
-    """Create a mock ``httpx.AsyncClient`` for download tests.
+    """Create a mock `httpx.AsyncClient` for download tests.
 
     Parameters
     ----------
@@ -797,7 +797,7 @@ def _make_fake_client(
         Number of initial HEAD requests that fail before succeeding.
     fail_head_status_code
         If set, failing HEAD requests return this HTTP status code instead
-        of raising ``httpx.ReadTimeout``.
+        of raising `httpx.ReadTimeout`.
 
     """
     head_call_count = 0
@@ -899,7 +899,7 @@ def _run_download_file(
     head_semaphore: asyncio.Semaphore | None = None,
     remote_file_size: int | None = 5,
 ) -> _download._DownloadStats:
-    """Run ``_download_file`` with a mocked client; return the download stats."""
+    """Run `_download_file` with a mocked client; return the download stats."""
     if semaphore is None:
         semaphore = asyncio.Semaphore(2)
     if head_semaphore is None:
@@ -933,8 +933,8 @@ def test_semaphore_not_leaked_on_retry(tmp_path: Path):
     """Semaphore value must be preserved after retries.
 
     Regression test: the old recursive _retry_download() would call
-    semaphore.release() explicitly, then the enclosing ``async with
-    semaphore:`` would release again on exit — inflating the counter
+    semaphore.release() explicitly, then the enclosing `async with
+    semaphore:` would release again on exit — inflating the counter
     on every retry.
     """
     semaphore = asyncio.Semaphore(2)
@@ -1084,7 +1084,7 @@ async def _serve_counting_http(
 def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
     """Open connections must stay bounded by the pool size, not the file count.
 
-    Regression test for gh-317: a per-file ``httpx.AsyncClient`` meant every
+    Regression test for gh-317: a per-file `httpx.AsyncClient` meant every
     dispatched task held an open connection while waiting for a download
     slot, so connection count grew with the number of files in the dataset.
     """
@@ -1165,9 +1165,9 @@ def test_size_mismatch_uses_remote_path(tmp_path: Path):
 def test_run_coroutine_blocking(loop_already_running: bool):
     """Block until the coroutine finishes and surface its errors (gh-329).
 
-    Covers both the plain ``asyncio.run`` path and the worker-thread path used
+    Covers both the plain `asyncio.run` path and the worker-thread path used
     when a loop is already running (e.g. in Jupyter), where the old
-    fire-and-forget ``loop.create_task`` returned early -- leaving the download
+    fire-and-forget `loop.create_task` returned early -- leaving the download
     stats empty and swallowing failures.
     """
     ran: list[bool] = []

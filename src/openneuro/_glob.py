@@ -19,7 +19,7 @@ def glob_filter(
     Uses `.gitignore`-style semantics:
 
     * Bare patterns (no `/`) match the basename at any depth, so `*.fif`
-      matches `.fif` files everywhere, not just at the root.
+      matches files ending in `.fif` everywhere, not just at the root.
     * Every pattern is also tried with `/**` appended so that directory-like
       patterns (`sub-01`, `sub-0001/anat`) match all files underneath.
     * A leading `/` anchors the pattern to the dataset root and disables
