@@ -1,7 +1,7 @@
 """Pydantic models for validating OpenNeuro GraphQL API responses.
 
 Only the inner payload objects (snapshots, files) are modeled here.
-The outer GraphQL response envelope (``{"data": {"dataset": ...}}``) is
+The outer GraphQL response envelope (`{"data": {"dataset": ...}}`) is
 traversed with plain dict access in the download module.
 """
 

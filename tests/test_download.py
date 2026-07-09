@@ -18,6 +18,7 @@ import openneuro._config
 from openneuro import _download
 from openneuro._download import (
     _download_file,
+    _format_size,
     _retrieve_and_write_to_disk,
     download,
 )
@@ -475,6 +476,35 @@ def test_download_file_count(
         )
 
 
+def test_bidsignore_always_downloaded(tmp_path: Path):
+    """`.bidsignore` is downloaded despite being a dotfile (gh-327)."""
+    names = ["dataset_description.json", ".bidsignore", "sub-01/anat/T1w.nii.gz"]
+    snapshot = Snapshot(
+        id="ds000000:1.0.0",
+        files=[DatasetFile(filename=n, urls=["http://x"], size=1, id=n) for n in names],
+    )
+
+    async def _spy(*, files, **kwargs):
+        return None
+
+    def selected(**kwargs) -> set[str]:
+        with (
+            patch.object(_download, "_get_download_metadata", return_value=snapshot),
+            patch.object(_download, "_get_local_tag", return_value=None),
+            patch.object(_download, "_download_files", side_effect=_spy) as spy,
+        ):
+            download(dataset="ds000000", target_dir=tmp_path / "out", **kwargs)
+        return {f.filename for f in spy.call_args[1]["files"]}
+
+    # Dotfiles are skipped by default, but `.bidsignore` is essential and is
+    # kept alongside the normal (non-dotfile) files.
+    assert selected() == set(names)
+    # An unrelated `include` still pulls in `.bidsignore`...
+    assert ".bidsignore" in selected(include=["sub-01"])
+    # ...as does an `exclude` pattern that would otherwise drop it.
+    assert ".bidsignore" in selected(exclude=["**/.*"])
+
+
 # -- Glob matching tests --
 
 
@@ -795,9 +825,11 @@ def _make_fake_client(
         def __init__(self):
             self.is_error = False
             self.status_code = 200
-            self.num_bytes_downloaded = len(file_content)
+            # Mirrors httpx: starts at 0 and grows as chunks are consumed.
+            self.num_bytes_downloaded = 0
 
         async def aiter_bytes(self):
+            self.num_bytes_downloaded = len(file_content)
             yield file_content
 
         async def __aenter__(self):
@@ -865,19 +897,21 @@ def _run_download_file(
     *,
     semaphore: asyncio.Semaphore | None = None,
     head_semaphore: asyncio.Semaphore | None = None,
-) -> None:
-    """Run ``_download_file`` with a mocked ``httpx.AsyncClient``."""
+    remote_file_size: int | None = 5,
+) -> _download._DownloadStats:
+    """Run ``_download_file`` with a mocked client; return the download stats."""
     if semaphore is None:
         semaphore = asyncio.Semaphore(2)
     if head_semaphore is None:
         head_semaphore = asyncio.Semaphore(_download._MAX_CONCURRENT_HEAD_REQUESTS)
+    stats = _download._DownloadStats()
 
     async def run():
-        with tqdm(total=5, disable=True) as overall_progress:
+        with tqdm(total=remote_file_size, disable=True) as overall_progress:
             await _download_file(
                 client=mock_client,
                 url="https://example.com/test.txt",
-                remote_file_size=5,
+                remote_file_size=remote_file_size,
                 outfile=tmp_path / "test.txt",
                 remote_path="test.txt",
                 verify_hash=False,
@@ -888,9 +922,11 @@ def _run_download_file(
                 head_semaphore=head_semaphore,
                 query_str="test query",
                 overall_progress=overall_progress,
+                stats=stats,
             )
 
     asyncio.run(run())
+    return stats
 
 
 def test_semaphore_not_leaked_on_retry(tmp_path: Path):
@@ -985,6 +1021,39 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
     assert outfile.read_bytes() == content
 
 
+# -- download summary stats (gh-322) --
+
+
+@pytest.mark.parametrize(
+    ("num_bytes", "expected"),
+    [
+        (0, "0 B"),
+        (512, "512 B"),
+        (1023, "1023 B"),
+        (1024, "1.0 kB"),
+        (1536, "1.5 kB"),
+        (1048576, "1.0 MB"),
+    ],
+)
+def test_format_size(num_bytes: int, expected: str):
+    """`_format_size` renders human-readable, space-separated sizes."""
+    assert _format_size(num_bytes) == expected
+
+
+def test_download_file_updates_stats(tmp_path: Path):
+    """Downloaded files are tallied; already-present files are not (gh-322)."""
+    content = b"hello"
+    client = _make_fake_client(file_content=content)
+
+    # First run downloads the file: one file, len(content) bytes.
+    stats = _run_download_file(tmp_path, client, remote_file_size=len(content))
+    assert (stats.n_files, stats.n_bytes) == (1, len(content))
+
+    # Second run finds a matching local file and downloads nothing.
+    stats = _run_download_file(tmp_path, client, remote_file_size=len(content))
+    assert (stats.n_files, stats.n_bytes) == (0, 0)
+
+
 # -- shared-client connection bounding (gh-317) --
 
 
@@ -1053,6 +1122,7 @@ def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
                 retry_backoff=0.0,
                 max_concurrent_downloads=max_concurrent_downloads,
                 query_str="test",
+                stats=_download._DownloadStats(),
             )
 
     asyncio.run(run())

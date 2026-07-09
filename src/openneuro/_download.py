@@ -88,12 +88,24 @@ class _RetryableError(Exception):
 
 @dataclasses.dataclass(frozen=True)
 class _FileInfo:
-    """Per-file metadata collected in ``_download_files`` before task creation."""
+    """Per-file metadata collected in `_download_files` before task creation."""
 
     url: str
     size: int | None
     outfile: Path
     remote_path: str
+
+
+@dataclasses.dataclass
+class _DownloadStats:
+    """Running tallies of what was actually fetched over the network.
+
+    Files that already exist locally with a matching size (and hash) are
+    skipped, so these counts reflect only the data that was really downloaded.
+    """
+
+    n_files: int = 0
+    n_bytes: int = 0
 
 
 allowed_retry_exceptions = (
@@ -357,6 +369,7 @@ async def _download_file(
     head_semaphore: asyncio.Semaphore,
     query_str: str,
     overall_progress: tqdm,
+    stats: _DownloadStats,
 ) -> None:
     """Download an individual file, retrying on transient errors."""
     for attempt in range(max_retries + 1):
@@ -374,6 +387,7 @@ async def _download_file(
                 query_str=query_str,
                 overall_progress=overall_progress,
                 is_retry=attempt > 0,
+                stats=stats,
             )
             return
         except _RetryableError as err:
@@ -416,6 +430,7 @@ async def _attempt_download(
     query_str: str,
     overall_progress: tqdm,
     is_retry: bool,
+    stats: _DownloadStats,
 ) -> None:
     """Single download attempt (HEAD → local check → GET)."""
     if outfile.exists():
@@ -553,7 +568,7 @@ async def _attempt_download(
                         f"download {remote_path}. {hint}"
                     )
 
-                await _retrieve_and_write_to_disk(
+                num_bytes = await _retrieve_and_write_to_disk(
                     response=response,
                     outfile=outfile,
                     remote_path=remote_path,
@@ -569,6 +584,10 @@ async def _attempt_download(
     except allowed_retry_exceptions as exc:
         raise _RetryableError from exc
 
+    # The GET completed without raising, so this file was really downloaded.
+    stats.n_files += 1
+    stats.n_bytes += num_bytes
+
 
 async def _retrieve_and_write_to_disk(
     *,
@@ -583,7 +602,8 @@ async def _retrieve_and_write_to_disk(
     verify_hash: bool,
     verify_size: bool,
     overall_progress: tqdm,
-) -> None:
+) -> int:
+    """Stream the response to disk, returning the number of bytes downloaded."""
     hash = hashlib.md5()
 
     # If we're resuming a download, ensure the already-downloaded
@@ -607,12 +627,14 @@ async def _retrieve_and_write_to_disk(
             unit_divisor=1024,
             leave=False,
         ) as progress:
+            downloaded = 0
             num_bytes_downloaded = response.num_bytes_downloaded
             async for chunk in response.aiter_bytes():
                 await f.write(chunk)
                 chunk_bytes = response.num_bytes_downloaded - num_bytes_downloaded
                 progress.update(chunk_bytes)
                 overall_progress.update(chunk_bytes)
+                downloaded += chunk_bytes
                 num_bytes_downloaded = response.num_bytes_downloaded
                 if verify_hash:
                     hash.update(chunk)
@@ -653,6 +675,8 @@ async def _retrieve_and_write_to_disk(
                     f"Got JSON error response contents:\n{data}"
                 )
 
+    return downloaded
+
 
 async def _download_files(
     *,
@@ -664,6 +688,7 @@ async def _download_files(
     retry_backoff: float,
     max_concurrent_downloads: int,
     query_str: str,
+    stats: _DownloadStats,
 ) -> None:
     """Download files, one by one."""
     # Semaphore (counter) to limit maximum number of concurrent download
@@ -731,6 +756,7 @@ async def _download_files(
                     head_semaphore=head_semaphore,
                     query_str=normalized_query_str,
                     overall_progress=overall_progress,
+                    stats=stats,
                 )
                 for fi in file_infos
             ]
@@ -787,6 +813,16 @@ def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
     return msg
 
 
+def _format_size(num_bytes: int) -> str:
+    """Return a human-readable size like `0 B`, `12.3 kB`, or `1.2 GB`."""
+    size = float(num_bytes)
+    for unit in ("B", "kB", "MB", "GB", "TB"):
+        if abs(size) < 1024 or unit == "TB":
+            break
+        size /= 1024
+    return f"{num_bytes} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+
+
 def download(
     *,
     dataset: str,
@@ -805,39 +841,39 @@ def download(
     Parameters
     ----------
     dataset
-        The dataset to retrieve, for example ``ds000248``.
+        The dataset to retrieve, for example `ds000248`.
     tag
         The tag (revision) of the dataset to retrieve.
     target_dir
-        The directory in which to store the downloaded data. If ``None``,
+        The directory in which to store the downloaded data. If `None`,
         create a subdirectory with the dataset name in the current working
         directory.
     include
         Files and directories to download. **Only** these files and directories
-        will be retrieved. Uses glob-style matching: ``*`` matches any characters
-        except ``/``, ``**`` matches across directory boundaries, and ``?``
-        matches a single non-``/`` character. Patterns without a ``/`` also
-        match as directory prefixes (e.g., ``'sub-01'`` includes all files
-        under ``sub-01/``, and ``'sub-0*'`` includes all files under every
-        matching directory). Use a leading ``/`` to restrict to the dataset
-        root (e.g., ``'/*.json'``). As an example, if you would like to
+        will be retrieved. Uses glob-style matching: `*` matches any characters
+        except `/`, `**` matches across directory boundaries, and `?`
+        matches a single non-`/` character. Patterns without a `/` also
+        match as directory prefixes (e.g., `'sub-01'` includes all files
+        under `sub-01/`, and `'sub-0*'` includes all files under every
+        matching directory). Use a leading `/` to restrict to the dataset
+        root (e.g., `'/*.json'`). As an example, if you would like to
         download only subject '1' and run '01' files, you can do so via:
-        ``'sub-1/**/*run-01*'``.
+        `'sub-1/**/*run-01*'`.
 
-        .. note::
-            Consistent with ``.gitignore`` semantics, ``*`` and ``**`` do **not**
-            match dot-prefixed (hidden) filenames. To include such files, use an
-            explicit pattern like ``'**/.*'``. The BIDS specification reserves
-            dotfiles for system use, so they are rarely needed.
+        > **Note:** Consistent with `.gitignore` semantics, `*` and `**` do
+        > **not** match dot-prefixed (hidden) filenames. To include such files,
+        > use an explicit pattern like `'**/.*'`. The BIDS specification reserves
+        > dotfiles for system use, so they are rarely needed.
     exclude
         Files and directories to exclude from downloading.
-        Uses the same glob-style matching as ``include``.
+        Uses the same glob-style matching as `include`.
 
-        .. note::
-            Certain essential BIDS metadata files are always downloaded
-            regardless of ``exclude`` patterns: ``dataset_description.json``,
-            ``participants.tsv``, ``participants.json``, ``README``, and
-            ``CHANGES``.
+        > **Note:** Certain essential BIDS metadata files are always downloaded
+        > regardless of `exclude` patterns: `dataset_description.json`,
+        > `participants.tsv`, `participants.json`, `README`, `CHANGES`, and
+        > `.bidsignore`. The dot-prefixed `.bidsignore` is downloaded even
+        > though other dotfiles are skipped by default, because BIDS validators
+        > rely on it to know which files to ignore.
     verify_hash
         Whether to calculate and verify the MD5 hash of each downloaded file.
     verify_size
@@ -922,6 +958,7 @@ def download(
         "participants.json",
         "README",
         "CHANGES",
+        ".bidsignore",
     }
 
     all_files = metadata.files
@@ -962,7 +999,7 @@ def download(
                 )
 
     msg = (
-        f"Retrieving up to {len(files)} files "
+        f"Checking {len(files)} files, downloading as needed "
         f"({max_concurrent_downloads} concurrent downloads)."
     )
     tqdm.write(_unicode(msg, emoji="📥", end=""))
@@ -972,6 +1009,7 @@ def download(
         tag=tag or "null",
         dataset_id=dataset,
     )
+    stats = _DownloadStats()
     coroutine = _download_files(
         target_dir=target_dir,
         files=files,
@@ -981,6 +1019,7 @@ def download(
         retry_backoff=retry_backoff,
         max_concurrent_downloads=max_concurrent_downloads,
         query_str=query_str,
+        stats=stats,
     )
 
     # Try to re-use event loop if it already exists. This is required e.g.
@@ -991,5 +1030,11 @@ def download(
     except RuntimeError:
         asyncio.run(coroutine)
 
-    tqdm.write(_unicode(f"Finished downloading {dataset}.\n", emoji="✅", end=""))
+    n_files = stats.n_files
+    plural = "file" if n_files == 1 else "files"
+    summary = (
+        f"Finished downloading {dataset} "
+        f"(downloaded {n_files} {plural} and {_format_size(stats.n_bytes)}).\n"
+    )
+    tqdm.write(_unicode(summary, emoji="✅", end=""))
     tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
