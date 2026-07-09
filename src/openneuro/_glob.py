@@ -16,16 +16,16 @@ def glob_filter(
 ) -> dict[str, set[str]]:
     """Match filenames against glob patterns, returning per-pattern results.
 
-    Uses ``.gitignore``-style semantics:
+    Uses `.gitignore`-style semantics:
 
-    * Bare patterns (no ``/``) match the basename at any depth, so ``*.fif``
-      matches ``.fif`` files everywhere, not just at the root.
-    * Every pattern is also tried with ``/**`` appended so that directory-like
-      patterns (``sub-01``, ``sub-0001/anat``) match all files underneath.
-    * A leading ``/`` anchors the pattern to the dataset root and disables
+    * Bare patterns (no `/`) match the basename at any depth, so `*.fif`
+      matches files ending in `.fif` everywhere, not just at the root.
+    * Every pattern is also tried with `/**` appended so that directory-like
+      patterns (`sub-01`, `sub-0001/anat`) match all files underneath.
+    * A leading `/` anchors the pattern to the dataset root and disables
       basename matching.
-    * Consistent with ``.gitignore``, ``*`` and ``**`` do **not** match
-      dot-prefixed filenames. Use an explicit ``.`` prefix (e.g. ``'**/.*'``)
+    * Consistent with `.gitignore`, `*` and `**` do **not** match
+      dot-prefixed filenames. Use an explicit `.` prefix (e.g. `'**/.*'`)
       to match hidden files.
     """
     filenames = list(all_filenames)

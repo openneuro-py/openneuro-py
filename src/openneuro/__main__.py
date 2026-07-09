@@ -1,4 +1,4 @@
-"""Entry point for ``python -m openneuro``."""
+"""Entry point for `python -m openneuro`."""
 
 from openneuro._cli import app
 
