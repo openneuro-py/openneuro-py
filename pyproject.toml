@@ -18,7 +18,7 @@ dependencies = [
   "httpx >= 0.15",
   "platformdirs",
   "pydantic>=2",
-  "tqdm",
+  "rich",
   "truststore>=0.10.4",
   "typer>=0.24.0",
   "wcmatch>=10.1",
@@ -40,7 +40,6 @@ dev = [
   "tombi>=0.7.19",
   "ty>=0.0.12",
   "types-aiofiles>=25.1.0.20251011",
-  "types-tqdm",
 ]
 
 [build-system]
