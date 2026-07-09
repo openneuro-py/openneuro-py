@@ -23,9 +23,10 @@ import shlex
 import ssl
 import string
 import sys
+import threading
 import time
 import warnings
-from collections.abc import Iterable
+from collections.abc import Coroutine, Iterable
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Any, Literal
@@ -823,6 +824,42 @@ def _format_size(num_bytes: int) -> str:
     return f"{num_bytes} {unit}" if unit == "B" else f"{size:.1f} {unit}"
 
 
+def _run_coroutine_blocking(coroutine: Coroutine[Any, Any, None]) -> None:
+    """Run `coroutine` to completion, blocking until it finishes.
+
+    When no event loop is running (the usual CLI/script case), we simply own one
+    via `asyncio.run`. When a loop is *already* running on this thread — most
+    commonly inside a Jupyter notebook — we cannot block it, and `asyncio.run`
+    would raise `RuntimeError`. In that case we drive our own event loop in a
+    worker thread and join it, so `download` stays synchronous: the files are on
+    disk when it returns, the download stats are populated, and any error
+    propagates to the caller instead of being swallowed by a fire-and-forget
+    task (gh-329).
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # No loop is running, so it is safe to create and drive one here.
+        asyncio.run(coroutine)
+        return
+
+    # A loop is already running on this thread; run ours in a separate thread
+    # so we can block on it without touching the caller's loop.
+    error: dict[str, BaseException] = {}
+
+    def _worker() -> None:
+        try:
+            asyncio.run(coroutine)
+        except BaseException as exc:  # re-raised on the calling thread below
+            error["exc"] = exc
+
+    thread = threading.Thread(target=_worker)
+    thread.start()
+    thread.join()
+    if "exc" in error:
+        raise error["exc"]
+
+
 def download(
     *,
     dataset: str,
@@ -1022,13 +1059,10 @@ def download(
         stats=stats,
     )
 
-    # Try to re-use event loop if it already exists. This is required e.g.
-    # for use in Jupyter notebooks.
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(coroutine)
-    except RuntimeError:
-        asyncio.run(coroutine)
+    # Block until the download actually finishes, even when a loop is already
+    # running (e.g. in Jupyter), so failures surface and the summary below
+    # reports the real stats rather than an empty tally (gh-329).
+    _run_coroutine_blocking(coroutine)
 
     n_files = stats.n_files
     plural = "file" if n_files == 1 else "files"

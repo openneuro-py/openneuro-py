@@ -1156,3 +1156,41 @@ def test_size_mismatch_uses_remote_path(tmp_path: Path):
                 )
             )
     assert str(tmp_path) not in str(exc_info.value)
+
+
+# -- blocking coroutine execution, incl. when a loop is already running (gh-329) --
+
+
+@pytest.mark.parametrize("loop_already_running", [False, True])
+def test_run_coroutine_blocking(loop_already_running: bool):
+    """Block until the coroutine finishes and surface its errors (gh-329).
+
+    Covers both the plain ``asyncio.run`` path and the worker-thread path used
+    when a loop is already running (e.g. in Jupyter), where the old
+    fire-and-forget ``loop.create_task`` returned early -- leaving the download
+    stats empty and swallowing failures.
+    """
+    ran: list[bool] = []
+
+    async def _ok() -> None:
+        await asyncio.sleep(0)
+        ran.append(True)
+
+    async def _boom() -> None:
+        raise ValueError("boom")
+
+    def _run(coro) -> None:
+        if not loop_already_running:
+            _download._run_coroutine_blocking(coro)
+            return
+
+        async def _driver() -> None:
+            _download._run_coroutine_blocking(coro)
+
+        asyncio.run(_driver())
+
+    _run(_ok())
+    assert ran == [True]  # returned only after the coroutine completed
+
+    with pytest.raises(ValueError, match="boom"):
+        _run(_boom())
