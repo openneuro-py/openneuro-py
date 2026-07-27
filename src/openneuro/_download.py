@@ -726,6 +726,11 @@ async def _retrieve_and_write_to_disk(
             pass
         else:
             if isinstance(data, dict) and list(data) == ["error"]:
+                # These bytes are an error blob, never partial data, so drop
+                # them: left in place, a retry can mistake the blob for a
+                # complete file (its size may match) and skip the re-download.
+                progress.update(overall_task, advance=-local_file_size)
+                outfile.unlink()
                 raise _RetryableError(
                     f"Error downloading {remote_path}: got JSON error response: {data}"
                 )

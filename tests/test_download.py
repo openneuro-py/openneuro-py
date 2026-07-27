@@ -624,6 +624,35 @@ def test_download_files_collects_failures(tmp_path: Path):
     assert stats.n_bytes == 200
 
 
+def test_json_error_body_is_never_silently_accepted(tmp_path: Path):
+    """An error blob must not be mistaken for the file on a later attempt.
+
+    The server sometimes returns `{"error": ...}` instead of the data. That is
+    retryable, but if the blob is left on disk and its size happens to match the
+    declared size, the next attempt sees a complete file and skips -- reporting
+    success while the blob stays on disk. There is no hash to catch it when the
+    etag is not an MD5 (e.g. multipart S3 uploads).
+    """
+    blob = b'{"error": "an unknown error occurred accessing this file"}'
+    name = "tiny.json"
+    files = [
+        DatasetFile(
+            filename=name, urls=[f"https://example.com/{name}"], size=len(blob), id=name
+        )
+    ]
+    failures, stats = _run_download_files(
+        tmp_path,
+        _make_dataset_client(bodies={name: blob}),  # no etag
+        files,
+        verify_hash=True,
+    )
+
+    assert len(failures) == 1
+    assert "JSON error response" in failures[0][1].reason
+    assert not (tmp_path / name).exists()
+    assert stats.n_files == 0
+
+
 def test_terminal_failure_reported_immediately(tmp_path: Path):
     """Terminal failures are announced as they happen, not only at the end.
 
