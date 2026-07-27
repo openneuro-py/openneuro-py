@@ -624,6 +624,33 @@ def test_download_files_collects_failures(tmp_path: Path):
     assert stats.n_bytes == 200
 
 
+def test_terminal_failure_reported_immediately(tmp_path: Path):
+    """Terminal failures are announced as they happen, not only at the end.
+
+    The end-of-run summary can be hours away on a large dataset, and a 404 has
+    no retries to report, so it would otherwise be silent (gh-309).
+    """
+    names = ["gone.bin", "ok.bin"]
+    files = [
+        DatasetFile(filename=n, urls=[f"https://example.com/{n}"], size=100, id=n)
+        for n in names
+    ]
+    said: list[str] = []
+    with patch.object(_download, "cprint", side_effect=said.append):
+        failures, _ = _run_download_files(
+            tmp_path,
+            _make_dataset_client(
+                bodies={n: b"x" * 100 for n in names}, get_status={"gone.bin": 404}
+            ),
+            files,
+        )
+
+    assert len(failures) == 1
+    # Announced by _download_file, i.e. before _download_files even returns.
+    assert any("gone.bin" in msg and "HTTP 404" in msg for msg in said)
+    assert not any("ok.bin" in msg for msg in said)
+
+
 def test_overall_progress_not_double_counted_on_retry(tmp_path: Path):
     """Discarding a bad file on retry must uncount the bytes it contributed.
 

@@ -402,50 +402,62 @@ async def _download_file(
     stats: _DownloadStats,
 ) -> None:
     """Download an individual file, retrying on transient errors."""
-    for attempt in range(max_retries + 1):
-        try:
-            await _attempt_download(
-                client=client,
-                url=url,
-                remote_file_size=remote_file_size,
-                outfile=outfile,
-                remote_path=remote_path,
-                verify_hash=verify_hash,
-                verify_size=verify_size,
-                semaphore=semaphore,
-                head_semaphore=head_semaphore,
-                query_str=query_str,
-                progress=progress,
-                overall_task=overall_task,
-                is_retry=attempt > 0,
-                stats=stats,
-            )
-            return
-        except _RetryableError as err:
-            if isinstance(err.__cause__, niquests.Timeout):
-                reason = "Request timed out"
-            elif isinstance(err.__cause__, niquests.ConnectionError):
-                reason = "Could not connect (DNS or network error)"
-            elif err.__cause__ is not None:
-                reason = str(err.__cause__) or "Error"
-            else:
-                reason = str(err) or "Error"
-            if attempt < max_retries:
-                _write_retry(
-                    what=f"downloading {remote_path}",
-                    reason=reason,
-                    retry=max_retries - attempt,
-                    backoff=retry_backoff,
-                )
-                await asyncio.sleep(retry_backoff)
-                retry_backoff *= 2
-            else:
-                attempts = "1 retry" if max_retries == 1 else f"{max_retries} retries"
-                raise _DownloadError(
-                    reason=f"{reason} (failed after {attempts})",
-                    hint=_debug_hint_template.substitute(query_str=query_str),
+    try:
+        for attempt in range(max_retries + 1):
+            try:
+                await _attempt_download(
+                    client=client,
                     url=url,
-                ) from (err.__cause__ or err)
+                    remote_file_size=remote_file_size,
+                    outfile=outfile,
+                    remote_path=remote_path,
+                    verify_hash=verify_hash,
+                    verify_size=verify_size,
+                    semaphore=semaphore,
+                    head_semaphore=head_semaphore,
+                    query_str=query_str,
+                    progress=progress,
+                    overall_task=overall_task,
+                    is_retry=attempt > 0,
+                    stats=stats,
+                )
+                return
+            except _RetryableError as err:
+                if isinstance(err.__cause__, niquests.Timeout):
+                    reason = "Request timed out"
+                elif isinstance(err.__cause__, niquests.ConnectionError):
+                    reason = "Could not connect (DNS or network error)"
+                elif err.__cause__ is not None:
+                    reason = str(err.__cause__) or "Error"
+                else:
+                    reason = str(err) or "Error"
+                if attempt < max_retries:
+                    _write_retry(
+                        what=f"downloading {remote_path}",
+                        reason=reason,
+                        retry=max_retries - attempt,
+                        backoff=retry_backoff,
+                    )
+                    await asyncio.sleep(retry_backoff)
+                    retry_backoff *= 2
+                else:
+                    attempts = (
+                        "1 retry" if max_retries == 1 else f"{max_retries} retries"
+                    )
+                    raise _DownloadError(
+                        reason=f"{reason} (failed after {attempts})",
+                        hint=_debug_hint_template.substitute(query_str=query_str),
+                        url=url,
+                    ) from (err.__cause__ or err)
+    except _DownloadError as exc:
+        # Report as soon as it is terminal: the end-of-run summary can be
+        # hours away on a large dataset.
+        cprint(
+            _unicode(
+                f"Failed to download {remote_path}: {exc.reason}", emoji="❌", end=""
+            )
+        )
+        raise
 
 
 async def _attempt_download(
@@ -498,10 +510,7 @@ async def _attempt_download(
                 raise _RetryableError(f"HTTP {response.status_code}")
             if not response.ok:
                 raise _DownloadError(
-                    reason=(
-                        f"HEAD request failed with HTTP "
-                        f"{response.status_code} for {remote_path}"
-                    ),
+                    reason=f"HEAD request failed with HTTP {response.status_code}",
                     hint=_debug_hint_template.substitute(query_str=query_str),
                     url=url,
                 )
@@ -604,10 +613,7 @@ async def _attempt_download(
                     raise _RetryableError(f"HTTP {response.status_code}")
                 else:
                     raise _DownloadError(
-                        reason=(
-                            f"HTTP {response.status_code} when trying to "
-                            f"download {remote_path}"
-                        ),
+                        reason=f"HTTP {response.status_code} when trying to download",
                         hint=_debug_hint_template.substitute(query_str=query_str),
                         url=url,
                     )
@@ -705,7 +711,7 @@ async def _retrieve_and_write_to_disk(
                 raise _RetryableError(
                     f"Size mismatch for {remote_path}: expected "
                     f"{remote_file_size} bytes, but downloaded "
-                    f"{local_file_size} bytes."
+                    f"{local_file_size} bytes"
                 )
     # Secondary check: try loading as JSON for "error" entry
     # We can get for invalid files sometimes the contents:
