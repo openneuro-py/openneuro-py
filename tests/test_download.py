@@ -502,6 +502,29 @@ def test_bidsignore_always_downloaded(tmp_path: Path):
     assert ".bidsignore" in selected(exclude=["**/.*"])
 
 
+def test_partial_download_failure(tmp_path: Path) -> None:
+    """A single file failure must not abort other downloads."""
+    metadata = Snapshot.model_validate(load_json("mock_metadata_ds000117.json"))
+    fail_filename = "participants.tsv"
+    attempted: list[str] = []
+
+    async def patched_download_file(*, remote_path: str, **kwargs):
+        attempted.append(remote_path)
+        if remote_path == fail_filename:
+            raise _download._DownloadError(reason="Size mismatch.", hint="")
+
+    with (
+        patch.object(_download, "_get_download_metadata", return_value=metadata),
+        patch.object(_download, "_get_local_tag", return_value=None),
+        patch.object(_download, "_download_file", side_effect=patched_download_file),
+    ):
+        with pytest.raises(RuntimeError, match="Failed to download 1 file"):
+            download(dataset="ds000117", tag="1.1.0", target_dir=tmp_path)
+
+    assert fail_filename in attempted
+    assert len(attempted) > 1
+
+
 # -- Glob matching tests --
 
 
@@ -925,14 +948,16 @@ def test_head_retryable_status_code(tmp_path: Path):
 
 
 def test_head_non_retryable_status_code(tmp_path: Path):
-    """A non-retryable HEAD status code (e.g. 404) should raise RuntimeError."""
+    """A non-retryable HEAD status code (e.g. 404) should raise _DownloadError."""
     mock_client = _make_fake_client(
         file_content=b"hello",
         fail_head_n_times=99,
         fail_head_status_code=404,
     )
 
-    with pytest.raises(RuntimeError, match="HEAD request failed with HTTP 404"):
+    with pytest.raises(
+        _download._DownloadError, match="HEAD request failed with HTTP 404"
+    ):
         _run_download_file(tmp_path, mock_client)
 
 
@@ -1093,7 +1118,7 @@ def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
 def test_size_mismatch_uses_remote_path(tmp_path: Path):
     """Error message must contain remote_path, not the local outfile path."""
     remote_path = "sub-01/meg/file.fif"
-    with pytest.raises(RuntimeError, match=remote_path) as exc_info:
+    with pytest.raises(_download._RetryableError, match=remote_path) as exc_info:
         with tqdm(total=0, disable=True) as overall_progress:
             asyncio.run(
                 _retrieve_and_write_to_disk(
