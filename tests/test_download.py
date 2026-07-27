@@ -502,6 +502,164 @@ def test_bidsignore_always_downloaded(tmp_path: Path):
     assert ".bidsignore" in selected(exclude=["**/.*"])
 
 
+def _make_dataset_client(
+    *,
+    bodies: dict[str, bytes],
+    get_status: dict[str, int] | None = None,
+    etag: str | None = None,
+):
+    """Fake `niquests.AsyncSession` serving a whole dataset, keyed by filename.
+
+    `bodies` maps a filename to the bytes its GET yields; `get_status` overrides
+    the GET status code for a filename; `etag` is reported by every HEAD.
+    """
+    get_status = get_status or {}
+
+    def _key(url: str) -> str:
+        return next((name for name in bodies if url.endswith(name)), "")
+
+    async def head(url, *, headers=None, timeout=None):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.ok = True
+        resp.headers = {"etag": f'"{etag}"'} if etag else {}
+        return resp
+
+    class _FakeStream:
+        def __init__(self, body: bytes, status: int):
+            self.status_code = status
+            self.ok = status < 400
+            self._body = body
+
+        async def iter_content(self, chunk_size=-1, decode_unicode=False):
+            body = self._body
+
+            async def gen():
+                yield body
+
+            return gen()
+
+        async def close(self):
+            pass
+
+    async def get(url, *, headers=None, timeout=None, stream=None):
+        name = _key(url)
+        return _FakeStream(bodies.get(name, b""), get_status.get(name, 200))
+
+    client = AsyncMock()
+    client.head = head
+    client.get = get
+    return client
+
+
+def _run_download_files(tmp_path: Path, client, files, **kwargs):
+    """Drive the real `_download_files` against a fake session."""
+
+    class _Session:
+        async def __aenter__(self):
+            return client
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+    stats = _download._DownloadStats()
+    with patch.object(_download.niquests, "AsyncSession", lambda **kw: _Session()):
+        failures = asyncio.run(
+            _download._download_files(
+                target_dir=tmp_path,
+                files=files,
+                verify_hash=kwargs.pop("verify_hash", False),
+                verify_size=True,
+                max_retries=kwargs.pop("max_retries", 1),
+                retry_backoff=0.0,
+                max_concurrent_downloads=3,
+                query_str="query {}",
+                stats=stats,
+                **kwargs,
+            )
+        )
+    return failures, stats
+
+
+def test_download_files_collects_failures(tmp_path: Path):
+    """Terminal failures are collected while the other files still finish.
+
+    Exercises the real `_download_files` machinery (gh-309), unlike
+    `test_partial_download_failure`, which stubs out `_download_file`.
+    """
+    names = ["ok1.bin", "gone.bin", "short.bin", "ok2.bin", "nourl.bin"]
+    files = [
+        DatasetFile(
+            filename=n,
+            # `nourl.bin` has no URLs at all, so it fails before any request.
+            urls=None if n == "nourl.bin" else [f"https://example.com/{n}"],
+            size=100,
+            id=n,
+        )
+        for n in names
+    ]
+    failures, stats = _run_download_files(
+        tmp_path,
+        _make_dataset_client(
+            bodies={n: b"x" * 100 for n in names} | {"short.bin": b"x" * 150},
+            get_status={"gone.bin": 404},
+        ),
+        files,
+    )
+
+    reasons = {path: exc.reason for path, exc in failures}
+    assert set(reasons) == {"gone.bin", "short.bin", "nourl.bin"}
+    assert "HTTP 404" in reasons["gone.bin"]
+    assert "Size mismatch" in reasons["short.bin"]
+    assert "No download URLs" in reasons["nourl.bin"]
+
+    # The healthy files completed despite their neighbours failing.
+    for name in ("ok1.bin", "ok2.bin"):
+        assert (tmp_path / name).read_bytes() == b"x" * 100
+    assert stats.n_files == 2
+    assert stats.n_bytes == 200
+
+
+def test_overall_progress_not_double_counted_on_retry(tmp_path: Path):
+    """Discarding a bad file on retry must uncount the bytes it contributed.
+
+    A hash mismatch is retried (gh-309), and each attempt re-downloads the whole
+    file; without a rollback the overall bar counted every attempt.
+    """
+    name = "bad.bin"
+    files = [
+        DatasetFile(
+            filename=name, urls=[f"https://example.com/{name}"], size=100, id=name
+        )
+    ]
+    max_retries = 2
+    seen: list[float] = []
+
+    real_tqdm = _download.tqdm
+
+    class _RecordingTqdm(real_tqdm):
+        def update(self, n=1):
+            super().update(n)
+            if self.desc == "Overall":
+                seen.append(self.n)
+
+    with patch.object(_download, "tqdm", _RecordingTqdm):
+        failures, _ = _run_download_files(
+            tmp_path,
+            # An etag that cannot match the body, so every attempt mismatches.
+            _make_dataset_client(bodies={name: b"x" * 100}, etag="0" * 32),
+            files,
+            verify_hash=True,
+            max_retries=max_retries,
+        )
+
+    assert len(failures) == 1
+    assert "Hash mismatch" in failures[0][1].reason
+    assert f"{max_retries} retries" in failures[0][1].reason
+    # Every attempt streams the full file, but the bar must never run past it.
+    assert max(seen) == 100
+
+
 def test_partial_download_failure(tmp_path: Path) -> None:
     """A single file failure must not abort other downloads."""
     metadata = Snapshot.model_validate(load_json("mock_metadata_ds000117.json"))

@@ -414,8 +414,9 @@ async def _download_file(
                 await asyncio.sleep(retry_backoff)
                 retry_backoff *= 2
             else:
+                attempts = "1 retry" if max_retries == 1 else f"{max_retries} retries"
                 raise _DownloadError(
-                    reason=f"{reason} (failed after {max_retries} retries)",
+                    reason=f"{reason} (failed after {attempts})",
                     hint=_debug_hint_template.substitute(query_str=query_str),
                     url=url,
                 ) from (err.__cause__ or err)
@@ -515,6 +516,10 @@ async def _attempt_download(
             and hash_.hexdigest() != remote_file_hash
         ):
             desc = f"Re-downloading {outfile.name}: file hash mismatch."
+            # On a retry these bytes were streamed (and counted) by an earlier
+            # attempt of this run, so discarding them must uncount them too.
+            if is_retry:
+                overall_progress.update(-local_file_size)
             outfile.unlink()
             local_file_size = 0
         else:
@@ -540,11 +545,15 @@ async def _attempt_download(
     ):
         # Local file is larger than remote – overwrite.
         desc = f"Re-downloading {outfile.name}: file size mismatch."
+        if is_retry:
+            overall_progress.update(-local_file_size)
         outfile.unlink()
         local_file_size = 0
     elif outfile.exists():
         # Remote size unknown – re-download to be safe.
         desc = f"Re-downloading {outfile.name}: remote file size unknown."
+        if is_retry:
+            overall_progress.update(-local_file_size)
         outfile.unlink()
         local_file_size = 0
     else:
