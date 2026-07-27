@@ -20,19 +20,17 @@ import hashlib
 import io
 import json
 import shlex
-import ssl
 import string
 import sys
 import threading
 import time
-import warnings
 from collections.abc import Coroutine, Iterable
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Any, Literal
 
 import aiofiles
-import httpx
+import niquests
 from pydantic import ValidationError
 from tqdm.auto import tqdm
 
@@ -40,28 +38,10 @@ from openneuro import __version__, _glob
 from openneuro._config import get_token, init_config
 from openneuro._models import DatasetFile, Snapshot
 
-# Use system trust store for SSL certificates, which is important for users in
-# enterprise environments with custom CAs.
-#
-# The SSLContext construction may fail on some platforms (e.g., macOS) even when
-# truststore is importable:
-# https://github.com/sethmlarson/truststore/issues/167
-#
-# httpx accepts verify=ssl_context directly and does not use urllib3, so a
-# single module-level SSLContext shared across threads is safe.
-_use_truststore = True
-try:
-    import truststore
-
-    ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-except (ImportError, OSError, ssl.SSLError) as exc:
-    _use_truststore = False
-    ssl_context = ssl.create_default_context()
-    warnings.warn(
-        f"Could not use truststore for SSL verification ({exc!r}); "
-        "falling back to Python/OpenSSL default certificate verification.",
-        stacklevel=1,
-    )
+# niquests verifies TLS certificates against the operating system's native
+# trust store by default (via wassima), which covers users in enterprise
+# environments with custom CAs. No explicit SSL context is required, and the
+# same verification applies across the sync and async sessions used below.
 
 
 if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
@@ -110,13 +90,16 @@ class _DownloadStats:
 
 
 allowed_retry_exceptions = (
-    httpx.ConnectTimeout,
-    httpx.ReadTimeout,
-    httpx.ReadError,
-    httpx.ConnectError,  # [Errno -3] Temporary failure in name resolution
-    # "peer closed connection without sending complete message body
-    #  (incomplete chunked read)"
-    httpx.RemoteProtocolError,
+    # Connection errors (refused/reset/aborted) and DNS failures
+    # ("[Errno -3] Temporary failure in name resolution"). Connect timeouts land
+    # here too, since ``ConnectTimeout`` is itself a ``ConnectionError``.
+    niquests.ConnectionError,
+    # Read timeouts are a ``Timeout``, not a ``ConnectionError``, so list them
+    # separately.
+    niquests.ReadTimeout,
+    # Incomplete chunked reads: "peer closed connection without sending
+    # complete message body".
+    niquests.exceptions.ChunkedEncodingError,
 )
 user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"}
 
@@ -199,12 +182,20 @@ def _safe_query(
         pass  # No login
 
     try:
-        with httpx.Client(
-            verify=ssl_context,
-            headers=user_agent_header,
-            cookies=cookies,
+        with niquests.Session(
+            # Race IPv6/IPv4 connections (RFC 8305) so a broken stack (e.g.,
+            # non-working IPv6) does not stall or fail the request.
+            happy_eyeballs=True,
         ) as client:
-            response = client.post(gql_url, json={"query": query}, timeout=timeout)
+            # headers/cookies are passed per-request rather than to the Session
+            # constructor, which only gained those kwargs in niquests 3.19.
+            response = client.post(
+                gql_url,
+                json={"query": query},
+                timeout=timeout,
+                headers=user_agent_header,
+                cookies=cookies,
+            )
     except allowed_retry_exceptions:
         return None, True
 
@@ -357,7 +348,7 @@ def _retry_request(
 
 async def _download_file(
     *,
-    client: httpx.AsyncClient,
+    client: niquests.AsyncSession,
     url: str,
     remote_file_size: int | None,
     outfile: Path,
@@ -393,7 +384,7 @@ async def _download_file(
             return
         except _RetryableError as err:
             if attempt < max_retries:
-                if isinstance(err.__cause__, httpx.TimeoutException):
+                if isinstance(err.__cause__, niquests.Timeout):
                     reason = "Request timed out"
                 elif err.__cause__ is not None:
                     reason = str(err.__cause__) or "Error"
@@ -419,7 +410,7 @@ async def _download_file(
 
 async def _attempt_download(
     *,
-    client: httpx.AsyncClient,
+    client: niquests.AsyncSession,
     url: str,
     remote_file_size: int | None,
     outfile: Path,
@@ -447,13 +438,14 @@ async def _attempt_download(
     #     raise RuntimeError(query_str)
 
     # The OpenNeuro servers are sometimes very slow to respond, so use a
-    # gigantic timeout for those. The pool timeout is disabled: tasks may
-    # legitimately wait a long time for a connection from the shared client's
-    # pool, and the semaphores are the sole concurrency throttle.
+    # gigantic timeout for those. niquests applies the timeout to connecting
+    # and reading only; tasks may legitimately wait a long time for a
+    # connection from the shared session's pool, and the semaphores are the
+    # sole concurrency throttle.
     if url.startswith("https://openneuro.org/crn/"):
-        timeout = httpx.Timeout(60, pool=None)
+        timeout = 60
     else:
-        timeout = httpx.Timeout(5, pool=None)
+        timeout = 5
 
     # Phase 1: HEAD request to get remote file hash.
     try:
@@ -463,7 +455,7 @@ async def _attempt_download(
             )
             if response.status_code in allowed_retry_codes:
                 raise _RetryableError(f"HTTP {response.status_code}")
-            if response.is_error:
+            if not response.ok:
                 hint = _download_debug_hint(
                     remote_path=remote_path,
                     url=url,
@@ -551,10 +543,15 @@ async def _attempt_download(
     # Phase 3: GET request to download the file (re-acquires semaphore).
     try:
         async with semaphore:
-            async with client.stream(
-                "GET", url=url, headers=request_headers, timeout=timeout
-            ) as response:
-                if not response.is_error:
+            response = await client.get(
+                url, headers=request_headers, timeout=timeout, stream=True
+            )
+            # Explicitly close (rather than "async with response") so the
+            # connection is released back to the pool on every exit path, while
+            # staying compatible with niquests before AsyncResponse became an
+            # async context manager (3.19).
+            try:
+                if response.ok:
                     pass  # All good!
                 elif response.status_code in allowed_retry_codes:
                     raise _RetryableError(f"HTTP {response.status_code}")
@@ -582,6 +579,8 @@ async def _attempt_download(
                     verify_size=verify_size,
                     overall_progress=overall_progress,
                 )
+            finally:
+                await response.close()
     except allowed_retry_exceptions as exc:
         raise _RetryableError from exc
 
@@ -592,7 +591,7 @@ async def _attempt_download(
 
 async def _retrieve_and_write_to_disk(
     *,
-    response: httpx.Response,
+    response: niquests.AsyncResponse,
     outfile: Path,
     remote_path: str,
     mode: Literal["ab", "wb"],
@@ -629,14 +628,15 @@ async def _retrieve_and_write_to_disk(
             leave=False,
         ) as progress:
             downloaded = 0
-            num_bytes_downloaded = response.num_bytes_downloaded
-            async for chunk in response.aiter_bytes():
+            # The default chunk_size=-1 yields data as it arrives off the
+            # socket (as httpx's aiter_bytes did), which niquests recommends
+            # for performance. Compression is disabled (Accept-Encoding: ""),
+            # so each chunk's length is the number of raw bytes downloaded.
+            async for chunk in await response.iter_content():
                 await f.write(chunk)
-                chunk_bytes = response.num_bytes_downloaded - num_bytes_downloaded
-                progress.update(chunk_bytes)
-                overall_progress.update(chunk_bytes)
-                downloaded += chunk_bytes
-                num_bytes_downloaded = response.num_bytes_downloaded
+                progress.update(len(chunk))
+                overall_progress.update(len(chunk))
+                downloaded += len(chunk)
                 if verify_hash:
                     hash.update(chunk)
 
@@ -724,15 +724,18 @@ async def _download_files(
         )
 
     total_bytes = sum(fi.size or 0 for fi in file_infos)
-    # A single client shared by all download tasks, so open connections are
-    # bounded by the pool size instead of the file count. The pool is sized
-    # to never throttle below the semaphores: it bounds socket usage, while
+    # A single session shared by all download tasks, so open connections are
+    # bounded by the pool size instead of the file count. The pool is sized to
+    # never throttle below the semaphores: it bounds sockets per host, while
     # the semaphores remain the sole queuing mechanism.
-    limits = httpx.Limits(
-        max_connections=max_concurrent_downloads + _MAX_CONCURRENT_HEAD_REQUESTS,
-        max_keepalive_connections=max_concurrent_downloads,
-    )
-    async with httpx.AsyncClient(verify=ssl_context, limits=limits) as client:
+    connection_bound = max_concurrent_downloads + _MAX_CONCURRENT_HEAD_REQUESTS
+    async with niquests.AsyncSession(
+        pool_connections=connection_bound,
+        pool_maxsize=connection_bound,
+        # Race IPv6/IPv4 connections (RFC 8305) so a broken stack (e.g.,
+        # non-working IPv6) does not stall or fail downloads.
+        happy_eyeballs=True,
+    ) as client:
         with tqdm(
             total=total_bytes,
             desc="Overall",
