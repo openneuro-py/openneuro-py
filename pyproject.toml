@@ -18,7 +18,7 @@ dependencies = [
   "niquests>=3.7.2",
   "platformdirs",
   "pydantic>=2",
-  "tqdm",
+  "rich>=13.8",
   "typer>=0.24.0",
   "wcmatch>=10.1",
 ]
@@ -39,7 +39,6 @@ dev = [
   "tombi>=0.7.19",
   "ty>=0.0.12",
   "types-aiofiles>=25.1.0.20251011",
-  "types-tqdm",
 ]
 
 [build-system]

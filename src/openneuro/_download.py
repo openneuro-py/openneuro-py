@@ -15,6 +15,7 @@ download
 """
 
 import asyncio
+import contextlib
 import dataclasses
 import hashlib
 import io
@@ -32,10 +33,21 @@ from typing import Any, Literal, TypeVar
 import aiofiles
 import niquests
 from pydantic import ValidationError
-from tqdm.auto import tqdm
+from rich.markup import escape
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
 from openneuro import __version__, _glob
 from openneuro._config import get_token, init_config
+from openneuro._console import console, cprint
 from openneuro._models import DatasetFile, Snapshot
 
 # niquests verifies TLS certificates against the operating system's native
@@ -44,13 +56,25 @@ from openneuro._models import DatasetFile, Snapshot
 # same verification applies across the sync and async sessions used below.
 
 
-if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
-    stdout_unicode = True
-elif isinstance(sys.stdout, io.TextIOWrapper):
-    sys.stdout.reconfigure(encoding="utf-8")
-    stdout_unicode = True
-else:
-    stdout_unicode = False
+def _probe_unicode() -> bool:
+    """Whether the stream the console writes to can encode emoji.
+
+    Jupyter takes the `print()` path in `cprint`, but there both streams are
+    UTF-8 `OutStream`s, so probing stderr answers for it too. `encoding` is
+    typed loosely because it is `None` on a redirected stream such as
+    `io.StringIO` (`contextlib.redirect_stderr`), which must not raise here:
+    this runs at import time.
+    """
+    encoding = getattr(sys.stderr, "encoding", None)
+    if isinstance(encoding, str) and encoding.lower() == "utf-8":
+        return True
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr.reconfigure(encoding="utf-8")
+        return True
+    return False
+
+
+unicode_ok = _probe_unicode()
 
 
 def login() -> None:
@@ -190,7 +214,7 @@ def _safe_query(
     try:
         token = get_token()
         cookies["accessToken"] = token
-        tqdm.write("🍪 Using API token to log in")
+        cprint("🍪 Using API token to log in")
     except ValueError:
         pass  # No login
 
@@ -226,7 +250,7 @@ def _safe_query(
 def _write_retry(*, what: str, reason: str, retry: int, backoff: float) -> None:
     remaining = "1 retry remains" if retry == 1 else f"{retry} retries remain"
     remaining += f", backing off {backoff:0.1f}s"
-    tqdm.write(
+    cprint(
         _unicode(
             f"{reason} while {what}, retrying ({remaining})",
             emoji="🔄",
@@ -373,7 +397,8 @@ async def _download_file(
     semaphore: asyncio.Semaphore,
     head_semaphore: asyncio.Semaphore,
     query_str: str,
-    overall_progress: tqdm,
+    progress: Progress,
+    overall_task: TaskID,
     stats: _DownloadStats,
 ) -> None:
     """Download an individual file, retrying on transient errors."""
@@ -390,7 +415,8 @@ async def _download_file(
                 semaphore=semaphore,
                 head_semaphore=head_semaphore,
                 query_str=query_str,
-                overall_progress=overall_progress,
+                progress=progress,
+                overall_task=overall_task,
                 is_retry=attempt > 0,
                 stats=stats,
             )
@@ -434,7 +460,8 @@ async def _attempt_download(
     semaphore: asyncio.Semaphore,
     head_semaphore: asyncio.Semaphore,
     query_str: str,
-    overall_progress: tqdm,
+    progress: Progress,
+    overall_task: TaskID,
     is_retry: bool,
     stats: _DownloadStats,
 ) -> None:
@@ -446,8 +473,8 @@ async def _attempt_download(
     # For debugging purposes, if there is a problem with a specific file, lines like
     # this can help (used for https://github.com/OpenNeuroOrg/openneuro/issues/3665):
     #
-    # tqdm.write(f"Downloading: {outfile.name} from {url}")
-    # tqdm.write(f"Query:       {query_str}")
+    # cprint(f"Downloading: {outfile.name} from {url}")
+    # cprint(f"Query:       {query_str}")
     # if outfile.name == "lh.sphere":
     #     raise RuntimeError(query_str)
 
@@ -519,13 +546,13 @@ async def _attempt_download(
             # On a retry these bytes were streamed (and counted) by an earlier
             # attempt of this run, so discarding them must uncount them too.
             if is_retry:
-                overall_progress.update(-local_file_size)
+                progress.update(overall_task, advance=-local_file_size)
             outfile.unlink()
             local_file_size = 0
         else:
             # Download complete, skip.
             if not is_retry:
-                overall_progress.update(remote_file_size or 0)
+                progress.update(overall_task, advance=remote_file_size or 0)
             return
     elif (
         outfile.exists()
@@ -537,7 +564,7 @@ async def _attempt_download(
         request_headers["Range"] = f"bytes={local_file_size}-"
         mode = "ab"
         if not is_retry:
-            overall_progress.update(local_file_size)
+            progress.update(overall_task, advance=local_file_size)
     elif (
         outfile.exists()
         and remote_file_size is not None
@@ -546,14 +573,14 @@ async def _attempt_download(
         # Local file is larger than remote – overwrite.
         desc = f"Re-downloading {outfile.name}: file size mismatch."
         if is_retry:
-            overall_progress.update(-local_file_size)
+            progress.update(overall_task, advance=-local_file_size)
         outfile.unlink()
         local_file_size = 0
     elif outfile.exists():
         # Remote size unknown – re-download to be safe.
         desc = f"Re-downloading {outfile.name}: remote file size unknown."
         if is_retry:
-            overall_progress.update(-local_file_size)
+            progress.update(overall_task, advance=-local_file_size)
         outfile.unlink()
         local_file_size = 0
     else:
@@ -596,7 +623,8 @@ async def _attempt_download(
                     remote_file_hash=remote_file_hash,
                     verify_hash=verify_hash,
                     verify_size=verify_size,
-                    overall_progress=overall_progress,
+                    progress=progress,
+                    overall_task=overall_task,
                 )
             finally:
                 await response.close()
@@ -620,7 +648,8 @@ async def _retrieve_and_write_to_disk(
     remote_file_hash: str | None,
     verify_hash: bool,
     verify_size: bool,
-    overall_progress: tqdm,
+    progress: Progress,
+    overall_task: TaskID,
 ) -> int:
     """Stream the response to disk, returning the number of bytes downloaded."""
     hash = hashlib.md5()
@@ -637,15 +666,14 @@ async def _retrieve_and_write_to_disk(
                 hash.update(data)
 
     async with aiofiles.open(outfile, mode=mode) as f:
-        with tqdm(
-            desc=desc,
-            initial=local_file_size,
+        # A transient per-file task that is removed once the file is done, so
+        # completed downloads leave no leftover bars behind (gh-323).
+        file_task = progress.add_task(
+            escape(desc),
             total=remote_file_size,
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            leave=False,
-        ) as progress:
+            completed=local_file_size,
+        )
+        try:
             downloaded = 0
             # The default chunk_size=-1 yields data as it arrives off the
             # socket (as httpx's aiter_bytes did), which niquests recommends
@@ -653,11 +681,13 @@ async def _retrieve_and_write_to_disk(
             # so each chunk's length is the number of raw bytes downloaded.
             async for chunk in await response.iter_content():
                 await f.write(chunk)
-                progress.update(len(chunk))
-                overall_progress.update(len(chunk))
+                progress.update(file_task, advance=len(chunk))
+                progress.update(overall_task, advance=len(chunk))
                 downloaded += len(chunk)
                 if verify_hash:
                     hash.update(chunk)
+        finally:
+            progress.remove_task(file_task)
 
         if verify_hash and remote_file_hash is not None:
             got = hash.hexdigest()
@@ -695,6 +725,38 @@ async def _retrieve_and_write_to_disk(
                 )
 
     return downloaded
+
+
+async def _refresh_progress(progress: Progress, interval: float = 0.1) -> None:
+    """Refresh *progress* roughly 10x/second from the event loop.
+
+    rich runs a background thread to auto-refresh progress bars in a terminal,
+    but disables it in Jupyter notebooks. Driving `refresh` ourselves on the
+    download's own event loop keeps the bars live there. Runs until cancelled.
+    """
+    while True:
+        await asyncio.sleep(interval)
+        progress.refresh()
+
+
+def _make_progress() -> Progress:
+    """Create the progress display shown while downloading files.
+
+    A single `rich` progress display drives both the persistent "Overall"
+    byte-progress bar and the transient per-file bars, which are removed as
+    each file finishes. This avoids the blank lines that per-file `tqdm` bars
+    left behind on completion (gh-323). It shares the module-level `console`
+    so status messages printed with `cprint` interleave cleanly above it.
+    """
+    return Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )
 
 
 async def _download_files(
@@ -762,15 +824,8 @@ async def _download_files(
         # non-working IPv6) does not stall or fail downloads.
         happy_eyeballs=True,
     ) as client:
-        with tqdm(
-            total=total_bytes,
-            desc="Overall",
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            miniters=1,
-            leave=True,
-        ) as overall_progress:
+        with _make_progress() as progress:
+            overall_task = progress.add_task("Overall", total=total_bytes)
             download_tasks = [
                 _download_file(
                     client=client,
@@ -785,14 +840,30 @@ async def _download_files(
                     semaphore=semaphore,
                     head_semaphore=head_semaphore,
                     query_str=normalized_query_str,
-                    overall_progress=overall_progress,
+                    progress=progress,
+                    overall_task=overall_task,
                     stats=stats,
                 )
                 for fi in file_infos
             ]
             remote_paths = [fi.remote_path for fi in file_infos]
             del file_infos
-            results = await asyncio.gather(*download_tasks, return_exceptions=True)
+            # rich disables its background auto-refresh thread in Jupyter, so
+            # drive refreshes ourselves on the download's event loop; otherwise
+            # the bars would render once and then appear frozen (gh-323).
+            refresher = (
+                asyncio.ensure_future(_refresh_progress(progress))
+                if console.is_jupyter
+                else None
+            )
+            try:
+                results = await asyncio.gather(*download_tasks, return_exceptions=True)
+            finally:
+                if refresher is not None:
+                    refresher.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await refresher
+                    progress.refresh()  # paint the final state
 
     failures: list[tuple[str, _DownloadError]] = list(pre_failures)
     for remote_path, result in zip(remote_paths, results):
@@ -855,7 +926,7 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
 
 
 def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
-    if stdout_unicode:
+    if unicode_ok:
         msg = f"{emoji} {msg} {end}"
     elif end == "…":
         msg = f"{msg} ..."
@@ -868,10 +939,10 @@ def _print_download_failures(failures: list[tuple[str, _DownloadError]]) -> None
     noun = "file" if n == 1 else "files"
     msg_fail = (
         f"❌ Failed to download {n} {noun}"
-        if stdout_unicode
+        if unicode_ok
         else f"Failed to download {n} {noun}"
     )
-    arrow = "→" if stdout_unicode else "->"
+    arrow = "→" if unicode_ok else "->"
     lines = [f"\n{msg_fail}:\n"]
     for remote_path, exc in failures:
         lines.append(f"  {remote_path}")
@@ -887,7 +958,7 @@ def _print_download_failures(failures: list[tuple[str, _DownloadError]]) -> None
     lines.append(
         "Re-run this command to retry; already-downloaded files will be skipped."
     )
-    tqdm.write("\n".join(lines))
+    cprint("\n".join(lines))
     raise RuntimeError(
         f"Failed to download {n} {noun}. "
         "Re-run this command to retry; already-downloaded files will be skipped."
@@ -1010,13 +1081,13 @@ def download(
     if max_concurrent_downloads < 1:
         raise ValueError("max_concurrent_downloads must be at least 1.")
 
-    msg_problems = "problems 🤯" if stdout_unicode else "problems"
-    msg_bugs = "bugs 🪲" if stdout_unicode else "bugs"
-    msg_hello = "👋 Hello!" if stdout_unicode else "Hello!"
+    msg_problems = "problems 🤯" if unicode_ok else "problems"
+    msg_bugs = "bugs 🪲" if unicode_ok else "bugs"
+    msg_hello = "👋 Hello!" if unicode_ok else "Hello!"
     msg_great_to_see_you = "Great to see you!"
-    if stdout_unicode:
+    if unicode_ok:
         msg_great_to_see_you += " 🤗"
-    msg_please = "👉 Please" if stdout_unicode else "   Please"
+    msg_please = "👉 Please" if unicode_ok else "   Please"
 
     msg = (
         f"\n{msg_hello} This is openneuro-py {__version__}. "
@@ -1024,8 +1095,8 @@ def download(
         f"   {msg_please} report {msg_problems} and {msg_bugs} at\n"
         f"      https://github.com/openneuro-py/openneuro-py/issues\n"
     )
-    tqdm.write(msg)
-    tqdm.write(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
+    cprint(msg)
+    cprint(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
 
     if target_dir is None:
         target_dir = Path(dataset)
@@ -1058,7 +1129,7 @@ def download(
             local_tag = _get_local_tag(dataset_id=dataset, dataset_dir=target_dir)
 
             if local_tag is None:
-                tqdm.write(
+                cprint(
                     "Cannot determine local revision of the dataset, "
                     "and the target directory is not empty. If the "
                     "download fails, you may want to try again with a "
@@ -1122,8 +1193,9 @@ def download(
         f"Checking {len(files)} files, downloading as needed "
         f"({max_concurrent_downloads} concurrent downloads)."
     )
-    tqdm.write(_unicode(msg, emoji="📥", end=""))
-    tqdm.write("")  # Blank line before progress bars
+    cprint(_unicode(msg, emoji="📥", end=""))
+    if not console.is_jupyter:
+        cprint("")  # Blank line before the progress bars (terminal only)
 
     query_str = snapshot_query_template.safe_substitute(
         tag=tag or "null",
@@ -1156,5 +1228,5 @@ def download(
         f"Finished downloading {dataset} "
         f"(downloaded {n_files} {plural} and {_format_size(stats.n_bytes)}).\n"
     )
-    tqdm.write(_unicode(summary, emoji="✅", end=""))
-    tqdm.write(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+    cprint(_unicode(summary, emoji="✅", end=""))
+    cprint(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
