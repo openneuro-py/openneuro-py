@@ -2,13 +2,17 @@
 
 import asyncio
 import copy
+import io
 import json
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import niquests
 import pytest
-from tqdm.auto import tqdm
+from rich.progress import Progress, TaskID
 
 import openneuro
 import openneuro._config
@@ -844,6 +848,13 @@ def test_multiple_include_options_cli():
     assert kwargs["exclude"] == ["*.fif", "*.json"]
 
 
+@contextmanager
+def _progress_and_task() -> Iterator[tuple[Progress, TaskID]]:
+    """Yield a disabled ``rich`` progress and an "overall" task (no output)."""
+    with Progress(disable=True) as progress:
+        yield progress, progress.add_task("overall", total=None)
+
+
 def _run_download_file(
     tmp_path: Path,
     mock_client: AsyncMock,
@@ -860,7 +871,7 @@ def _run_download_file(
     stats = _download._DownloadStats()
 
     async def run():
-        with tqdm(total=remote_file_size, disable=True) as overall_progress:
+        with _progress_and_task() as (progress, overall_task):
             await _download_file(
                 client=mock_client,
                 url="https://example.com/test.txt",
@@ -874,7 +885,8 @@ def _run_download_file(
                 semaphore=semaphore,
                 head_semaphore=head_semaphore,
                 query_str="test query",
-                overall_progress=overall_progress,
+                progress=progress,
+                overall_task=overall_task,
                 stats=stats,
             )
 
@@ -957,7 +969,7 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
     outfile = tmp_path / "test.txt"
     content = b"hello world"
 
-    with tqdm(total=0, disable=True) as overall_progress:
+    with _progress_and_task() as (progress, overall_task):
         asyncio.run(
             _retrieve_and_write_to_disk(
                 response=_mock_response(content),
@@ -970,7 +982,8 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
                 remote_file_hash=None,
                 verify_hash=False,
                 verify_size=True,
-                overall_progress=overall_progress,
+                progress=progress,
+                overall_task=overall_task,
             )
         )
     assert outfile.read_bytes() == content
@@ -993,6 +1006,21 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
 def test_format_size(num_bytes: int, expected: str):
     """`_format_size` renders human-readable, space-separated sizes."""
     assert _format_size(num_bytes) == expected
+
+
+@pytest.mark.parametrize(
+    ("stream", "expected"),
+    [
+        # `encoding` is None here, and `.lower()` on it used to raise at import.
+        (io.StringIO(), False),
+        (MagicMock(encoding="UTF-8"), True),
+        (MagicMock(encoding="ascii"), False),
+    ],
+)
+def test_probe_unicode(stream: object, expected: bool):
+    """The probe tolerates streams that report no usable encoding."""
+    with patch.object(sys, "stderr", stream):
+        assert _download._probe_unicode() is expected
 
 
 def test_download_file_updates_stats(tmp_path: Path):
@@ -1094,7 +1122,7 @@ def test_size_mismatch_uses_remote_path(tmp_path: Path):
     """Error message must contain remote_path, not the local outfile path."""
     remote_path = "sub-01/meg/file.fif"
     with pytest.raises(RuntimeError, match=remote_path) as exc_info:
-        with tqdm(total=0, disable=True) as overall_progress:
+        with _progress_and_task() as (progress, overall_task):
             asyncio.run(
                 _retrieve_and_write_to_disk(
                     response=_mock_response(b"hello"),
@@ -1107,7 +1135,8 @@ def test_size_mismatch_uses_remote_path(tmp_path: Path):
                     remote_file_hash=None,
                     verify_hash=False,
                     verify_size=True,
-                    overall_progress=overall_progress,
+                    progress=progress,
+                    overall_task=overall_task,
                 )
             )
     assert str(tmp_path) not in str(exc_info.value)
