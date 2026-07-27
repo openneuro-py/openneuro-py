@@ -624,6 +624,46 @@ def test_download_files_collects_failures(tmp_path: Path):
     assert stats.n_bytes == 200
 
 
+def test_unexpected_exception_keeps_its_type(tmp_path: Path):
+    """A non-_DownloadError escaping a task is reported with its type.
+
+    These are bugs rather than download failures, and a bare message says very
+    little without the exception class that produced it.
+    """
+    name = "boom.bin"
+    files = [
+        DatasetFile(
+            filename=name, urls=[f"https://example.com/{name}"], size=1, id=name
+        )
+    ]
+
+    async def explode(**kwargs):
+        raise KeyError("urls")
+
+    with patch.object(_download, "_download_file", side_effect=explode):
+        failures, _ = _run_download_files(
+            tmp_path, _make_dataset_client(bodies={}), files
+        )
+
+    assert [path for path, _ in failures] == [name]
+    assert failures[0][1].reason == "KeyError: 'urls'"
+
+
+def test_all_files_missing_urls(tmp_path: Path):
+    """Every file failing before any request still returns a clean summary."""
+    names = ["a.bin", "b.bin"]
+    files = [DatasetFile(filename=n, urls=None, size=100, id=n) for n in names]
+
+    failures, stats = _run_download_files(
+        tmp_path, _make_dataset_client(bodies={}), files
+    )
+
+    assert [path for path, _ in failures] == names
+    assert all("No download URLs" in exc.reason for _, exc in failures)
+    assert stats.n_files == 0
+    assert not list(tmp_path.iterdir())
+
+
 def test_json_error_body_is_never_silently_accepted(tmp_path: Path):
     """An error blob must not be mistaken for the file on a later attempt.
 

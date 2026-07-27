@@ -884,11 +884,15 @@ async def _download_files(
             raise result
         elif isinstance(result, BaseException):
             # Unexpected exception — wrap it so it ends up in the summary too.
+            # Keep the type: these are bugs rather than download failures, and
+            # a bare message like "'urls'" says nothing without its KeyError.
+            detail = str(result)
+            name = type(result).__name__
             failures.append(
                 (
                     remote_path,
                     _DownloadError(
-                        reason=str(result) or type(result).__name__, hint=""
+                        reason=f"{name}: {detail}" if detail else name, hint=""
                     ),
                 )
             )
