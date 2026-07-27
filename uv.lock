@@ -202,7 +202,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.15" },
     { name = "platformdirs" },
     { name = "pydantic", specifier = ">=2" },
-    { name = "rich" },
+    { name = "rich", specifier = ">=13.8" },
     { name = "truststore", specifier = ">=0.10.4" },
     { name = "typer", specifier = ">=0.24.0" },
     { name = "wcmatch", specifier = ">=10.1" },

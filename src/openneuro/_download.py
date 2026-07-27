@@ -76,13 +76,15 @@ except (ImportError, OSError, ssl.SSLError) as exc:
     )
 
 
-if hasattr(sys.stdout, "encoding") and sys.stdout.encoding.lower() == "utf-8":
-    stdout_unicode = True
-elif isinstance(sys.stdout, io.TextIOWrapper):
-    sys.stdout.reconfigure(encoding="utf-8")
-    stdout_unicode = True
+# Probe the stream the console actually writes to, so we don't emit emoji that
+# it cannot encode.
+if hasattr(sys.stderr, "encoding") and sys.stderr.encoding.lower() == "utf-8":
+    unicode_ok = True
+elif isinstance(sys.stderr, io.TextIOWrapper):
+    sys.stderr.reconfigure(encoding="utf-8")
+    unicode_ok = True
 else:
-    stdout_unicode = False
+    unicode_ok = False
 
 
 def login() -> None:
@@ -866,7 +868,7 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
 
 
 def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
-    if stdout_unicode:
+    if unicode_ok:
         msg = f"{emoji} {msg} {end}"
     elif end == "…":
         msg = f"{msg} ..."
@@ -988,13 +990,13 @@ def download(
     if max_concurrent_downloads < 1:
         raise ValueError("max_concurrent_downloads must be at least 1.")
 
-    msg_problems = "problems 🤯" if stdout_unicode else "problems"
-    msg_bugs = "bugs 🪲" if stdout_unicode else "bugs"
-    msg_hello = "👋 Hello!" if stdout_unicode else "Hello!"
+    msg_problems = "problems 🤯" if unicode_ok else "problems"
+    msg_bugs = "bugs 🪲" if unicode_ok else "bugs"
+    msg_hello = "👋 Hello!" if unicode_ok else "Hello!"
     msg_great_to_see_you = "Great to see you!"
-    if stdout_unicode:
+    if unicode_ok:
         msg_great_to_see_you += " 🤗"
-    msg_please = "👉 Please" if stdout_unicode else "   Please"
+    msg_please = "👉 Please" if unicode_ok else "   Please"
 
     msg = (
         f"\n{msg_hello} This is openneuro-py {__version__}. "

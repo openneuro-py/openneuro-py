@@ -7,7 +7,10 @@ rendered *above* any live progress display instead of clobbering it.
 
 from rich.console import Console
 
-console = Console()
+# Progress and status are diagnostics, so they belong on stderr: it keeps
+# stdout clean for redirection, and matches where `tqdm` drew its bars. Under
+# Jupyter, `rich` renders via `display()` and ignores the stream entirely.
+console = Console(stderr=True)
 
 
 def cprint(msg: str = "") -> None:
