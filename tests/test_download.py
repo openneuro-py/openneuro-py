@@ -2,16 +2,13 @@
 
 import asyncio
 import copy
-import importlib
 import json
-import ssl
-import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import niquests
 import pytest
 from rich.progress import Progress, TaskID
 
@@ -658,52 +655,6 @@ def test_glob_filter(
     assert result == expected
 
 
-# -- SSL context tests --
-
-
-@pytest.fixture
-def _restore_ssl_context():
-    """Restore SSL-related state after tests that reload _download.
-
-    Restores ssl_context, _use_truststore, and truststore.
-    """
-    original_context = _download.ssl_context
-    original_use_truststore = _download._use_truststore
-    original_truststore = getattr(_download, "truststore", None)
-    yield
-    _download.ssl_context = original_context
-    _download._use_truststore = original_use_truststore
-    if original_truststore is not None:
-        _download.truststore = original_truststore
-
-
-def test_ssl_context_is_set():
-    """Test that ssl_context is an ssl.SSLContext instance."""
-    assert isinstance(_download.ssl_context, ssl.SSLContext)
-
-
-@pytest.mark.usefixtures("_restore_ssl_context")
-def test_ssl_fallback_on_import_error():
-    """Test fallback to default SSL context when truststore is not installed."""
-    with patch.dict(sys.modules, {"truststore": None}):
-        with pytest.warns(match="Could not use truststore.*falling back"):
-            mod = importlib.reload(_download)
-        assert isinstance(mod.ssl_context, ssl.SSLContext)
-        assert type(mod.ssl_context) is ssl.SSLContext
-
-
-@pytest.mark.usefixtures("_restore_ssl_context")
-def test_ssl_fallback_on_construction_error():
-    """Test fallback when truststore imports but SSLContext() raises."""
-    mock_truststore = MagicMock()
-    mock_truststore.SSLContext.side_effect = OSError("backend failure")
-    with patch.dict(sys.modules, {"truststore": mock_truststore}):
-        with pytest.warns(match="Could not use truststore.*backend failure"):
-            mod = importlib.reload(_download)
-        assert isinstance(mod.ssl_context, ssl.SSLContext)
-        assert type(mod.ssl_context) is ssl.SSLContext
-
-
 # -- _safe_query tests --
 
 
@@ -716,7 +667,7 @@ def _no_token():
 
 @pytest.fixture
 def _mock_gql_response(request):
-    """Patch httpx.Client to return a mock response from _safe_query.
+    """Patch niquests.Session to return a mock response from _safe_query.
 
     Use `@pytest.mark.parametrize("_mock_gql_response", [...], indirect=True)`
     to set `status_code` and, optionally, `json_data` or `json_error`.
@@ -734,7 +685,7 @@ def _mock_gql_response(request):
     mock_client.__enter__ = MagicMock(return_value=mock_client)
     mock_client.__exit__ = MagicMock(return_value=False)
 
-    with patch("openneuro._download.httpx.Client", return_value=mock_client):
+    with patch("openneuro._download.niquests.Session", return_value=mock_client):
         yield mock_client
 
 
@@ -754,6 +705,8 @@ def test_safe_query_posts_json_payload(_mock_gql_response):
         _download.gql_url,
         json={"query": "query { test }"},
         timeout=None,
+        headers=_download.user_agent_header,
+        cookies={},
     )
 
 
@@ -789,7 +742,7 @@ def _make_fake_client(
     fail_head_n_times: int = 0,
     fail_head_status_code: int | None = None,
 ):
-    """Create a mock `httpx.AsyncClient` for download tests.
+    """Create a mock `niquests.AsyncSession` for download tests.
 
     Parameters
     ----------
@@ -799,7 +752,7 @@ def _make_fake_client(
         Number of initial HEAD requests that fail before succeeding.
     fail_head_status_code
         If set, failing HEAD requests return this HTTP status code instead
-        of raising `httpx.ReadTimeout`.
+        of raising `niquests.ReadTimeout`.
 
     """
     head_call_count = 0
@@ -811,13 +764,13 @@ def _make_fake_client(
             if fail_head_status_code is not None:
                 resp = MagicMock()
                 resp.status_code = fail_head_status_code
-                resp.is_error = fail_head_status_code >= 400
+                resp.ok = fail_head_status_code < 400
                 resp.headers = {}
                 return resp
-            raise httpx.ReadTimeout("simulated timeout")
+            raise niquests.ReadTimeout("simulated timeout")
         resp = MagicMock()
         resp.status_code = 200
-        resp.is_error = False
+        resp.ok = True
         resp.headers = {
             "etag": '"d41d8cd98f00b204e9800998ecf8427e"',
         }
@@ -825,24 +778,24 @@ def _make_fake_client(
 
     class _FakeStream:
         def __init__(self):
-            self.is_error = False
+            self.ok = True
             self.status_code = 200
-            # Mirrors httpx: starts at 0 and grows as chunks are consumed.
-            self.num_bytes_downloaded = 0
 
-        async def aiter_bytes(self):
-            self.num_bytes_downloaded = len(file_content)
-            yield file_content
+        async def iter_content(self, chunk_size=-1, decode_unicode=False):
+            async def gen():
+                yield file_content
 
-        async def __aenter__(self):
-            return self
+            return gen()
 
-        async def __aexit__(self, *exc):
-            return False
+        async def close(self):
+            pass
+
+    async def get(url, *, headers=None, timeout=None, stream=None):
+        return _FakeStream()
 
     client = AsyncMock()
     client.head = head
-    client.stream = lambda method, *, url, headers=None, timeout=None: _FakeStream()
+    client.get = get
     return client
 
 
@@ -998,12 +951,14 @@ def test_head_non_retryable_status_code(tmp_path: Path):
 
 def _mock_response(content: bytes) -> AsyncMock:
     response = AsyncMock()
-    response.num_bytes_downloaded = len(content)
 
-    async def aiter_bytes():
-        yield content
+    async def iter_content(chunk_size=-1, decode_unicode=False):
+        async def gen():
+            yield content
 
-    response.aiter_bytes = aiter_bytes
+        return gen()
+
+    response.iter_content = iter_content
     return response
 
 
@@ -1095,7 +1050,7 @@ async def _serve_counting_http(
 def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
     """Open connections must stay bounded by the pool size, not the file count.
 
-    Regression test for gh-317: a per-file `httpx.AsyncClient` meant every
+    Regression test for gh-317: a per-file `niquests.AsyncSession` meant every
     dispatched task held an open connection while waiting for a download
     slot, so connection count grew with the number of files in the dataset.
     """
