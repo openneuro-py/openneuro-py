@@ -506,6 +506,284 @@ def test_bidsignore_always_downloaded(tmp_path: Path):
     assert ".bidsignore" in selected(exclude=["**/.*"])
 
 
+def _make_dataset_client(
+    *,
+    bodies: dict[str, bytes],
+    get_status: dict[str, int] | None = None,
+    etag: str | None = None,
+):
+    """Fake `niquests.AsyncSession` serving a whole dataset, keyed by filename.
+
+    `bodies` maps a filename to the bytes its GET yields; `get_status` overrides
+    the GET status code for a filename; `etag` is reported by every HEAD.
+    """
+    get_status = get_status or {}
+
+    def _key(url: str) -> str:
+        return next((name for name in bodies if url.endswith(name)), "")
+
+    async def head(url, *, headers=None, timeout=None):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.ok = True
+        resp.headers = {"etag": f'"{etag}"'} if etag else {}
+        return resp
+
+    class _FakeStream:
+        def __init__(self, body: bytes, status: int):
+            self.status_code = status
+            self.ok = status < 400
+            self._body = body
+
+        async def iter_content(self, chunk_size=-1, decode_unicode=False):
+            body = self._body
+
+            async def gen():
+                yield body
+
+            return gen()
+
+        async def close(self):
+            pass
+
+    async def get(url, *, headers=None, timeout=None, stream=None):
+        name = _key(url)
+        return _FakeStream(bodies.get(name, b""), get_status.get(name, 200))
+
+    client = AsyncMock()
+    client.head = head
+    client.get = get
+    return client
+
+
+def _run_download_files(tmp_path: Path, client, files, **kwargs):
+    """Drive the real `_download_files` against a fake session."""
+
+    class _Session:
+        async def __aenter__(self):
+            return client
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+    stats = _download._DownloadStats()
+    with patch.object(_download.niquests, "AsyncSession", lambda **kw: _Session()):
+        failures = asyncio.run(
+            _download._download_files(
+                target_dir=tmp_path,
+                files=files,
+                verify_hash=kwargs.pop("verify_hash", False),
+                verify_size=kwargs.pop("verify_size", True),
+                max_retries=kwargs.pop("max_retries", 1),
+                retry_backoff=0.0,
+                max_concurrent_downloads=3,
+                query_str="query {}",
+                stats=stats,
+                **kwargs,
+            )
+        )
+    return failures, stats
+
+
+def test_download_files_collects_failures(tmp_path: Path):
+    """Terminal failures are collected while the other files still finish.
+
+    Exercises the real `_download_files` machinery (gh-309), unlike
+    `test_partial_download_failure`, which stubs out `_download_file`.
+    """
+    names = ["ok1.bin", "gone.bin", "short.bin", "ok2.bin", "nourl.bin"]
+    files = [
+        DatasetFile(
+            filename=n,
+            # `nourl.bin` has no URLs at all, so it fails before any request.
+            urls=None if n == "nourl.bin" else [f"https://example.com/{n}"],
+            size=100,
+            id=n,
+        )
+        for n in names
+    ]
+    failures, stats = _run_download_files(
+        tmp_path,
+        _make_dataset_client(
+            bodies={n: b"x" * 100 for n in names} | {"short.bin": b"x" * 150},
+            get_status={"gone.bin": 404},
+        ),
+        files,
+    )
+
+    reasons = {path: exc.reason for path, exc in failures}
+    assert set(reasons) == {"gone.bin", "short.bin", "nourl.bin"}
+    assert "HTTP 404" in reasons["gone.bin"]
+    assert "Size mismatch" in reasons["short.bin"]
+    assert "No download URLs" in reasons["nourl.bin"]
+
+    # The healthy files completed despite their neighbours failing.
+    for name in ("ok1.bin", "ok2.bin"):
+        assert (tmp_path / name).read_bytes() == b"x" * 100
+    assert stats.n_files == 2
+    assert stats.n_bytes == 200
+
+
+def test_unexpected_exception_keeps_its_type(tmp_path: Path):
+    """A non-_DownloadError escaping a task is reported with its type.
+
+    These are bugs rather than download failures, and a bare message says very
+    little without the exception class that produced it.
+    """
+    name = "boom.bin"
+    files = [
+        DatasetFile(
+            filename=name, urls=[f"https://example.com/{name}"], size=1, id=name
+        )
+    ]
+
+    async def explode(**kwargs):
+        raise KeyError("urls")
+
+    with patch.object(_download, "_download_file", side_effect=explode):
+        failures, _ = _run_download_files(
+            tmp_path, _make_dataset_client(bodies={}), files
+        )
+
+    assert [path for path, _ in failures] == [name]
+    assert failures[0][1].reason == "KeyError: 'urls'"
+
+
+def test_all_files_missing_urls(tmp_path: Path):
+    """Every file failing before any request still returns a clean summary."""
+    names = ["a.bin", "b.bin"]
+    files = [DatasetFile(filename=n, urls=None, size=100, id=n) for n in names]
+
+    failures, stats = _run_download_files(
+        tmp_path, _make_dataset_client(bodies={}), files
+    )
+
+    assert [path for path, _ in failures] == names
+    assert all("No download URLs" in exc.reason for _, exc in failures)
+    assert stats.n_files == 0
+    assert not list(tmp_path.iterdir())
+
+
+def test_json_error_body_is_never_silently_accepted(tmp_path: Path):
+    """An error blob must not be mistaken for the file on a later attempt.
+
+    The server sometimes returns `{"error": ...}` instead of the data. That is
+    retryable, but if the blob is left on disk and its size happens to match the
+    declared size, the next attempt sees a complete file and skips -- reporting
+    success while the blob stays on disk. There is no hash to catch it when the
+    etag is not an MD5 (e.g. multipart S3 uploads).
+    """
+    blob = b'{"error": "an unknown error occurred accessing this file"}'
+    name = "tiny.json"
+    files = [
+        DatasetFile(
+            filename=name, urls=[f"https://example.com/{name}"], size=len(blob), id=name
+        )
+    ]
+    failures, stats = _run_download_files(
+        tmp_path,
+        _make_dataset_client(bodies={name: blob}),  # no etag
+        files,
+        verify_hash=True,
+    )
+
+    assert len(failures) == 1
+    assert "JSON error response" in failures[0][1].reason
+    assert not (tmp_path / name).exists()
+    assert stats.n_files == 0
+
+
+def test_terminal_failure_reported_immediately(tmp_path: Path):
+    """Terminal failures are announced as they happen, not only at the end.
+
+    The end-of-run summary can be hours away on a large dataset, and a 404 has
+    no retries to report, so it would otherwise be silent (gh-309).
+    """
+    names = ["gone.bin", "ok.bin"]
+    files = [
+        DatasetFile(filename=n, urls=[f"https://example.com/{n}"], size=100, id=n)
+        for n in names
+    ]
+    said: list[str] = []
+    with patch.object(_download, "cprint", side_effect=said.append):
+        failures, _ = _run_download_files(
+            tmp_path,
+            _make_dataset_client(
+                bodies={n: b"x" * 100 for n in names}, get_status={"gone.bin": 404}
+            ),
+            files,
+        )
+
+    assert len(failures) == 1
+    # Announced by _download_file, i.e. before _download_files even returns.
+    assert any("gone.bin" in msg and "HTTP 404" in msg for msg in said)
+    assert not any("ok.bin" in msg for msg in said)
+
+
+def test_overall_progress_not_double_counted_on_retry(tmp_path: Path):
+    """Discarding a bad file on retry must uncount the bytes it contributed.
+
+    A hash mismatch is retried (gh-309), and each attempt re-downloads the whole
+    file; without a rollback the overall bar counted every attempt.
+    """
+    name = "bad.bin"
+    files = [
+        DatasetFile(
+            filename=name, urls=[f"https://example.com/{name}"], size=100, id=name
+        )
+    ]
+    max_retries = 2
+    seen: list[float] = []
+
+    class _RecordingProgress(Progress):
+        def update(self, task_id, **kwargs):
+            super().update(task_id, **kwargs)
+            for task in self.tasks:
+                if task.id == task_id and task.description == "Overall":
+                    seen.append(task.completed)
+
+    with patch.object(
+        _download, "_make_progress", lambda: _RecordingProgress(disable=True)
+    ):
+        failures, _ = _run_download_files(
+            tmp_path,
+            # An etag that cannot match the body, so every attempt mismatches.
+            _make_dataset_client(bodies={name: b"x" * 100}, etag="0" * 32),
+            files,
+            verify_hash=True,
+            max_retries=max_retries,
+        )
+
+    assert len(failures) == 1
+    assert "Hash mismatch" in failures[0][1].reason
+    assert f"{max_retries} retries" in failures[0][1].reason
+    # Every attempt streams the full file, but the bar must never run past it.
+    assert max(seen) == 100
+
+
+def test_partial_download_failure(tmp_path: Path) -> None:
+    """A single file failure must not abort other downloads."""
+    metadata = Snapshot.model_validate(load_json("mock_metadata_ds000117.json"))
+    fail_filename = "participants.tsv"
+    attempted: list[str] = []
+
+    async def patched_download_file(*, remote_path: str, **kwargs):
+        attempted.append(remote_path)
+        if remote_path == fail_filename:
+            raise _download._DownloadError(reason="Size mismatch.", hint="")
+
+    with (
+        patch.object(_download, "_get_download_metadata", return_value=metadata),
+        patch.object(_download, "_get_local_tag", return_value=None),
+        patch.object(_download, "_download_file", side_effect=patched_download_file),
+    ):
+        with pytest.raises(RuntimeError, match="Failed to download 1 file"):
+            download(dataset="ds000117", tag="1.1.0", target_dir=tmp_path)
+
+    assert fail_filename in attempted
+    assert len(attempted) > 1
+
+
 # -- Glob matching tests --
 
 
@@ -937,14 +1215,16 @@ def test_head_retryable_status_code(tmp_path: Path):
 
 
 def test_head_non_retryable_status_code(tmp_path: Path):
-    """A non-retryable HEAD status code (e.g. 404) should raise RuntimeError."""
+    """A non-retryable HEAD status code (e.g. 404) should raise _DownloadError."""
     mock_client = _make_fake_client(
         file_content=b"hello",
         fail_head_n_times=99,
         fail_head_status_code=404,
     )
 
-    with pytest.raises(RuntimeError, match="HEAD request failed with HTTP 404"):
+    with pytest.raises(
+        _download._DownloadError, match="HEAD request failed with HTTP 404"
+    ):
         _run_download_file(tmp_path, mock_client)
 
 
@@ -1121,7 +1401,7 @@ def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
 def test_size_mismatch_uses_remote_path(tmp_path: Path):
     """Error message must contain remote_path, not the local outfile path."""
     remote_path = "sub-01/meg/file.fif"
-    with pytest.raises(RuntimeError, match=remote_path) as exc_info:
+    with pytest.raises(_download._RetryableError, match=remote_path) as exc_info:
         with _progress_and_task() as (progress, overall_task):
             asyncio.run(
                 _retrieve_and_write_to_disk(
