@@ -56,15 +56,25 @@ from openneuro._models import DatasetFile, Snapshot
 # same verification applies across the sync and async sessions used below.
 
 
-# Probe the stream the console writes to (Jupyter's print() path is also a
-# UTF-8 OutStream), so we don't emit emoji that it cannot encode.
-if hasattr(sys.stderr, "encoding") and sys.stderr.encoding.lower() == "utf-8":
-    unicode_ok = True
-elif isinstance(sys.stderr, io.TextIOWrapper):
-    sys.stderr.reconfigure(encoding="utf-8")
-    unicode_ok = True
-else:
-    unicode_ok = False
+def _probe_unicode() -> bool:
+    """Whether the stream the console writes to can encode emoji.
+
+    Jupyter takes the `print()` path in `cprint`, but there both streams are
+    UTF-8 `OutStream`s, so probing stderr answers for it too. `encoding` is
+    typed loosely because it is `None` on a redirected stream such as
+    `io.StringIO` (`contextlib.redirect_stderr`), which must not raise here:
+    this runs at import time.
+    """
+    encoding = getattr(sys.stderr, "encoding", None)
+    if isinstance(encoding, str) and encoding.lower() == "utf-8":
+        return True
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr.reconfigure(encoding="utf-8")
+        return True
+    return False
+
+
+unicode_ok = _probe_unicode()
 
 
 def login() -> None:

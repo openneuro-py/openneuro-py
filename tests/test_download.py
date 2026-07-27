@@ -2,7 +2,9 @@
 
 import asyncio
 import copy
+import io
 import json
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -1004,6 +1006,21 @@ def test_retrieve_and_write_to_disk_none_size(tmp_path: Path):
 def test_format_size(num_bytes: int, expected: str):
     """`_format_size` renders human-readable, space-separated sizes."""
     assert _format_size(num_bytes) == expected
+
+
+@pytest.mark.parametrize(
+    ("stream", "expected"),
+    [
+        # `encoding` is None here, and `.lower()` on it used to raise at import.
+        (io.StringIO(), False),
+        (MagicMock(encoding="UTF-8"), True),
+        (MagicMock(encoding="ascii"), False),
+    ],
+)
+def test_probe_unicode(stream: object, expected: bool):
+    """The probe tolerates streams that report no usable encoding."""
+    with patch.object(sys, "stderr", stream):
+        assert _download._probe_unicode() is expected
 
 
 def test_download_file_updates_stats(tmp_path: Path):
