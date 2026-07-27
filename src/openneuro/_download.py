@@ -56,8 +56,8 @@ from openneuro._models import DatasetFile, Snapshot
 # same verification applies across the sync and async sessions used below.
 
 
-# Probe the stream the console actually writes to, so we don't emit emoji that
-# it cannot encode.
+# Probe the stream the console writes to (Jupyter's print() path is also a
+# UTF-8 OutStream), so we don't emit emoji that it cannot encode.
 if hasattr(sys.stderr, "encoding") and sys.stderr.encoding.lower() == "utf-8":
     unicode_ok = True
 elif isinstance(sys.stderr, io.TextIOWrapper):
