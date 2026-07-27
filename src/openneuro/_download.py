@@ -991,7 +991,7 @@ def _format_size(num_bytes: int) -> str:
 
 
 def _run_coroutine_blocking(coroutine: Coroutine[Any, Any, _T]) -> _T:
-    """Run `coroutine` to completion, blocking until it finishes, and return its result.
+    """Block until `coroutine` finishes, then return its result.
 
     When no event loop is running (the usual CLI/script case), we simply own one
     via `asyncio.run`. When a loop is *already* running on this thread — most

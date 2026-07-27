@@ -573,7 +573,7 @@ def _run_download_files(tmp_path: Path, client, files, **kwargs):
                 target_dir=tmp_path,
                 files=files,
                 verify_hash=kwargs.pop("verify_hash", False),
-                verify_size=True,
+                verify_size=kwargs.pop("verify_size", True),
                 max_retries=kwargs.pop("max_retries", 1),
                 retry_backoff=0.0,
                 max_concurrent_downloads=3,
