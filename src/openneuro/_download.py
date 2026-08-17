@@ -32,6 +32,7 @@ from typing import Any, Literal, TypeVar
 
 import aiofiles
 import niquests
+from niquests.cookies import RequestsCookieJar
 from pydantic import ValidationError
 from rich.markup import escape
 from rich.progress import (
@@ -147,7 +148,9 @@ _MAX_CONCURRENT_HEAD_REQUESTS = 50
 
 # GraphQL endpoint and queries.
 
-gql_url = "https://openneuro.org/crn/graphql"
+_openneuro_host = "openneuro.org"
+_openneuro_url_prefix = f"https://{_openneuro_host}/crn/"
+gql_url = f"{_openneuro_url_prefix}graphql"
 
 dataset_query_template = string.Template(
     """
@@ -207,16 +210,30 @@ _debug_hint_template = string.Template(
 )
 
 
+def _auth_cookies(*, announce: bool = False) -> RequestsCookieJar:
+    """Return the API-token cookie jar, or an empty jar when not logged in.
+
+    The cookie is scoped to ``openneuro.org`` rather than left domain-less (as a
+    plain ``dict`` of cookies would be), so that cookielib refuses to attach it
+    to any other host. That matters because a file's ``urls`` may point at
+    pre-signed ``s3.amazonaws.com`` links, and because the OpenNeuro endpoints
+    are free to start redirecting elsewhere: the token must never ride along.
+    """
+    jar = RequestsCookieJar()
+    try:
+        token = get_token()
+    except ValueError:
+        return jar  # No login
+    jar.set("accessToken", token, domain=_openneuro_host, path="/")
+    if announce:
+        cprint("🍪 Using API token to log in")
+    return jar
+
+
 def _safe_query(
     query: str, *, timeout: float | None = None
 ) -> tuple[dict[str, Any] | None, bool]:
-    cookies: dict[str, str] = {}
-    try:
-        token = get_token()
-        cookies["accessToken"] = token
-        cprint("🍪 Using API token to log in")
-    except ValueError:
-        pass  # No login
+    cookies = _auth_cookies(announce=True)
 
     try:
         with niquests.Session(
@@ -495,7 +512,7 @@ async def _attempt_download(
     # and reading only; tasks may legitimately wait a long time for a
     # connection from the shared session's pool, and the semaphores are the
     # sole concurrency throttle.
-    if url.startswith("https://openneuro.org/crn/"):
+    if url.startswith(_openneuro_url_prefix):
         timeout = 60
     else:
         timeout = 5
@@ -835,6 +852,11 @@ async def _download_files(
         # non-working IPv6) does not stall or fail downloads.
         happy_eyeballs=True,
     ) as client:
+        # Restricted datasets need the API token on the file requests too, not
+        # just on the GraphQL query that hands out the URLs (gh-367): OpenNeuro
+        # answers an unauthenticated HEAD of a restricted object with HTTP 403.
+        # The jar is domain-scoped, so pre-signed S3 URLs never see the token.
+        client.cookies.update(_auth_cookies())
         with _make_progress() as progress:
             overall_task = progress.add_task("Overall", total=total_bytes)
             download_tasks = [
