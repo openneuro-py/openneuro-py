@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import niquests
 import pytest
+from niquests.cookies import RequestsCookieJar, get_cookie_header
 from rich.progress import Progress, TaskID
 
 import openneuro
@@ -157,6 +158,38 @@ def test_restricted_dataset(tmp_path: Path, openneuro_token: str):
         download(dataset="ds006412", include="README.txt", target_dir=tmp_path)
 
     assert (tmp_path / "README.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://openneuro.org/crn/datasets/ds1/objects/abc?filename=README", True),
+        ("https://openneuro.org/crn/graphql", True),
+        ("https://s3.amazonaws.com/openneuro.org/ds1/README?versionId=x", False),
+        ("https://example.com/openneuro.org", False),
+    ],
+)
+def test_auth_cookie_is_scoped_to_openneuro(tmp_path: Path, url: str, expected: bool):
+    """The API token must go to openneuro.org and nowhere else.
+
+    Restricted datasets 403 on the file requests unless the token rides along
+    (gh-367), but a file's `urls` may be a pre-signed S3 link, and OpenNeuro is
+    free to start redirecting elsewhere -- so the jar is domain-scoped rather
+    than a plain dict, which cookielib would happily send to any host.
+    """
+    with patch.object(openneuro._config, "CONFIG_PATH", tmp_path / ".openneuro"):
+        with patch("getpass.getpass", lambda _: "s3cr3t"):
+            openneuro._config.init_config()
+        jar = _download._auth_cookies()
+
+    header = get_cookie_header(jar, niquests.Request("GET", url).prepare())
+    assert header == ("accessToken=s3cr3t" if expected else None)
+
+
+def test_auth_cookie_empty_without_login(tmp_path: Path):
+    """Anonymous use must stay anonymous rather than raise."""
+    with patch.object(openneuro._config, "CONFIG_PATH", tmp_path / ".openneuro"):
+        assert list(_download._auth_cookies()) == []
 
 
 @pytest.mark.parametrize(
@@ -553,6 +586,9 @@ def _make_dataset_client(
     client = AsyncMock()
     client.head = head
     client.get = get
+    # A real jar, not an AsyncMock child: the auth cookie is merged into the
+    # session's jar, and awaiting is not part of that API.
+    client.cookies = RequestsCookieJar()
     return client
 
 
@@ -1076,6 +1112,9 @@ def _make_fake_client(
     client = AsyncMock()
     client.head = head
     client.get = get
+    # A real jar, not an AsyncMock child: the auth cookie is merged into the
+    # session's jar, and awaiting is not part of that API.
+    client.cookies = RequestsCookieJar()
     return client
 
 
