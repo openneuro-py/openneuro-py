@@ -184,6 +184,21 @@ A few things work differently when downloading from NEMAR:
   `.bidsignore`, and stores the README as `README.md`. The data files
   themselves are unchanged.
 
+### See also: `nemar-py`
+
+The NEMAR team maintains [`nemar-py`](https://github.com/nemarOrg/nemar-py), a
+dedicated client for `data.nemar.org`. If NEMAR is your primary archive rather
+than a mirror of OpenNeuro, it is the better tool: it addresses datasets by
+NEMAR ID (`nm…`/`on…`) and NEMAR version, so it can reach NEMAR-native datasets
+that were never on OpenNeuro, and older NEMAR releases that `openneuro-py` does
+not expose. It also offers BIDS-entity filters (`--subject`, `--task`,
+`--datatype`, …) and optional DataLad/git-annex and S3 backends.
+
+`--source=nemar` here is for the other direction: staying in OpenNeuro's
+namespace — OpenNeuro dataset IDs and OpenNeuro revisions, with the `include`
+and `exclude` patterns you already use — while the bytes happen to come from
+NEMAR.
+
 ## Basic usage – Python interface
 
 ```python
