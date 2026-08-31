@@ -124,11 +124,51 @@ openneuro-py login
 
 Paste the API key and press return.
 
+### Download from the NEMAR mirror
+
+[NEMAR](https://nemar.org) is a partner archive at UC San Diego that mirrors
+the EEG, MEG, and iEEG datasets published on OpenNeuro. The files are
+byte-for-byte identical, and NEMAR publishes a checksum for every file, which
+`openneuro-py` verifies as it downloads.
+
+```shell
+openneuro-py download --dataset=ds004840 --source=nemar
+```
+
+To make it the default for every command, set the `OPENNEURO_SOURCE`
+environment variable:
+
+```shell
+export OPENNEURO_SOURCE=nemar
+```
+
+A few things work differently when downloading from NEMAR:
+
+- **Only MEEG datasets are mirrored.** Anything else — and anything NEMAR has
+  not mirrored yet — is unavailable, and `openneuro-py` will tell you to use
+  `--source=openneuro` instead.
+- **`--tag` always means the OpenNeuro revision**, never NEMAR's own version
+  number (the two do not correspond). NEMAR keeps only the single snapshot it
+  most recently mirrored, so requesting any other revision fails with a message
+  naming the one it does have.
+- **Restricted datasets are not available**, since NEMAR serves only public
+  data and does not use your OpenNeuro API token.
+- **A couple of metadata files differ.** NEMAR points `DatasetDOI` at its own
+  identifier (recording the OpenNeuro one under `SourceDatasets`), adds a
+  `.bidsignore`, and stores the README as `README.md`. The data files
+  themselves are unchanged.
+
 ## Basic usage – Python interface
 
 ```python
 import openneuro as on
 on.download(dataset='ds000246', target_dir='data/bids')
+```
+
+To download from the NEMAR mirror instead, pass `source`:
+
+```python
+on.download(dataset='ds004840', target_dir='data/bids', source='nemar')
 ```
 
 ## Development

@@ -3,7 +3,7 @@ import json
 import os
 import stat
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict, get_args
 
 import platformdirs
 
@@ -15,6 +15,51 @@ CONFIG_DIR = Path(
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = CONFIG_DIR / "config.json"
 BASE_URL = "https://openneuro.org/"
+
+#: Where to fetch dataset files from. See `openneuro.download`.
+Source = Literal["openneuro", "nemar"]
+SOURCES: tuple[Source, ...] = get_args(Source)
+DEFAULT_SOURCE: Source = "openneuro"
+#: Environment variable that supplies the default when `source` is not passed.
+SOURCE_ENV_VAR = "OPENNEURO_SOURCE"
+
+
+def get_source(source: Source | None = None) -> Source:
+    """Resolve which source to download from.
+
+    An explicit `source` argument wins; otherwise the `OPENNEURO_SOURCE`
+    environment variable is consulted, falling back to `"openneuro"`.
+
+    Parameters
+    ----------
+    source
+        The explicitly requested source, or `None` to consult the environment.
+
+    Returns
+    -------
+    The resolved source name.
+
+    Raises
+    ------
+    ValueError
+        When `source` (or the environment variable) is not a known source.
+
+    """
+    if source is None:
+        candidate = os.getenv(SOURCE_ENV_VAR, "").strip()
+        if not candidate:
+            return DEFAULT_SOURCE
+        origin = f"The {SOURCE_ENV_VAR} environment variable"
+    else:
+        candidate = source
+        origin = "The requested source"
+
+    for known in SOURCES:
+        if candidate == known:
+            return known
+    raise ValueError(
+        f"{origin} must be one of {', '.join(SOURCES)}, but got: {candidate!r}"
+    )
 
 
 class Config(TypedDict):

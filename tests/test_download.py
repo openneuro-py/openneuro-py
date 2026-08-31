@@ -1497,3 +1497,139 @@ def test_run_coroutine_blocking(loop_already_running: bool):
 
     with pytest.raises(ValueError, match="boom"):
         _run(_boom())
+
+
+# -- NEMAR mirror (gh: source= support) --
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_download_from_nemar(tmp_path: Path):
+    """Download from NEMAR, and confirm it matches what OpenNeuro serves.
+
+    NEMAR is a mirror, so the data files must be byte-identical. Only
+    `dataset_description.json` may differ: NEMAR rewrites `DatasetDOI` to its
+    own identifier and records the OpenNeuro one under `SourceDatasets`.
+    """
+    dataset = "ds004840"
+    include = ["sub-01/ses-01/eeg/*preMusicTherapy*"]
+    nemar_dir, openneuro_dir = tmp_path / "nemar", tmp_path / "openneuro"
+
+    download(dataset=dataset, source="nemar", target_dir=nemar_dir, include=include)
+    download(
+        dataset=dataset, source="openneuro", target_dir=openneuro_dir, include=include
+    )
+
+    def contents(root: Path) -> dict[str, bytes]:
+        return {
+            str(p.relative_to(root)): p.read_bytes()
+            for p in root.rglob("*")
+            if p.is_file()
+        }
+
+    from_nemar, from_openneuro = contents(nemar_dir), contents(openneuro_dir)
+    data_files = [
+        name
+        for name in set(from_nemar) & set(from_openneuro)
+        if name != "dataset_description.json"
+    ]
+    assert data_files  # guard against comparing nothing at all
+    for name in data_files:
+        assert from_nemar[name] == from_openneuro[name], name
+
+    # NEMAR stores the README with an extension; it must still arrive, since
+    # the essential BIDS files are downloaded regardless of `include`.
+    assert "README.md" in from_nemar
+    assert "README" in from_openneuro
+
+    # Both directories must report the same OpenNeuro revision, so that one can
+    # be topped up from the other.
+    assert _download._get_local_tag(
+        dataset_id=dataset, dataset_dir=nemar_dir
+    ) == _download._get_local_tag(dataset_id=dataset, dataset_dir=openneuro_dir)
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_download_from_nemar_verifies_checksums(tmp_path: Path):
+    """A corrupted file is detected by its checksum and re-downloaded.
+
+    Each file is truncated-in-place to the *same* length as the original, so
+    only the manifest checksum (not the size check) can catch the damage. Both
+    of NEMAR's algorithms are exercised: `sha256` for S3-backed data files and
+    the git blob hash for small git-stored ones.
+    """
+    kwargs = dict(
+        dataset="ds004840",
+        source="nemar",
+        target_dir=tmp_path,
+        include=["sub-01/ses-01/eeg/*preMusicTherapy*"],
+    )
+    download(**kwargs)
+
+    corrupted = {
+        # sha256, served from S3
+        tmp_path / "sub-01/ses-01/eeg/sub-01_ses-01_task-preMusicTherapy_eeg.edf",
+        # git blob hash, served from raw.githubusercontent.com
+        tmp_path / ".bidsignore",
+    }
+    original = {path: path.read_bytes() for path in corrupted}
+    for path, content in original.items():
+        path.write_bytes(bytes(len(content)))
+
+    download(**kwargs)
+
+    for path, content in original.items():
+        assert path.read_bytes() == content, path
+
+
+def test_source_cli_option():
+    """The CLI should forward --source to download()."""
+    from typer.testing import CliRunner
+
+    from openneuro._cli import app
+
+    runner = CliRunner()
+    with patch("openneuro._cli.download") as mock_download:
+        result = runner.invoke(
+            app, ["download", "--dataset=ds004840", "--source=nemar"]
+        )
+
+    assert result.exit_code == 0
+    assert mock_download.call_args.kwargs["source"] == "nemar"
+
+
+def test_source_cli_option_defaults_to_none():
+    """Without --source the CLI defers to download()'s own resolution."""
+    from typer.testing import CliRunner
+
+    from openneuro._cli import app
+
+    runner = CliRunner()
+    with patch("openneuro._cli.download") as mock_download:
+        result = runner.invoke(app, ["download", "--dataset=ds004840"])
+
+    assert result.exit_code == 0
+    assert mock_download.call_args.kwargs["source"] is None
+
+
+def test_source_cli_option_rejects_unknown():
+    """An unknown --source is refused by the CLI parser."""
+    from typer.testing import CliRunner
+
+    from openneuro._cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["download", "--dataset=ds004840", "--source=s3"])
+    assert result.exit_code == 2
+
+
+def test_download_uses_source_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """OPENNEURO_SOURCE selects the source when none is passed explicitly."""
+    monkeypatch.setenv("OPENNEURO_SOURCE", "nemar")
+    snapshot = Snapshot(id="ds004840:1.0.1", files=[])
+
+    with patch.object(
+        _download, "_get_download_metadata", return_value=snapshot
+    ) as mock_metadata:
+        download(dataset="ds004840", target_dir=tmp_path)
+
+    assert mock_metadata.call_args.kwargs["source"] == "nemar"
