@@ -199,14 +199,30 @@ _debug_hint_template = string.Template(
     "https://github.com/OpenNeuroOrg/openneuro/issues/3145"
 )
 
-_nemar_debug_hint = (
-    "If this is unexpected:\n\n"
-    f"1. Navigate to {_nemar.NEMAR_DATA_URL}/<dataset>/<version>/manifest.json\n"
-    '2. Try to manually download the "bytes_url" for the failing files '
-    "listed above.\n\n"
-    'You can also pass source="openneuro" to download the same data from '
-    "OpenNeuro instead."
-)
+
+def _make_nemar_debug_hint(dataset_id: str) -> str:
+    """Build the dataset-level debug hint for a NEMAR download.
+
+    The URL is spelled out rather than left as placeholders: NEMAR addresses
+    this dataset by its own ID (`on…`, not the `ds…` the caller passed) and by
+    its own version numbering (not the OpenNeuro tag), so a hint the reader has
+    to fill in themselves would send them to a 404. Pointing at the dataset
+    landing page also sidesteps the version entirely — it lists every version
+    together with its `manifest_url`.
+    """
+    nemar_id = _nemar.to_nemar_id(dataset_id)
+    return (
+        "If this is unexpected:\n\n"
+        f"1. Navigate to {_nemar.NEMAR_DATA_URL}/{nemar_id}/ — NEMAR mirrors "
+        f"{dataset_id} as {nemar_id}, and this lists each version it holds "
+        'along with a "manifest_url" (relative to '
+        f"{_nemar.NEMAR_DATA_URL}).\n"
+        '2. Open that manifest and try to manually download the "bytes_url" '
+        "for the failing files listed above.\n\n"
+        'You can also pass source="openneuro" to download the same data from '
+        "OpenNeuro instead."
+    )
+
 
 # `DatasetDOI` as written by OpenNeuro, e.g. "10.18112/openneuro.ds000117.v1.1.0",
 # and as rewritten by NEMAR, e.g. "10.82901/nemar.on000117" (optionally carrying
@@ -1502,7 +1518,7 @@ def download(
         max_concurrent_downloads=max_concurrent_downloads,
         query_str=query_str,
         stats=stats,
-        debug_hint=_nemar_debug_hint if source == "nemar" else None,
+        debug_hint=_make_nemar_debug_hint(dataset) if source == "nemar" else None,
     )
 
     # Block until the download actually finishes, even when a loop is already

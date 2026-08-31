@@ -7,13 +7,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openneuro import _nemar
+from openneuro import _download, _nemar
 from openneuro._download import (
     _apply_nemar_checksums,
     _get_local_tag,
     _make_hasher,
+    _make_nemar_debug_hint,
 )
-from openneuro._models import DatasetFile
+from openneuro._models import DatasetFile, Snapshot
 from openneuro._nemar import (
     _files_from_manifest,
     _NotFound,
@@ -563,3 +564,42 @@ def test_apply_nemar_checksums_returns_input_when_unavailable():
             metadata_timeout=1.0,
         )
     assert merged == files
+
+
+# -- failure hints --
+
+
+def test_nemar_debug_hint_uses_resolvable_coordinates():
+    """The hint must not send readers to a URL that 404s.
+
+    NEMAR addresses the dataset by its own ID and its own version numbering, so
+    a hint containing `<dataset>`/`<version>` placeholders invites the reader to
+    substitute the OpenNeuro ones and land on a 404.
+    """
+    hint = _make_nemar_debug_hint("ds004840")
+
+    assert "https://data.nemar.org/on004840/" in hint
+    # Never the OpenNeuro ID as a NEMAR path segment...
+    assert "data.nemar.org/ds004840" not in hint
+    # ...and nothing left for the reader to fill in.
+    assert "<dataset>" not in hint
+    assert "<version>" not in hint
+    # The OpenNeuro ID still appears, to explain the mapping.
+    assert "ds004840" in hint
+    assert 'source="openneuro"' in hint
+
+
+def test_nemar_debug_hint_reaches_failures(tmp_path: Path):
+    """A failing NEMAR download surfaces the NEMAR hint, not the GraphQL one."""
+    snapshot = Snapshot(
+        id="ds004840:1.0.1",
+        files=[DatasetFile(filename="a.bin", urls=None, size=1, id="a")],
+    )
+    with (
+        patch.object(_download, "_get_download_metadata", return_value=snapshot),
+        patch.object(_download, "_get_local_tag", return_value=None),
+        pytest.raises(RuntimeError, match="Failed to download"),
+    ):
+        _download.download(
+            dataset="ds004840", tag="1.0.1", target_dir=tmp_path, source="nemar"
+        )
