@@ -1633,3 +1633,134 @@ def test_download_uses_source_env_var(tmp_path: Path, monkeypatch: pytest.Monkey
         download(dataset="ds004840", target_dir=tmp_path)
 
     assert mock_metadata.call_args.kwargs["source"] == "nemar"
+
+
+# -- verify_hash="auto": consult NEMAR only when it can help --
+
+
+@pytest.mark.parametrize(
+    ("verify_hash", "source", "sizes", "expected"),
+    [
+        # "auto" asks only when a file too large for OpenNeuro's ETag is in play.
+        ("auto", "openneuro", [_download._MULTIPART_THRESHOLD], True),
+        ("auto", "openneuro", [_download._MULTIPART_THRESHOLD - 1], False),
+        ("auto", "openneuro", [10, 20], False),
+        # Boundary: exactly at the threshold counts, and an unknown size does not.
+        ("auto", "openneuro", [None], False),
+        # "nemar" always asks, "True"/False never do.
+        ("nemar", "openneuro", [10], True),
+        (True, "openneuro", [_download._MULTIPART_THRESHOLD], False),
+        (False, "openneuro", [_download._MULTIPART_THRESHOLD], False),
+        # A NEMAR download already carries checksums, so never ask again.
+        ("auto", "nemar", [_download._MULTIPART_THRESHOLD], False),
+        ("nemar", "nemar", [_download._MULTIPART_THRESHOLD], False),
+    ],
+)
+def test_nemar_checksums_are_requested_only_when_useful(
+    tmp_path: Path, verify_hash, source, sizes, expected
+):
+    """`auto` must pay for the extra request exactly when it buys something."""
+    files = [
+        DatasetFile(
+            filename=f"sub-01/f{i}.bin",
+            urls=[f"https://example.com/{i}"],
+            size=size,
+            id=str(i),
+        )
+        for i, size in enumerate(sizes)
+    ]
+    snapshot = Snapshot(id="ds000246:1.0.1", files=files)
+
+    with (
+        patch.object(_download, "_get_download_metadata", return_value=snapshot),
+        patch.object(_download, "_get_local_tag", return_value=None),
+        patch.object(_download, "_download_files", return_value=[]),
+        patch.object(
+            _download, "_apply_nemar_checksums", side_effect=lambda f, **kw: f
+        ) as mock_apply,
+    ):
+        download(
+            dataset="ds000246",
+            tag="1.0.1",
+            target_dir=tmp_path,
+            verify_hash=verify_hash,
+            source=source,
+        )
+
+    assert mock_apply.called is expected
+
+
+def test_auto_ignores_the_size_of_excluded_files(tmp_path: Path):
+    """A huge file the user excluded must not trigger a NEMAR request."""
+    snapshot = Snapshot(
+        id="ds000246:1.0.1",
+        files=[
+            DatasetFile(
+                filename="sub-01/huge.bin",
+                urls=["https://example.com/huge"],
+                size=_download._MULTIPART_THRESHOLD * 4,
+                id="huge",
+            ),
+            DatasetFile(
+                filename="sub-02/small.bin",
+                urls=["https://example.com/small"],
+                size=10,
+                id="small",
+            ),
+        ],
+    )
+    with (
+        patch.object(_download, "_get_download_metadata", return_value=snapshot),
+        patch.object(_download, "_get_local_tag", return_value=None),
+        patch.object(_download, "_download_files", return_value=[]),
+        patch.object(
+            _download, "_apply_nemar_checksums", side_effect=lambda f, **kw: f
+        ) as mock_apply,
+    ):
+        download(
+            dataset="ds000246",
+            tag="1.0.1",
+            target_dir=tmp_path,
+            include=["sub-02"],
+            verify_hash="auto",
+        )
+
+    assert not mock_apply.called
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        ([], "auto"),
+        (["--nemar-checksums"], "nemar"),
+        (["--no-nemar-checksums"], True),
+        (["--no-verify-hash"], False),
+        (["--no-verify-hash", "--no-nemar-checksums"], False),
+    ],
+)
+def test_verify_hash_cli_mapping(argv, expected):
+    """The CLI flags map onto download()'s verify_hash values."""
+    from typer.testing import CliRunner
+
+    from openneuro._cli import app
+
+    runner = CliRunner()
+    with patch("openneuro._cli.download") as mock_download:
+        result = runner.invoke(app, ["download", "--dataset=ds000246", *argv])
+
+    assert result.exit_code == 0, result.output
+    assert mock_download.call_args.kwargs["verify_hash"] == expected
+
+
+def test_nemar_checksums_conflicts_with_no_verify_hash():
+    """Asking for stricter and no verification at once is refused."""
+    from typer.testing import CliRunner
+
+    from openneuro._cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["download", "--dataset=ds000246", "--no-verify-hash", "--nemar-checksums"],
+    )
+    assert result.exit_code == 2

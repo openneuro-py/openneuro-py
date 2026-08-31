@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
@@ -45,15 +45,17 @@ def download_cli(
         ),
     ] = True,
     nemar_checksums: Annotated[
-        bool,
+        bool | None,
         typer.Option(
-            "--nemar-checksums",
+            "--nemar-checksums/--no-nemar-checksums",
             help="Verify an OpenNeuro download against NEMAR's checksums. "
-            "OpenNeuro publishes none of its own, so large (multipart-uploaded) "
-            "files are otherwise left unverified. Ignored when --source=nemar, "
-            "which always ships checksums.",
+            "OpenNeuro publishes none of its own, so files of 1 GiB or more "
+            "(uploaded to S3 in parts) cannot be checked at all. By default "
+            "NEMAR is consulted only when such a file is being downloaded; "
+            "--nemar-checksums always consults it, --no-nemar-checksums never "
+            "does. Ignored when --source=nemar, which always ships checksums.",
         ),
-    ] = False,
+    ] = None,
     verify_size: Annotated[
         bool,
         typer.Option(help="Whether to check the size of each downloaded file."),
@@ -95,13 +97,24 @@ def download_cli(
             "--nemar-checksums cannot be combined with --no-verify-hash: the "
             "first asks for stricter verification, the second for none."
         )
+    # --no-verify-hash means no hashing at all; otherwise --nemar-checksums
+    # decides how hard we look: unset consults NEMAR only when it can help.
+    verify: bool | Literal["auto", "nemar"]
+    if not verify_hash:
+        verify = False
+    elif nemar_checksums is None:
+        verify = "auto"
+    elif nemar_checksums:
+        verify = "nemar"
+    else:
+        verify = True
     download(
         dataset=dataset,
         tag=tag,
         target_dir=target_dir,
         include=include,
         exclude=exclude,
-        verify_hash="nemar" if nemar_checksums else verify_hash,
+        verify_hash=verify,
         verify_size=verify_size,
         max_retries=max_retries,
         max_concurrent_downloads=max_concurrent_downloads,

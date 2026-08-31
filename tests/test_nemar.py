@@ -8,7 +8,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from openneuro import _nemar
-from openneuro._download import _get_local_tag, _make_hasher
+from openneuro._download import (
+    _apply_nemar_checksums,
+    _get_local_tag,
+    _make_hasher,
+)
+from openneuro._models import DatasetFile
 from openneuro._nemar import (
     _files_from_manifest,
     _NotFound,
@@ -457,3 +462,104 @@ def test_get_local_tag_survives_a_corrupt_description(tmp_path: Path):
     # A valid JSON document that is not an object is equally unusable.
     (tmp_path / "dataset_description.json").write_text("[1, 2]", "utf-8")
     assert _get_local_tag(dataset_id="ds004840", dataset_dir=tmp_path) is None
+
+
+# -- cross-source verification: NEMAR checksums for an OpenNeuro download --
+
+
+_CROSS_MANIFEST = [
+    {
+        "path": "sub-01/meg/big.meg4",
+        "size": 1175040008,
+        "checksum_algorithm": "md5",
+        "checksum": "9f8b091f26abb85986ebe68ce48661f3",
+        "bytes_url": "https://data.nemar.org/on000246/v1/sub-01/meg/big.meg4",
+    },
+    {
+        # NEMAR rewrites this one, so its checksum must never be handed out.
+        "path": "dataset_description.json",
+        "size": 996,
+        "checksum_algorithm": "git",
+        "checksum": "deadbeef",
+        "bytes_url": "https://data.nemar.org/on000246/v1/dataset_description.json",
+    },
+]
+
+
+def _cross_responses(metadata=_METADATA):
+    return {
+        "/on000246/": {"dataset_id": "on000246", "latest": "v1.0.0"},
+        "/metadata.json": metadata,
+        "/manifest.json": _CROSS_MANIFEST,
+    }
+
+
+def test_get_checksums_excludes_rewritten_files():
+    """NEMAR's own dataset_description.json must never verify OpenNeuro's."""
+    with patch.object(_nemar, "_get_json", _fake_get_json(_cross_responses())):
+        checksums = _nemar.get_checksums(dataset_id="ds000246", tag="1.0.1", **_KWARGS)
+
+    assert checksums == {
+        "sub-01/meg/big.meg4": ("9f8b091f26abb85986ebe68ce48661f3", "md5")
+    }
+    assert "dataset_description.json" not in checksums
+
+
+def test_get_checksums_refuses_a_different_revision(capsys):
+    """A mirror that has fallen behind describes different bytes."""
+    with patch.object(_nemar, "_get_json", _fake_get_json(_cross_responses())):
+        # NEMAR mirrors 1.0.1 (per _METADATA); we are downloading 1.0.0.
+        checksums = _nemar.get_checksums(dataset_id="ds000246", tag="1.0.0", **_KWARGS)
+
+    assert checksums == {}
+    assert "do not apply" in capsys.readouterr().err
+
+
+def test_get_checksums_degrades_when_nemar_is_unavailable(capsys):
+    """NEMAR being down must not break a working OpenNeuro download."""
+    with patch.object(_nemar, "_get_json", _fake_get_json({})):  # everything 404s
+        checksums = _nemar.get_checksums(dataset_id="ds000246", tag="1.0.1", **_KWARGS)
+
+    assert checksums == {}
+    assert "Continuing with OpenNeuro" in capsys.readouterr().err
+
+
+def test_apply_nemar_checksums_merges_only_matching_files():
+    """Files NEMAR covers gain a checksum; the rest are untouched."""
+    files = [
+        DatasetFile(
+            filename="sub-01/meg/big.meg4", urls=["https://on/big"], size=1, id="a"
+        ),
+        DatasetFile(filename="README", urls=["https://on/readme"], size=2, id="b"),
+    ]
+    with patch.object(_nemar, "_get_json", _fake_get_json(_cross_responses())):
+        merged = _apply_nemar_checksums(
+            files,
+            dataset_id="ds000246",
+            tag="1.0.1",
+            max_retries=0,
+            retry_backoff=0.0,
+            metadata_timeout=1.0,
+        )
+
+    by_name = {f.filename: f for f in merged}
+    assert by_name["sub-01/meg/big.meg4"].checksum_algorithm == "md5"
+    # NEMAR stores the README as README.md, so this one has no counterpart.
+    assert by_name["README"].checksum is None
+    # The originals are left alone rather than mutated in place.
+    assert files[0].checksum is None
+
+
+def test_apply_nemar_checksums_returns_input_when_unavailable():
+    """An unreachable mirror leaves the file list exactly as it was."""
+    files = [DatasetFile(filename="a.txt", urls=["https://on/a"], size=1, id="a")]
+    with patch.object(_nemar, "_get_json", _fake_get_json({})):
+        merged = _apply_nemar_checksums(
+            files,
+            dataset_id="ds000246",
+            tag="1.0.1",
+            max_retries=0,
+            retry_backoff=0.0,
+            metadata_timeout=1.0,
+        )
+    assert merged == files

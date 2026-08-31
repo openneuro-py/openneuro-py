@@ -217,6 +217,21 @@ _OPENNEURO_DOI_RE = re.compile(
 )
 _NEMAR_DOI_RE = re.compile(r"^10\.82901/nemar\.on(?P<number>\d+)(?:\.v.+)?$")
 
+#: Size at or above which an OpenNeuro file is likely to have been uploaded to
+#: S3 in multiple parts, making its `ETag` a digest-of-digests rather than an
+#: MD5 of the contents — and so useless for verification.
+#:
+#: This is only a *trigger* for asking NEMAR for checksums, never the decision
+#: about which checksum to use: that is made per file, from the `ETag` actually
+#: returned. A wrong guess therefore costs at most one needless request, or
+#: falls back to today's behaviour; it can never mis-verify a file.
+#:
+#: 1 GiB matches OpenNeuro's observed part size: across ds000117, ds000246,
+#: ds002578, ds004317, and ds005398, the largest single-part file was 929.6 MB
+#: and the smallest multipart one 1175.0 MB, with part counts (`-3` at ~2.7 GB,
+#: `-4` at ~3.2 GB) consistent throughout.
+_MULTIPART_THRESHOLD = 1024**3
+
 
 def _auth_cookies(*, announce: bool = False) -> RequestsCookieJar:
     """Return the API-token cookie jar, or an empty jar when not logged in.
@@ -1210,7 +1225,7 @@ def download(
     target_dir: Path | str | None = None,
     include: Iterable[str] | None = None,
     exclude: Iterable[str] | None = None,
-    verify_hash: bool | Literal["nemar"] = True,
+    verify_hash: bool | Literal["auto", "nemar"] = "auto",
     verify_size: bool = True,
     max_retries: int = 5,
     max_concurrent_downloads: int = 5,
@@ -1265,19 +1280,30 @@ def download(
     verify_hash
         Whether to calculate and verify a hash of each downloaded file.
 
-        - `True` (the default) uses whatever the source announces. OpenNeuro
-          publishes no checksums, so this falls back to the S3 `ETag`, which is
-          an MD5 only for single-part uploads; larger, multipart-uploaded files
-          are left unverified. NEMAR publishes a checksum for every file, so
-          `source="nemar"` always verifies in full.
+        OpenNeuro publishes no checksums of its own, so verification falls back
+        to the S3 `ETag`. That is an MD5 only for single-part uploads;
+        multipart ones (in practice, files of 1 GiB or more) return a
+        digest-of-digests instead and cannot be checked at all. An `ETag` also
+        only ever describes what OpenNeuro has *stored*, so it cannot reveal a
+        file that was already corrupt at rest. NEMAR mirrors OpenNeuro
+        byte-for-byte and publishes a checksum for every file, which closes
+        both gaps.
+
+        - `"auto"` (the default) verifies against NEMAR's checksums when the
+          files being downloaded include one at or above the multipart
+          threshold, and against the `ETag` otherwise. NEMAR is contacted only
+          when it can actually help, so most downloads are unaffected.
+        - `True` verifies using only what the source itself announces, never
+          contacting NEMAR.
+        - `"nemar"` always consults NEMAR, verifying every file it covers
+          regardless of size.
         - `False` disables hash checking.
-        - `"nemar"` downloads from OpenNeuro but verifies against NEMAR's
-          checksums, covering the large files `True` cannot check. NEMAR
-          mirrors OpenNeuro byte-for-byte, so the two agree; the one file NEMAR
-          rewrites (`dataset_description.json`) is excluded. If NEMAR is
-          unreachable, or mirrors a different revision than the one being
-          downloaded, this degrades to the `True` behaviour rather than
-          failing.
+
+        `"auto"` and `"nemar"` apply only to `source="openneuro"`; a NEMAR
+        download already carries its own checksums. The single file NEMAR
+        rewrites (`dataset_description.json`) is never cross-verified. If NEMAR
+        is unreachable, or mirrors a different revision than the one being
+        downloaded, both degrade to the `True` behaviour rather than failing.
     verify_size
         Whether to check if the downloaded file size matches what the server
         announced.
@@ -1396,16 +1422,6 @@ def download(
     all_files = metadata.files
     del metadata
 
-    if verify_hash == "nemar" and source == "openneuro":
-        all_files = _apply_nemar_checksums(
-            all_files,
-            dataset_id=dataset,
-            tag=tag,
-            max_retries=max_retries,
-            retry_backoff=retry_backoff,
-            metadata_timeout=metadata_timeout,
-        )
-
     filenames = [f.filename for f in all_files]
 
     if include:
@@ -1440,6 +1456,26 @@ def download(
                     f"Could not find path in the dataset:\n- {pattern}\n{extra}"
                     "Please check your includes."
                 )
+
+    # NEMAR's checksums only add anything to an *OpenNeuro* download; a NEMAR
+    # download already carries its own. "auto" pays the extra request only when
+    # the files actually being fetched include one too large for OpenNeuro's
+    # `ETag` to describe.
+    if source == "openneuro" and (
+        verify_hash == "nemar"
+        or (
+            verify_hash == "auto"
+            and any((f.size or 0) >= _MULTIPART_THRESHOLD for f in files)
+        )
+    ):
+        files = _apply_nemar_checksums(
+            files,
+            dataset_id=dataset,
+            tag=tag,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+            metadata_timeout=metadata_timeout,
+        )
 
     msg = (
         f"Checking {len(files)} files, downloading as needed "
