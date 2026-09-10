@@ -4,8 +4,10 @@ The flow is roughly:
 
 download
   _get_download_metadata
-    _check_snapshot_exists
-        _safe_query
+    _get_openneuro_metadata      (source="openneuro")
+      _check_snapshot_exists
+          _safe_query
+    _nemar.get_metadata          (source="nemar")
   _get_local_tag
   _glob.glob_filter
   _download_files
@@ -18,11 +20,10 @@ import asyncio
 import contextlib
 import dataclasses
 import hashlib
-import io
 import json
+import re
 import shlex
 import string
-import sys
 import threading
 import time
 from collections.abc import Coroutine, Iterable
@@ -46,36 +47,14 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from openneuro import __version__, _glob
-from openneuro._config import get_token, init_config
-from openneuro._console import console, cprint
-from openneuro._models import DatasetFile, Snapshot
-
-# niquests verifies TLS certificates against the operating system's native
-# trust store by default (via wassima), which covers users in enterprise
-# environments with custom CAs. No explicit SSL context is required, and the
-# same verification applies across the sync and async sessions used below.
-
-
-def _probe_unicode() -> bool:
-    """Whether the stream the console writes to can encode emoji.
-
-    Jupyter takes the `print()` path in `cprint`, but there both streams are
-    UTF-8 `OutStream`s, so probing stderr answers for it too. `encoding` is
-    typed loosely because it is `None` on a redirected stream such as
-    `io.StringIO` (`contextlib.redirect_stderr`), which must not raise here:
-    this runs at import time.
-    """
-    encoding = getattr(sys.stderr, "encoding", None)
-    if isinstance(encoding, str) and encoding.lower() == "utf-8":
-        return True
-    if isinstance(sys.stderr, io.TextIOWrapper):
-        sys.stderr.reconfigure(encoding="utf-8")
-        return True
-    return False
-
-
-unicode_ok = _probe_unicode()
+from openneuro import __version__, _glob, _nemar
+from openneuro._config import Source, get_source, get_token, init_config
+from openneuro._console import _probe_unicode as _probe_unicode
+from openneuro._console import _unicode, _write_retry, console, cprint
+from openneuro._console import unicode_ok as unicode_ok
+from openneuro._http import allowed_retry_codes, allowed_retry_exceptions
+from openneuro._http import user_agent_header as user_agent_header
+from openneuro._models import ChecksumAlgorithm, DatasetFile, Snapshot
 
 
 def login() -> None:
@@ -84,10 +63,6 @@ def login() -> None:
 
 
 _T = TypeVar("_T")
-
-# HTTP server responses that indicate hopefully intermittent errors that
-# warrant a retry.
-allowed_retry_codes = (408, 500, 502, 503, 504, 522, 524)
 
 
 class _RetryableError(Exception):
@@ -116,6 +91,35 @@ class _FileInfo:
     size: int | None
     outfile: Path
     remote_path: str
+    # Announced up-front by NEMAR's manifest; `None` for OpenNeuro, where the
+    # only available hash is whatever the S3 `ETag` happens to hold.
+    checksum: str | None = None
+    checksum_algorithm: ChecksumAlgorithm | None = None
+
+
+def _make_hasher(algorithm: ChecksumAlgorithm, *, size: int | None) -> "hashlib._Hash":
+    r"""Create a fresh hasher for `algorithm`.
+
+    A *factory* rather than a shared object because a download may hash the
+    same file more than once (verifying an existing file, then re-hashing while
+    resuming), and because the `"git"` algorithm needs its length prefix
+    re-applied each time.
+
+    `"git"` is a git *blob* hash: SHA-1 over ``b"blob <size>\0"`` followed by
+    the contents, so the total size must be known before the first byte is fed
+    in. NEMAR's manifest always announces it.
+    """
+    if algorithm == "md5":
+        return hashlib.md5()
+    if algorithm == "sha256":
+        return hashlib.sha256()
+    if algorithm == "git":
+        if size is None:
+            raise ValueError("A git blob hash requires the file size up front.")
+        hasher = hashlib.sha1()
+        hasher.update(b"blob %d\0" % size)
+        return hasher
+    raise ValueError(f"Unknown checksum algorithm: {algorithm!r}")
 
 
 @dataclasses.dataclass
@@ -129,20 +133,6 @@ class _DownloadStats:
     n_files: int = 0
     n_bytes: int = 0
 
-
-allowed_retry_exceptions = (
-    # Connection errors (refused/reset/aborted) and DNS failures
-    # ("[Errno -3] Temporary failure in name resolution"). Connect timeouts land
-    # here too, since ``ConnectTimeout`` is itself a ``ConnectionError``.
-    niquests.ConnectionError,
-    # Read timeouts are a ``Timeout``, not a ``ConnectionError``, so list them
-    # separately.
-    niquests.ReadTimeout,
-    # Incomplete chunked reads: "peer closed connection without sending
-    # complete message body".
-    niquests.exceptions.ChunkedEncodingError,
-)
-user_agent_header: dict[str, str] = {"user-agent": f"openneuro-py/{__version__}"}
 
 _MAX_CONCURRENT_HEAD_REQUESTS = 50
 
@@ -210,6 +200,55 @@ _debug_hint_template = string.Template(
 )
 
 
+def _make_nemar_debug_hint(dataset_id: str) -> str:
+    """Build the dataset-level debug hint for a NEMAR download.
+
+    The URL is spelled out rather than left as placeholders: NEMAR addresses
+    this dataset by its own ID (`on…`, not the `ds…` the caller passed) and by
+    its own version numbering (not the OpenNeuro tag), so a hint the reader has
+    to fill in themselves would send them to a 404. Pointing at the dataset
+    landing page also sidesteps the version entirely — it lists every version
+    together with its `manifest_url`.
+    """
+    nemar_id = _nemar.to_nemar_id(dataset_id)
+    return (
+        "If this is unexpected:\n\n"
+        f"1. Navigate to {_nemar.NEMAR_DATA_URL}/{nemar_id}/ — NEMAR mirrors "
+        f"{dataset_id} as {nemar_id}, and this lists each version it holds "
+        'along with a "manifest_url" (relative to '
+        f"{_nemar.NEMAR_DATA_URL}).\n"
+        '2. Open that manifest and try to manually download the "bytes_url" '
+        "for the failing files listed above.\n\n"
+        'You can also pass source="openneuro" to download the same data from '
+        "OpenNeuro instead."
+    )
+
+
+# `DatasetDOI` as written by OpenNeuro, e.g. "10.18112/openneuro.ds000117.v1.1.0",
+# and as rewritten by NEMAR, e.g. "10.82901/nemar.on000117" (optionally carrying
+# NEMAR's own ".v1.0.0" suffix, which is deliberately not captured: it is NEMAR's
+# numbering, not an OpenNeuro revision).
+_OPENNEURO_DOI_RE = re.compile(
+    r"^10\.18112/openneuro\.ds(?P<number>\d+)\.v(?P<version>.+)$"
+)
+_NEMAR_DOI_RE = re.compile(r"^10\.82901/nemar\.on(?P<number>\d+)(?:\.v.+)?$")
+
+#: Size at or above which an OpenNeuro file is likely to have been uploaded to
+#: S3 in multiple parts, making its `ETag` a digest-of-digests rather than an
+#: MD5 of the contents — and so useless for verification.
+#:
+#: This is only a *trigger* for asking NEMAR for checksums, never the decision
+#: about which checksum to use: that is made per file, from the `ETag` actually
+#: returned. A wrong guess therefore costs at most one needless request, or
+#: falls back to today's behaviour; it can never mis-verify a file.
+#:
+#: 1 GiB matches OpenNeuro's observed part size: across ds000117, ds000246,
+#: ds002578, ds004317, and ds005398, the largest single-part file was 929.6 MB
+#: and the smallest multipart one 1175.0 MB, with part counts (`-3` at ~2.7 GB,
+#: `-4` at ~3.2 GB) consistent throughout.
+_MULTIPART_THRESHOLD = 1024**3
+
+
 def _auth_cookies(*, announce: bool = False) -> RequestsCookieJar:
     """Return the API-token cookie jar, or an empty jar when not logged in.
 
@@ -264,17 +303,6 @@ def _safe_query(
     return response_json, False
 
 
-def _write_retry(*, what: str, reason: str, retry: int, backoff: float) -> None:
-    remaining = "1 retry remains" if retry == 1 else f"{retry} retries remain"
-    remaining += f", backing off {backoff:0.1f}s"
-    cprint(
-        _unicode(
-            f"{reason} while {what}, retrying ({remaining})",
-            emoji="🔄",
-        )
-    )
-
-
 def _check_snapshot_exists(
     *, dataset_id: str, tag: str, max_retries: int, retry_backoff: float
 ) -> None:
@@ -302,11 +330,42 @@ def _get_download_metadata(
     *,
     dataset_id: str,
     tag: str | None = None,
+    source: Source = "openneuro",
     max_retries: int,
     retry_backoff: float = 0.5,
     metadata_timeout: float = 15.0,
 ) -> Snapshot:
-    """Retrieve dataset metadata required for the download."""
+    """Retrieve dataset metadata required for the download.
+
+    Dispatches to whichever source was requested. Both return the same
+    `Snapshot`, so the rest of the download is source-agnostic.
+    """
+    if source == "nemar":
+        return _nemar.get_metadata(
+            dataset_id=dataset_id,
+            tag=tag,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+            metadata_timeout=metadata_timeout,
+        )
+    return _get_openneuro_metadata(
+        dataset_id=dataset_id,
+        tag=tag,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+        metadata_timeout=metadata_timeout,
+    )
+
+
+def _get_openneuro_metadata(
+    *,
+    dataset_id: str,
+    tag: str | None = None,
+    max_retries: int,
+    retry_backoff: float = 0.5,
+    metadata_timeout: float = 15.0,
+) -> Snapshot:
+    """Retrieve dataset metadata from OpenNeuro's GraphQL API."""
     if tag is None:
         query = dataset_query_template.substitute(dataset_id=dataset_id)
     else:
@@ -400,6 +459,17 @@ def _retry_request(
     return response_json
 
 
+def _resolve_hint(*, query_str: str, debug_hint: str | None) -> str:
+    """Return the dataset-level debug hint shown alongside failures.
+
+    NEMAR downloads pass their own hint; OpenNeuro downloads build one that
+    walks the user through re-running the GraphQL query by hand.
+    """
+    if debug_hint is not None:
+        return debug_hint
+    return _debug_hint_template.substitute(query_str=query_str)
+
+
 async def _download_file(
     *,
     client: niquests.AsyncSession,
@@ -417,6 +487,9 @@ async def _download_file(
     progress: Progress,
     overall_task: TaskID,
     stats: _DownloadStats,
+    checksum: str | None = None,
+    checksum_algorithm: ChecksumAlgorithm | None = None,
+    debug_hint: str | None = None,
 ) -> None:
     """Download an individual file, retrying on transient errors."""
     try:
@@ -437,6 +510,9 @@ async def _download_file(
                     overall_task=overall_task,
                     is_retry=attempt > 0,
                     stats=stats,
+                    checksum=checksum,
+                    checksum_algorithm=checksum_algorithm,
+                    debug_hint=debug_hint,
                 )
                 return
             except _RetryableError as err:
@@ -463,7 +539,7 @@ async def _download_file(
                     )
                     raise _DownloadError(
                         reason=f"{reason} (failed after {attempts})",
-                        hint=_debug_hint_template.substitute(query_str=query_str),
+                        hint=_resolve_hint(query_str=query_str, debug_hint=debug_hint),
                         url=url,
                     ) from (err.__cause__ or err)
     except _DownloadError as exc:
@@ -493,8 +569,12 @@ async def _attempt_download(
     overall_task: TaskID,
     is_retry: bool,
     stats: _DownloadStats,
+    checksum: str | None = None,
+    checksum_algorithm: ChecksumAlgorithm | None = None,
+    debug_hint: str | None = None,
 ) -> None:
     """Single download attempt (HEAD → local check → GET)."""
+    hint = _resolve_hint(query_str=query_str, debug_hint=debug_hint)
     if outfile.exists():
         local_file_size = outfile.stat().st_size
     else:
@@ -512,7 +592,7 @@ async def _attempt_download(
     # and reading only; tasks may legitimately wait a long time for a
     # connection from the shared session's pool, and the semaphores are the
     # sole concurrency throttle.
-    if url.startswith(_openneuro_url_prefix):
+    if url.startswith((_openneuro_url_prefix, _nemar.NEMAR_DATA_URL)):
         timeout = 60
     else:
         timeout = 5
@@ -528,19 +608,35 @@ async def _attempt_download(
             if not response.ok:
                 raise _DownloadError(
                     reason=f"HEAD request failed with HTTP {response.status_code}",
-                    hint=_debug_hint_template.substitute(query_str=query_str),
+                    hint=hint,
                     url=url,
                 )
             headers = response.headers
     except allowed_retry_exceptions as exc:
         raise _RetryableError from exc
 
-    # Try to get the S3 MD5 hash for the file.
-    etag = headers.get("etag")
-    etag_hash = etag.strip('"') if etag is not None else None
-    remote_file_hash = (
-        etag_hash if (etag_hash is not None and len(etag_hash) == 32) else None
-    )
+    if (
+        checksum is not None
+        and checksum_algorithm is not None
+        # A git blob hash is defined over a length prefix, so without the size
+        # it cannot be computed; skip verification rather than fail the file.
+        and not (checksum_algorithm == "git" and remote_file_size is None)
+    ):
+        # NEMAR announces the checksum (and which algorithm produced it) in its
+        # manifest, so there is nothing to infer.
+        remote_file_hash: str | None = checksum
+        hash_algorithm: ChecksumAlgorithm = checksum_algorithm
+    else:
+        # OpenNeuro publishes no checksum, so fall back to the S3 `ETag`, which
+        # holds the MD5 for single-part uploads. Multipart uploads instead give
+        # a "<hash>-<parts>" digest that is not an MD5 of the contents, so only
+        # a bare 32-character hex value can be trusted here.
+        etag = headers.get("etag")
+        etag_hash = etag.strip('"') if etag is not None else None
+        remote_file_hash = (
+            etag_hash if (etag_hash is not None and len(etag_hash) == 32) else None
+        )
+        hash_algorithm = "md5"
 
     # Phase 2: Local file check (no semaphore held — allows other tasks
     # to use network slots while we do local I/O).
@@ -553,7 +649,7 @@ async def _attempt_download(
         and remote_file_size is not None
         and local_file_size == remote_file_size
     ):
-        hash_ = hashlib.md5()
+        hash_ = _make_hasher(hash_algorithm, size=remote_file_size)
 
         if verify_hash and remote_file_hash is not None:
             async with aiofiles.open(outfile, "rb") as f:
@@ -631,7 +727,7 @@ async def _attempt_download(
                 else:
                     raise _DownloadError(
                         reason=f"HTTP {response.status_code} when trying to download",
-                        hint=_debug_hint_template.substitute(query_str=query_str),
+                        hint=hint,
                         url=url,
                     )
 
@@ -648,6 +744,7 @@ async def _attempt_download(
                     verify_size=verify_size,
                     progress=progress,
                     overall_task=overall_task,
+                    hash_algorithm=hash_algorithm,
                 )
             finally:
                 await response.close()
@@ -673,9 +770,10 @@ async def _retrieve_and_write_to_disk(
     verify_size: bool,
     progress: Progress,
     overall_task: TaskID,
+    hash_algorithm: ChecksumAlgorithm = "md5",
 ) -> int:
     """Stream the response to disk, returning the number of bytes downloaded."""
-    hash = hashlib.md5()
+    hash = _make_hasher(hash_algorithm, size=remote_file_size)
 
     # If we're resuming a download, ensure the already-downloaded
     # parts of the file are fed into the hash function before
@@ -798,6 +896,7 @@ async def _download_files(
     max_concurrent_downloads: int,
     query_str: str,
     stats: _DownloadStats,
+    debug_hint: str | None = None,
 ) -> list[tuple[str, _DownloadError]]:
     """Download files concurrently, returning a list of per-file failures."""
     # Semaphore (counter) to limit maximum number of concurrent download
@@ -836,6 +935,8 @@ async def _download_files(
                 size=file.size,
                 outfile=outfile,
                 remote_path=file.filename,
+                checksum=file.checksum,
+                checksum_algorithm=file.checksum_algorithm,
             )
         )
 
@@ -876,6 +977,9 @@ async def _download_files(
                     progress=progress,
                     overall_task=overall_task,
                     stats=stats,
+                    checksum=fi.checksum,
+                    checksum_algorithm=fi.checksum_algorithm,
+                    debug_hint=debug_hint,
                 )
                 for fi in file_infos
             ]
@@ -921,17 +1025,95 @@ async def _download_files(
     return failures
 
 
+def _apply_nemar_checksums(
+    files: list[DatasetFile],
+    *,
+    dataset_id: str,
+    tag: str,
+    max_retries: int,
+    retry_backoff: float,
+    metadata_timeout: float,
+) -> list[DatasetFile]:
+    """Attach NEMAR's checksums to OpenNeuro files, where they apply.
+
+    Returns the list unchanged when NEMAR cannot vouch for this revision, so a
+    download never fails merely because the mirror was unavailable.
+    """
+    checksums = _nemar.get_checksums(
+        dataset_id=dataset_id,
+        tag=tag,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
+        metadata_timeout=metadata_timeout,
+    )
+    if not checksums:
+        return files
+
+    updated: list[DatasetFile] = []
+    for file in files:
+        entry = checksums.get(file.filename)
+        if entry is None:
+            updated.append(file)
+            continue
+        checksum, algorithm = entry
+        updated.append(
+            file.model_copy(
+                update={"checksum": checksum, "checksum_algorithm": algorithm}
+            )
+        )
+
+    n = sum(f.checksum is not None for f in updated)
+    cprint(
+        _unicode(
+            f"Verifying {n} of {len(updated)} files against NEMAR's checksums",
+            emoji="🔎",
+            end="",
+        )
+    )
+    return updated
+
+
+def _source_dataset_tag(local_json: dict[str, Any]) -> str | None:
+    """Recover the OpenNeuro revision a NEMAR mirror was made from.
+
+    NEMAR replaces `DatasetDOI` with its own identifier but records the
+    OpenNeuro DOI it copied under BIDS' `SourceDatasets`, so a directory filled
+    from NEMAR can still report a meaningful OpenNeuro revision. Returns `None`
+    when no such record is present.
+    """
+    for entry in local_json.get("SourceDatasets") or []:
+        if not isinstance(entry, dict):
+            continue
+        doi = str(entry.get("DOI", "")).removeprefix("doi:")
+        match = _OPENNEURO_DOI_RE.match(doi)
+        if match is not None:
+            return match["version"]
+    return None
+
+
 def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
     """Get the local dataset revision."""
     local_json_path = dataset_dir / "dataset_description.json"
     if not local_json_path.exists():
         return None
 
-    local_json_file_content = local_json_path.read_text(encoding="utf-8")
+    try:
+        local_json_file_content = local_json_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        # Damaged beyond recognition; treat the revision as unknown so the
+        # download can replace the file rather than aborting on it.
+        return None
     if not local_json_file_content:
         return None
 
-    local_json = json.loads(local_json_file_content)
+    try:
+        local_json = json.loads(local_json_file_content)
+    except json.JSONDecodeError:
+        # As above: a truncated or corrupt description should be re-downloaded,
+        # not raised as a bare decode error the user cannot act on.
+        return None
+    if not isinstance(local_json, dict):
+        return None
 
     if "DatasetDOI" not in local_json:
         raise RuntimeError(
@@ -946,9 +1128,14 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
         # Remove the "protocol" prefix
         local_doi = local_doi[4:]
 
-    expected_doi_start = f"10.18112/openneuro.{dataset_id}.v"
-
-    if not local_doi.startswith(expected_doi_start):
+    openneuro_doi = _OPENNEURO_DOI_RE.match(local_doi)
+    # NEMAR rewrites `DatasetDOI` to point at its own mirror, so a directory
+    # previously filled from NEMAR carries a NEMAR DOI even though the bytes
+    # are OpenNeuro's. Recognise both, and compare the dataset *number* so that
+    # a directory populated from one source can be topped up from the other.
+    nemar_doi = _NEMAR_DOI_RE.match(local_doi)
+    match = openneuro_doi or nemar_doi
+    if match is None or match["number"] != dataset_id.removeprefix("ds"):
         raise RuntimeError(
             f"The existing dataset in the target directory "
             f"appears to be different from the one you "
@@ -958,16 +1145,12 @@ def _get_local_tag(*, dataset_id: str, dataset_dir: Path) -> str | None:
             f"Requested dataset: {dataset_id}"
         )
 
-    local_version = local_doi.replace(f"10.18112/openneuro.{dataset_id}.v", "")
-    return local_version
-
-
-def _unicode(msg: str, *, emoji: str = " ", end: str = "…") -> str:
-    if unicode_ok:
-        msg = f"{emoji} {msg} {end}"
-    elif end == "…":
-        msg = f"{msg} ..."
-    return msg
+    if openneuro_doi is None:
+        # NEMAR's own DOI carries its own version numbering, which says nothing
+        # about the OpenNeuro revision. It does record the revision it mirrored
+        # under "SourceDatasets", though, so prefer that over giving up.
+        return _source_dataset_tag(local_json)
+    return openneuro_doi["version"]
 
 
 def _print_download_failures(failures: list[tuple[str, _DownloadError]]) -> None:
@@ -1058,11 +1241,12 @@ def download(
     target_dir: Path | str | None = None,
     include: Iterable[str] | None = None,
     exclude: Iterable[str] | None = None,
-    verify_hash: bool = True,
+    verify_hash: bool | Literal["auto", "nemar"] = "auto",
     verify_size: bool = True,
     max_retries: int = 5,
     max_concurrent_downloads: int = 5,
     metadata_timeout: float = 15.0,
+    source: Source | None = None,
 ) -> None:
     """Download datasets from OpenNeuro.
 
@@ -1071,7 +1255,14 @@ def download(
     dataset
         The dataset to retrieve, for example `ds000248`.
     tag
-        The tag (revision) of the dataset to retrieve.
+        The tag (revision) of the dataset to retrieve. This always refers to an
+        **OpenNeuro** revision, including when `source="nemar"`: NEMAR numbers
+        its mirrors independently, so its own version numbers are never
+        accepted here.
+
+        > **Note:** NEMAR mirrors only a single snapshot per dataset, so
+        > requesting any revision other than the one it currently holds will
+        > fail. Use `source="openneuro"` to fetch an older revision.
     target_dir
         The directory in which to store the downloaded data. If `None`,
         create a subdirectory with the dataset name in the current working
@@ -1103,7 +1294,32 @@ def download(
         > though other dotfiles are skipped by default, because BIDS validators
         > rely on it to know which files to ignore.
     verify_hash
-        Whether to calculate and verify the MD5 hash of each downloaded file.
+        Whether to calculate and verify a hash of each downloaded file.
+
+        OpenNeuro publishes no checksums of its own, so verification falls back
+        to the S3 `ETag`. That is an MD5 only for single-part uploads;
+        multipart ones (in practice, files of 1 GiB or more) return a
+        digest-of-digests instead and cannot be checked at all. An `ETag` also
+        only ever describes what OpenNeuro has *stored*, so it cannot reveal a
+        file that was already corrupt at rest. NEMAR mirrors OpenNeuro
+        byte-for-byte and publishes a checksum for every file, which closes
+        both gaps.
+
+        - `"auto"` (the default) verifies against NEMAR's checksums when the
+          files being downloaded include one at or above the multipart
+          threshold, and against the `ETag` otherwise. NEMAR is contacted only
+          when it can actually help, so most downloads are unaffected.
+        - `True` verifies using only what the source itself announces, never
+          contacting NEMAR.
+        - `"nemar"` always consults NEMAR, verifying every file it covers
+          regardless of size.
+        - `False` disables hash checking.
+
+        `"auto"` and `"nemar"` apply only to `source="openneuro"`; a NEMAR
+        download already carries its own checksums. The single file NEMAR
+        rewrites (`dataset_description.json`) is never cross-verified. If NEMAR
+        is unreachable, or mirrors a different revision than the one being
+        downloaded, both degrade to the `True` behaviour rather than failing.
     verify_size
         Whether to check if the downloaded file size matches what the server
         announced.
@@ -1113,10 +1329,25 @@ def download(
         The maximum number of downloads to run in parallel.
     metadata_timeout
         Timeout in seconds for metadata queries.
+    source
+        Where to fetch the data from.
+
+        - `"openneuro"` (the default) uses OpenNeuro itself, and is the only
+          source that can serve restricted datasets, arbitrary revisions, and
+          non-MEEG modalities.
+        - `"nemar"` uses the NEMAR mirror at UC San Diego
+          (<https://nemar.org>), which carries the EEG, MEG, and iEEG datasets
+          published on OpenNeuro. The files are byte-for-byte identical, and
+          NEMAR publishes per-file checksums that are verified during the
+          download.
+
+        If `None`, the `OPENNEURO_SOURCE` environment variable is consulted,
+        falling back to `"openneuro"`.
 
     """
     if max_concurrent_downloads < 1:
         raise ValueError("max_concurrent_downloads must be at least 1.")
+    source = get_source(source)
 
     msg_problems = "problems 🤯" if unicode_ok else "problems"
     msg_bugs = "bugs 🪲" if unicode_ok else "bugs"
@@ -1133,7 +1364,8 @@ def download(
         f"      https://github.com/openneuro-py/openneuro-py/issues\n"
     )
     cprint(msg)
-    cprint(_unicode(f"Preparing to download {dataset}", emoji="🌍"))
+    where = f"{dataset} from NEMAR" if source == "nemar" else dataset
+    cprint(_unicode(f"Preparing to download {where}", emoji="🌍"))
 
     if target_dir is None:
         target_dir = Path(dataset)
@@ -1151,6 +1383,7 @@ def download(
     metadata = _get_download_metadata(
         dataset_id=dataset,
         tag=tag,
+        source=source,
         max_retries=max_retries,
         retry_backoff=retry_backoff,
         metadata_timeout=metadata_timeout,
@@ -1165,7 +1398,16 @@ def download(
         if not target_dir_empty:
             local_tag = _get_local_tag(dataset_id=dataset, dataset_dir=target_dir)
 
-            if local_tag is None:
+            if local_tag is None and source == "nemar":
+                # Expected, not a warning sign: NEMAR rewrites `DatasetDOI` to
+                # its own identifier, which carries no OpenNeuro revision. The
+                # per-file checksums still catch any stale or corrupt file.
+                cprint(
+                    "The existing files carry NEMAR's identifier rather than "
+                    "an OpenNeuro revision, so the local revision cannot be "
+                    "determined. Each file is verified individually regardless."
+                )
+            elif local_tag is None:
                 cprint(
                     "Cannot determine local revision of the dataset, "
                     "and the target directory is not empty. If the "
@@ -1185,12 +1427,17 @@ def download(
         "participants.tsv",
         "participants.json",
         "README",
+        # BIDS allows the README to carry an extension, and NEMAR stores it as
+        # "README.md" even where OpenNeuro has a plain "README". Names that the
+        # dataset does not contain are simply ignored below.
+        "README.md",
         "CHANGES",
         ".bidsignore",
     }
 
     all_files = metadata.files
     del metadata
+
     filenames = [f.filename for f in all_files]
 
     if include:
@@ -1226,6 +1473,26 @@ def download(
                     "Please check your includes."
                 )
 
+    # NEMAR's checksums only add anything to an *OpenNeuro* download; a NEMAR
+    # download already carries its own. "auto" pays the extra request only when
+    # the files actually being fetched include one too large for OpenNeuro's
+    # `ETag` to describe.
+    if source == "openneuro" and (
+        verify_hash == "nemar"
+        or (
+            verify_hash == "auto"
+            and any((f.size or 0) >= _MULTIPART_THRESHOLD for f in files)
+        )
+    ):
+        files = _apply_nemar_checksums(
+            files,
+            dataset_id=dataset,
+            tag=tag,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+            metadata_timeout=metadata_timeout,
+        )
+
     msg = (
         f"Checking {len(files)} files, downloading as needed "
         f"({max_concurrent_downloads} concurrent downloads)."
@@ -1242,13 +1509,16 @@ def download(
     coroutine = _download_files(
         target_dir=target_dir,
         files=files,
-        verify_hash=verify_hash,
+        # "nemar" has done its work above, by attaching checksums to the files;
+        # from here on it simply means "verify".
+        verify_hash=bool(verify_hash),
         verify_size=verify_size,
         max_retries=max_retries,
         retry_backoff=retry_backoff,
         max_concurrent_downloads=max_concurrent_downloads,
         query_str=query_str,
         stats=stats,
+        debug_hint=_make_nemar_debug_hint(dataset) if source == "nemar" else None,
     )
 
     # Block until the download actually finishes, even when a loop is already

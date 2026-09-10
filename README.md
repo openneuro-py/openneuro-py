@@ -124,11 +124,92 @@ openneuro-py login
 
 Paste the API key and press return.
 
+### Download from the NEMAR mirror
+
+[NEMAR](https://nemar.org) is a partner archive at UC San Diego that mirrors
+the EEG, MEG, and iEEG datasets published on OpenNeuro. The files are
+byte-for-byte identical, and NEMAR publishes a checksum for every file, which
+`openneuro-py` verifies as it downloads.
+
+```shell
+openneuro-py download --dataset=ds004840 --source=nemar
+```
+
+To make it the default for every command, set the `OPENNEURO_SOURCE`
+environment variable:
+
+```shell
+export OPENNEURO_SOURCE=nemar
+```
+
+### Stronger integrity checking for OpenNeuro downloads
+
+OpenNeuro publishes no checksums, so `openneuro-py` falls back to the S3
+`ETag`. That is an MD5 only for single-part uploads: files of 1 GiB or more are
+uploaded in parts and return a digest-of-digests, which cannot be checked at
+all. An `ETag` also only describes what OpenNeuro has *stored*, so it cannot
+reveal a file that was already corrupt at rest.
+
+Because NEMAR mirrors OpenNeuro byte-for-byte and publishes a checksum for
+every file, it can close both gaps. By default (`verify_hash="auto"`)
+`openneuro-py` consults NEMAR only when the files being downloaded include one
+past that threshold — most downloads never contact it:
+
+```shell
+# Always cross-check against NEMAR, whatever the file sizes:
+openneuro-py download --dataset=ds000246 --nemar-checksums
+
+# Never contact NEMAR; use only OpenNeuro's own ETags:
+openneuro-py download --dataset=ds000246 --no-nemar-checksums
+```
+
+If NEMAR is unreachable, or mirrors a different revision than the one being
+downloaded, this degrades to the `ETag` behaviour rather than failing.
+
+### Differences when downloading from NEMAR
+
+A few things work differently when downloading from NEMAR:
+
+- **Only MEEG datasets are mirrored.** Anything else — and anything NEMAR has
+  not mirrored yet — is unavailable, and `openneuro-py` will tell you to use
+  `--source=openneuro` instead.
+- **`--tag` always means the OpenNeuro revision**, never NEMAR's own version
+  number (the two do not correspond). NEMAR keeps only the single snapshot it
+  most recently mirrored, so requesting any other revision fails with a message
+  naming the one it does have.
+- **Restricted datasets are not available**, since NEMAR serves only public
+  data and does not use your OpenNeuro API token.
+- **A couple of metadata files differ.** NEMAR points `DatasetDOI` at its own
+  identifier (recording the OpenNeuro one under `SourceDatasets`), adds a
+  `.bidsignore`, and stores the README as `README.md`. The data files
+  themselves are unchanged.
+
+### See also: `nemar-py`
+
+The NEMAR team maintains [`nemar-py`](https://github.com/nemarOrg/nemar-py), a
+dedicated client for `data.nemar.org`. If NEMAR is your primary archive rather
+than a mirror of OpenNeuro, it is the better tool: it addresses datasets by
+NEMAR ID (`nm…`/`on…`) and NEMAR version, so it can reach NEMAR-native datasets
+that were never on OpenNeuro, and older NEMAR releases that `openneuro-py` does
+not expose. It also offers BIDS-entity filters (`--subject`, `--task`,
+`--datatype`, …) and optional DataLad/git-annex and S3 backends.
+
+`--source=nemar` here is for the other direction: staying in OpenNeuro's
+namespace — OpenNeuro dataset IDs and OpenNeuro revisions, with the `include`
+and `exclude` patterns you already use — while the bytes happen to come from
+NEMAR.
+
 ## Basic usage – Python interface
 
 ```python
 import openneuro as on
 on.download(dataset='ds000246', target_dir='data/bids')
+```
+
+To download from the NEMAR mirror instead, pass `source`:
+
+```python
+on.download(dataset='ds004840', target_dir='data/bids', source='nemar')
 ```
 
 ## Development
