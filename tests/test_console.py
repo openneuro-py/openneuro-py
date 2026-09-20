@@ -1,6 +1,8 @@
 """Tests for the print-or-log switch in `openneuro._console`."""
 
 import logging
+import sys
+from collections.abc import Iterator
 
 import pytest
 from typer.testing import CliRunner
@@ -8,6 +10,15 @@ from typer.testing import CliRunner
 import openneuro._cli
 import openneuro._console
 from openneuro._console import cprint
+
+
+@pytest.fixture(autouse=True)
+def capture_openneuro_log(caplog: pytest.LogCaptureFixture) -> Iterator[None]:
+    """Route the non-propagating openneuro logger into caplog."""
+    logger = logging.getLogger("openneuro")
+    logger.addHandler(caplog.handler)
+    yield
+    logger.removeHandler(caplog.handler)
 
 
 @pytest.fixture
@@ -46,6 +57,20 @@ def test_library_mode_honors_level(caplog: pytest.LogCaptureFixture) -> None:
     cprint("something went wrong", level=logging.WARNING)
 
     assert [r.levelno for r in caplog.records] == [logging.WARNING]
+
+
+def test_library_mode_does_not_propagate(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A host application's basicConfig() must not echo every message twice."""
+    root_handler = logging.StreamHandler(sys.stderr)
+    logging.getLogger().addHandler(root_handler)
+    try:
+        cprint("only once")
+    finally:
+        logging.getLogger().removeHandler(root_handler)
+
+    assert capsys.readouterr().err.count("only once") == 1
 
 
 def test_library_mode_can_be_silenced(

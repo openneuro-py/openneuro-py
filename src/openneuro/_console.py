@@ -14,9 +14,10 @@ another.
 always had, while library callers get `logging` records on the `"openneuro"`
 logger, which they can filter, silence, or redirect like any other library's.
 That logger ships with a handler of its own and an `INFO` level, because
-staying silent by default would hide the very messages the CLI shows; it keeps
-propagating so a host application's own logging configuration still sees the
-records, and a caller that renders them itself can drop our handler.
+staying silent by default would hide the very messages the CLI shows. It does
+not propagate to the root logger, so a host application's `basicConfig()` does
+not print every message a second time; a caller that wants the records routed
+elsewhere adds a handler to (or swaps out the handler of) that logger.
 """
 
 import io
@@ -77,6 +78,7 @@ class _ConsoleHandler(logging.Handler):
 if logger.level == logging.NOTSET:
     logger.setLevel(logging.INFO)
 logger.addHandler(_ConsoleHandler())
+logger.propagate = False
 
 
 def cprint(msg: str = "", *, cli_only: bool = False, level: int = logging.INFO) -> None:

@@ -225,9 +225,9 @@ import logging
 logging.getLogger("openneuro").setLevel(logging.WARNING)  # only problems
 ```
 
-To render them yourself, drop our handler
-(`logging.getLogger('openneuro').handlers.clear()`) and configure logging as
-usual.
+The logger does not propagate to the root logger, so to render the messages
+yourself, attach your own handler to it (and drop ours with
+`logging.getLogger("openneuro").handlers.clear()`).
 
 ## Development
 
