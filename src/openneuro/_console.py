@@ -8,9 +8,20 @@ The message-formatting helpers live here too (rather than in `_download`) so
 that every module which talks to a remote host — `_download` and `_nemar`
 alike — can report progress and retries identically without importing one
 another.
+
+`cprint` is also where the command line interface and the Python API part ways
+(gh-141): the CLI sets `_RUNNING_FROM_CLI` and gets the printed output it
+always had, while library callers get `logging` records on the `"openneuro"`
+logger, which they can filter, silence, or redirect like any other library's.
+That logger ships with a handler of its own and an `INFO` level, because
+staying silent by default would hide the very messages the CLI shows. It does
+not propagate to the root logger, so a host application's `basicConfig()` does
+not print every message a second time; a caller that wants the records routed
+elsewhere adds a handler to (or swaps out the handler of) that logger.
 """
 
 import io
+import logging
 import sys
 
 from rich.console import Console
@@ -20,8 +31,13 @@ from rich.console import Console
 # Jupyter, `rich` renders via `display()` and ignores the stream entirely.
 console = Console(stderr=True)
 
+#: Set to `True` by `openneuro._cli`; unset means we are used as a library.
+_RUNNING_FROM_CLI: bool = False
 
-def cprint(msg: str = "") -> None:
+logger = logging.getLogger("openneuro")
+
+
+def _console_print(msg: str) -> None:
     """Print a message above any active progress display.
 
     This is the `rich` replacement for `tqdm.write`. Markup and syntax
@@ -41,6 +57,57 @@ def cprint(msg: str = "") -> None:
         print(msg, flush=True)
     else:
         console.print(msg, markup=False, highlight=False)
+
+
+class _ConsoleHandler(logging.Handler):
+    """Emit log records through the shared console.
+
+    A plain `StreamHandler` would write straight to `sys.stderr` and tear
+    through a live progress display, so library-mode messages take the same
+    route as printed ones.
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            _console_print(self.format(record))
+        except Exception:  # pragma: no cover
+            self.handleError(record)
+
+
+# A level set before we were imported was a deliberate choice; don't undo it.
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
+logger.addHandler(_ConsoleHandler())
+logger.propagate = False
+
+
+def cprint(msg: str = "", *, cli_only: bool = False, level: int = logging.INFO) -> None:
+    """Report a status message, printing it or logging it as appropriate.
+
+    Parameters
+    ----------
+    msg
+        The message. From the CLI it is printed verbatim above any active
+        progress display; otherwise it is logged to the `"openneuro"` logger.
+    cli_only
+        Whether the message is pure CLI decoration (a greeting, a sign-off)
+        that a library caller has no use for, and should be dropped entirely
+        when not running from the CLI.
+    level
+        The level to log at when not running from the CLI. Ignored by the CLI,
+        which renders every message identically.
+
+    """
+    if _RUNNING_FROM_CLI:
+        _console_print(msg)
+        return
+    if cli_only:
+        return
+    # A record spanning several lines is unreadable in most logging setups
+    # (gh-141), so split it up and drop the blank lines used for spacing.
+    for line in msg.splitlines():
+        if line.strip():
+            logger.log(level, line)
 
 
 def _probe_unicode() -> bool:
@@ -79,5 +146,6 @@ def _write_retry(*, what: str, reason: str, retry: int, backoff: float) -> None:
         _unicode(
             f"{reason} while {what}, retrying ({remaining})",
             emoji="🔄",
-        )
+        ),
+        level=logging.WARNING,
     )

@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 import typer
 
 import openneuro
+import openneuro._console
 from openneuro._config import Source
 from openneuro._download import download, login
 
@@ -137,6 +138,7 @@ def show_version_callback(show_version: bool) -> None:
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: Annotated[
         bool | None,
         typer.Option(
@@ -148,4 +150,10 @@ def main(
     ] = False,
 ) -> None:
     """Access OpenNeuro datasets."""
-    pass
+    # Runs before every subcommand, so this is the one place that has to
+    # declare we are a terminal application rather than a library (gh-141).
+    # Restored on close so an in-process invocation (CliRunner, an embedding
+    # app) doesn't leave later openneuro.download() calls in CLI mode.
+    was_cli = openneuro._console._RUNNING_FROM_CLI
+    openneuro._console._RUNNING_FROM_CLI = True
+    ctx.call_on_close(lambda: setattr(openneuro._console, "_RUNNING_FROM_CLI", was_cli))

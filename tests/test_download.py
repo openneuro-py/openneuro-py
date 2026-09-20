@@ -702,24 +702,22 @@ def test_all_files_missing_urls(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
-    "filename",
-    [
-        "../x",
-        "a/../../x",
-        "/etc/passwd",
-        "C:\\x",
-        "C:x",
-        "\\foo",
-        "\\\\server\\share",
-        "",
-    ],
+    "bad", ["../x", "a/../../x", "/etc/passwd", "C:\\x", "C:x", "\\foo", "\\\\s\\s", ""]
 )
-def test_download_files_rejects_escaping_paths(tmp_path: Path, filename: str):
+def test_validated_outfile(tmp_path: Path, bad: str):
     """Remote metadata must not be able to write outside the target directory."""
+    kwargs = dict(target_dir=tmp_path, dataset_id="ds000000")
+    with pytest.raises(RuntimeError, match="open an issue"):
+        _download._validated_outfile(bad, **kwargs)
+    assert _download._validated_outfile("sub/dir/f", **kwargs) == tmp_path / "sub/dir/f"
+
+
+def test_download_files_rejects_escaping_paths(tmp_path: Path):
+    """The pipeline itself must refuse a bad name before writing anything."""
     target_dir = tmp_path / "ds000000"
     target_dir.mkdir()
     files = [
-        DatasetFile(filename=filename, urls=["https://example.com/x"], size=1, id="x")
+        DatasetFile(filename="../x", urls=["https://example.com/x"], size=1, id="x")
     ]
 
     with pytest.raises(RuntimeError, match="open an issue"):
@@ -730,7 +728,7 @@ def test_download_files_rejects_escaping_paths(tmp_path: Path, filename: str):
 
 
 def test_download_files_accepts_nested_paths(tmp_path: Path):
-    """The usual dataset layout keeps working."""
+    """The usual dataset layout keeps working, parent directories included."""
     name = "sub/dir/file.txt"
     files = [
         DatasetFile(filename=name, urls=[f"https://example.com/{name}"], size=4, id="x")
@@ -785,7 +783,11 @@ def test_terminal_failure_reported_immediately(tmp_path: Path):
         for n in names
     ]
     said: list[str] = []
-    with patch.object(_download, "cprint", side_effect=said.append):
+
+    def record(msg: str, **kwargs: object) -> None:
+        said.append(msg)
+
+    with patch.object(_download, "cprint", side_effect=record):
         failures, _ = _run_download_files(
             tmp_path,
             _make_dataset_client(

@@ -203,14 +203,31 @@ NEMAR.
 
 ```python
 import openneuro as on
-on.download(dataset='ds000246', target_dir='data/bids')
+
+on.download(dataset="ds000246", target_dir="data/bids")
 ```
 
 To download from the NEMAR mirror instead, pass `source`:
 
 ```python
-on.download(dataset='ds004840', target_dir='data/bids', source='nemar')
+on.download(dataset="ds004840", target_dir="data/bids", source="nemar")
 ```
+
+### Status messages
+
+From Python, the status messages go through the `logging` module (the command
+line interface prints them as before), so you can quieten or redirect them
+like any other library's:
+
+```python
+import logging
+
+logging.getLogger("openneuro").setLevel(logging.WARNING)  # only problems
+```
+
+The logger does not propagate to the root logger, so to render the messages
+yourself, attach your own handler to it (and drop ours with
+`logging.getLogger("openneuro").handlers.clear()`).
 
 ## Development
 

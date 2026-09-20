@@ -62,6 +62,9 @@ jobs:
     - name: Test entry point
       run: |
         uv run python -m openneuro --help
+    - name: Test a real download from the CLI
+      run: |
+        uv run openneuro-py download --dataset=ds000248 --include=participants.tsv --target-dir=ds000248-cli
     - name: Test with pytest
       env:
         OPENNEURO_TEST_TOKEN: ${{ secrets.OPENNEURO_TEST_TOKEN }}

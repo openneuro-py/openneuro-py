@@ -21,6 +21,7 @@ import contextlib
 import dataclasses
 import hashlib
 import json
+import logging
 import re
 import shlex
 import string
@@ -548,7 +549,8 @@ async def _download_file(
         cprint(
             _unicode(
                 f"Failed to download {remote_path}: {exc.reason}", emoji="❌", end=""
-            )
+            ),
+            level=logging.WARNING,
         )
         raise
 
@@ -1214,7 +1216,7 @@ def _print_download_failures(failures: list[tuple[str, _DownloadError]]) -> None
     lines.append(
         "Re-run this command to retry; already-downloaded files will be skipped."
     )
-    cprint("\n".join(lines))
+    cprint("\n".join(lines), level=logging.WARNING)
     raise RuntimeError(
         f"Failed to download {n} {noun}. "
         "Re-run this command to retry; already-downloaded files will be skipped."
@@ -1399,7 +1401,7 @@ def download(
         f"   {msg_please} report {msg_problems} and {msg_bugs} at\n"
         f"      https://github.com/openneuro-py/openneuro-py/issues\n"
     )
-    cprint(msg)
+    cprint(msg, cli_only=True)
     where = f"{dataset} from NEMAR" if source == "nemar" else dataset
     cprint(_unicode(f"Preparing to download {where}", emoji="🌍"))
 
@@ -1573,4 +1575,4 @@ def download(
         f"(downloaded {n_files} {plural} and {_format_size(stats.n_bytes)}).\n"
     )
     cprint(_unicode(summary, emoji="✅", end=""))
-    cprint(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""))
+    cprint(_unicode("Please enjoy your brains.\n", emoji="🧠", end=""), cli_only=True)
