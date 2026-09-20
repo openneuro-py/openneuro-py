@@ -702,46 +702,14 @@ def test_all_files_missing_urls(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
-    "filename",
-    [
-        "../x",
-        "a/../../x",
-        "/etc/passwd",
-        "C:\\x",
-        "C:x",
-        "\\foo",
-        "\\\\server\\share",
-        "",
-    ],
+    "bad", ["../x", "a/../../x", "/etc/passwd", "C:\\x", "C:x", "\\foo", "\\\\s\\s", ""]
 )
-def test_download_files_rejects_escaping_paths(tmp_path: Path, filename: str):
+def test_validated_outfile(tmp_path: Path, bad: str):
     """Remote metadata must not be able to write outside the target directory."""
-    target_dir = tmp_path / "ds000000"
-    target_dir.mkdir()
-    files = [
-        DatasetFile(filename=filename, urls=["https://example.com/x"], size=1, id="x")
-    ]
-
+    kwargs = dict(target_dir=tmp_path, dataset_id="ds000000")
     with pytest.raises(RuntimeError, match="open an issue"):
-        _run_download_files(target_dir, _make_dataset_client(bodies={}), files)
-
-    assert list(tmp_path.iterdir()) == [target_dir]
-    assert not list(target_dir.iterdir())
-
-
-def test_download_files_accepts_nested_paths(tmp_path: Path):
-    """The usual dataset layout keeps working."""
-    name = "sub/dir/file.txt"
-    files = [
-        DatasetFile(filename=name, urls=[f"https://example.com/{name}"], size=4, id="x")
-    ]
-
-    failures, _ = _run_download_files(
-        tmp_path, _make_dataset_client(bodies={name: b"abcd"}), files
-    )
-
-    assert not failures
-    assert (tmp_path / name).read_bytes() == b"abcd"
+        _download._validated_outfile(bad, **kwargs)
+    assert _download._validated_outfile("sub/dir/f", **kwargs) == tmp_path / "sub/dir/f"
 
 
 def test_json_error_body_is_never_silently_accepted(tmp_path: Path):

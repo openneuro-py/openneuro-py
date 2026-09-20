@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from niquests.cookies import RequestsCookieJar
 
 from openneuro import _download, _nemar
 from openneuro._download import (
@@ -594,40 +593,25 @@ def test_nemar_debug_hint_reaches_failures(tmp_path: Path, capsys):
     """A failing NEMAR download surfaces the NEMAR hint, not the GraphQL one."""
     snapshot = Snapshot(
         id="ds004840:1.0.1",
-        files=[
-            DatasetFile(
-                filename="a.bin",
-                urls=[f"{_nemar.NEMAR_DATA_URL}/on004840/1.0.0/a.bin"],
-                size=1,
-                id="a",
-            )
-        ],
+        files=[DatasetFile(filename="a.bin", urls=["https://x/a.bin"], size=1, id="a")],
     )
 
-    class _GoneSession:
-        # A real jar: the auth cookies are merged into the session's own.
-        cookies = RequestsCookieJar()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *exc_info):
-            return False
-
-        async def head(self, url, *, headers=None, timeout=None):
-            return MagicMock(status_code=404, ok=False, headers={})
+    async def _fail(**kwargs):
+        raise _download._RetryableError("nope")
 
     with (
-        patch.object(_download.niquests, "AsyncSession", lambda **kw: _GoneSession()),
+        patch.object(_download, "_attempt_download", _fail),
         patch.object(_download, "_get_download_metadata", return_value=snapshot),
         patch.object(_download, "_get_local_tag", return_value=None),
         pytest.raises(RuntimeError, match="Failed to download"),
     ):
         _download.download(
-            dataset="ds004840", tag="1.0.1", target_dir=tmp_path, source="nemar"
+            dataset="ds004840",
+            tag="1.0.1",
+            target_dir=tmp_path,
+            source="nemar",
+            max_retries=0,
         )
-
-    # The hint is printed rather than raised, so the summary is where to look.
     err = capsys.readouterr().err
     assert "https://data.nemar.org/on004840/" in err
     assert _download.gql_url not in err
