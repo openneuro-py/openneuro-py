@@ -906,7 +906,8 @@ def _validated_outfile(filename: str, *, target_dir: Path, dataset_id: str) -> P
     if not filename:
         raise _reject("it is empty")
     windows, posix = PureWindowsPath(filename), PurePosixPath(filename)
-    if windows.is_absolute() or posix.is_absolute() or windows.drive:
+    # `is_absolute()` misses drive-relative `C:x` and rooted `\\foo`; `anchor` doesn't
+    if windows.anchor or posix.anchor:
         raise _reject("it is absolute")
     if ".." in (*windows.parts, *posix.parts):
         raise _reject('it contains a ".." component')

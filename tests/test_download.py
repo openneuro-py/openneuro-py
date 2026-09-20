@@ -703,7 +703,16 @@ def test_all_files_missing_urls(tmp_path: Path):
 
 @pytest.mark.parametrize(
     "filename",
-    ["../x", "a/../../x", "/etc/passwd", "C:\\x", "\\\\server\\share", ""],
+    [
+        "../x",
+        "a/../../x",
+        "/etc/passwd",
+        "C:\\x",
+        "C:x",
+        "\\foo",
+        "\\\\server\\share",
+        "",
+    ],
 )
 def test_download_files_rejects_escaping_paths(tmp_path: Path, filename: str):
     """Remote metadata must not be able to write outside the target directory."""
