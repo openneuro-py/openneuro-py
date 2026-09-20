@@ -712,6 +712,21 @@ def test_validated_outfile(tmp_path: Path, bad: str):
     assert _download._validated_outfile("sub/dir/f", **kwargs) == tmp_path / "sub/dir/f"
 
 
+def test_download_files_rejects_escaping_paths(tmp_path: Path):
+    """The pipeline itself must refuse a bad name before writing anything."""
+    target_dir = tmp_path / "ds000000"
+    target_dir.mkdir()
+    files = [
+        DatasetFile(filename="../x", urls=["https://example.com/x"], size=1, id="x")
+    ]
+
+    with pytest.raises(RuntimeError, match="open an issue"):
+        _run_download_files(target_dir, _make_dataset_client(bodies={}), files)
+
+    assert list(tmp_path.iterdir()) == [target_dir]
+    assert not list(target_dir.iterdir())
+
+
 def test_json_error_body_is_never_silently_accepted(tmp_path: Path):
     """An error blob must not be mistaken for the file on a later attempt.
 
