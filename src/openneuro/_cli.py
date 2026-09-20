@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 import typer
 
 import openneuro
+import openneuro._console
 from openneuro._config import Source
 from openneuro._download import download, login
 
@@ -148,4 +149,6 @@ def main(
     ] = False,
 ) -> None:
     """Access OpenNeuro datasets."""
-    pass
+    # Runs before every subcommand, so this is the one place that has to
+    # declare we are a terminal application rather than a library (gh-141).
+    openneuro._console._RUNNING_FROM_CLI = True

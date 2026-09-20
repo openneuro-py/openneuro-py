@@ -785,7 +785,11 @@ def test_terminal_failure_reported_immediately(tmp_path: Path):
         for n in names
     ]
     said: list[str] = []
-    with patch.object(_download, "cprint", side_effect=said.append):
+
+    def record(msg: str, **kwargs: object) -> None:
+        said.append(msg)
+
+    with patch.object(_download, "cprint", side_effect=record):
         failures, _ = _run_download_files(
             tmp_path,
             _make_dataset_client(
