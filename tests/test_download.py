@@ -615,6 +615,7 @@ def _run_download_files(tmp_path: Path, client, files, **kwargs):
                 max_concurrent_downloads=3,
                 query_str="query {}",
                 stats=stats,
+                dataset_id=kwargs.pop("dataset_id", "ds000000"),
                 **kwargs,
             )
         )
@@ -698,6 +699,49 @@ def test_all_files_missing_urls(tmp_path: Path):
     assert all("No download URLs" in exc.reason for _, exc in failures)
     assert stats.n_files == 0
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "../x",
+        "a/../../x",
+        "/etc/passwd",
+        "C:\\x",
+        "C:x",
+        "\\foo",
+        "\\\\server\\share",
+        "",
+    ],
+)
+def test_download_files_rejects_escaping_paths(tmp_path: Path, filename: str):
+    """Remote metadata must not be able to write outside the target directory."""
+    target_dir = tmp_path / "ds000000"
+    target_dir.mkdir()
+    files = [
+        DatasetFile(filename=filename, urls=["https://example.com/x"], size=1, id="x")
+    ]
+
+    with pytest.raises(RuntimeError, match="open an issue"):
+        _run_download_files(target_dir, _make_dataset_client(bodies={}), files)
+
+    assert list(tmp_path.iterdir()) == [target_dir]
+    assert not list(target_dir.iterdir())
+
+
+def test_download_files_accepts_nested_paths(tmp_path: Path):
+    """The usual dataset layout keeps working."""
+    name = "sub/dir/file.txt"
+    files = [
+        DatasetFile(filename=name, urls=[f"https://example.com/{name}"], size=4, id="x")
+    ]
+
+    failures, _ = _run_download_files(
+        tmp_path, _make_dataset_client(bodies={name: b"abcd"}), files
+    )
+
+    assert not failures
+    assert (tmp_path / name).read_bytes() == b"abcd"
 
 
 def test_json_error_body_is_never_silently_accepted(tmp_path: Path):
@@ -1425,6 +1469,7 @@ def test_connections_bounded_by_pool_not_file_count(tmp_path: Path):
                 max_concurrent_downloads=max_concurrent_downloads,
                 query_str="test",
                 stats=_download._DownloadStats(),
+                dataset_id="ds000000",
             )
 
     asyncio.run(run())
