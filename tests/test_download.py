@@ -727,6 +727,21 @@ def test_download_files_rejects_escaping_paths(tmp_path: Path):
     assert not list(target_dir.iterdir())
 
 
+def test_download_files_accepts_nested_paths(tmp_path: Path):
+    """The usual dataset layout keeps working, parent directories included."""
+    name = "sub/dir/file.txt"
+    files = [
+        DatasetFile(filename=name, urls=[f"https://example.com/{name}"], size=4, id="x")
+    ]
+
+    failures, _ = _run_download_files(
+        tmp_path, _make_dataset_client(bodies={name: b"abcd"}), files
+    )
+
+    assert not failures
+    assert (tmp_path / name).read_bytes() == b"abcd"
+
+
 def test_json_error_body_is_never_silently_accepted(tmp_path: Path):
     """An error blob must not be mistaken for the file on a later attempt.
 
