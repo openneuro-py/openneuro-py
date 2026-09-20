@@ -28,7 +28,7 @@ import threading
 import time
 from collections.abc import Coroutine, Iterable
 from difflib import get_close_matches
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Literal, TypeVar
 
 import aiofiles
@@ -885,6 +885,39 @@ def _make_progress() -> Progress:
     )
 
 
+def _validated_outfile(filename: str, *, target_dir: Path, dataset_id: str) -> Path:
+    """Join a remote-supplied dataset path onto `target_dir`, refusing escapes.
+
+    `filename` comes from remote metadata (NEMAR's manifest, or OpenNeuro's
+    GraphQL API), so an absolute path, a Windows drive or UNC prefix, or a
+    `..` component would let that metadata overwrite files anywhere on disk.
+    The Windows rules are applied on every OS so a manifest is accepted or
+    rejected identically everywhere.
+    """
+
+    def _reject(why: str) -> RuntimeError:
+        return RuntimeError(
+            f"The file list for {dataset_id} contains the unusable path "
+            f"{filename!r} ({why}), which would be written outside the "
+            f"download directory {target_dir}. Please open an issue at "
+            "https://github.com/openneuro-py/openneuro-py/issues"
+        )
+
+    if not filename:
+        raise _reject("it is empty")
+    windows, posix = PureWindowsPath(filename), PurePosixPath(filename)
+    if windows.is_absolute() or posix.is_absolute() or windows.drive:
+        raise _reject("it is absolute")
+    if ".." in (*windows.parts, *posix.parts):
+        raise _reject('it contains a ".." component')
+
+    outfile = target_dir / filename
+    # `download()` hands us a resolved `target_dir`, but direct callers may not.
+    if not outfile.resolve().is_relative_to(target_dir.resolve()):
+        raise _reject("it does not stay inside the download directory")
+    return outfile
+
+
 async def _download_files(
     *,
     target_dir: Path,
@@ -896,6 +929,7 @@ async def _download_files(
     max_concurrent_downloads: int,
     query_str: str,
     stats: _DownloadStats,
+    dataset_id: str,
     debug_hint: str | None = None,
 ) -> list[tuple[str, _DownloadError]]:
     """Download files concurrently, returning a list of per-file failures."""
@@ -912,7 +946,9 @@ async def _download_files(
     file_infos: list[_FileInfo] = []
     pre_failures: list[tuple[str, _DownloadError]] = []
     for file in files:
-        filename = Path(file.filename)
+        outfile = _validated_outfile(
+            file.filename, target_dir=target_dir, dataset_id=dataset_id
+        )
         if not file.urls:
             pre_failures.append(
                 (
@@ -927,7 +963,6 @@ async def _download_files(
             continue
         url = file.urls[0]
 
-        outfile = target_dir / filename
         outfile.parent.mkdir(parents=True, exist_ok=True)
         file_infos.append(
             _FileInfo(
@@ -1518,6 +1553,7 @@ def download(
         max_concurrent_downloads=max_concurrent_downloads,
         query_str=query_str,
         stats=stats,
+        dataset_id=dataset,
         debug_hint=_make_nemar_debug_hint(dataset) if source == "nemar" else None,
     )
 
