@@ -132,3 +132,18 @@ def test_cli_sets_the_flag(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result.exit_code == 0, result.output
     assert seen == [True]
+    # ... and restores it, so an in-process caller is back in library mode.
+    assert openneuro._console._RUNNING_FROM_CLI is False
+
+
+def test_cli_restores_the_flag_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failing subcommand must not leave the process in CLI mode either."""
+
+    def fake_download(**kwargs: object) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(openneuro._cli, "download", fake_download)
+    result = CliRunner().invoke(openneuro._cli.app, ["download", "--dataset=ds000248"])
+
+    assert result.exit_code != 0
+    assert openneuro._console._RUNNING_FROM_CLI is False
