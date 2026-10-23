@@ -605,6 +605,17 @@ async def _attempt_download(
             response = await client.head(
                 url, headers=user_agent_header, timeout=timeout
             )
+            if response.status_code == 403:
+                # A pre-signed S3 URL is signed for GET only, so S3 refuses a
+                # HEAD of it (gh-385). A one-byte ranged GET returns the same
+                # headers (including the `ETag`) without the body.
+                response = await client.get(
+                    url,
+                    headers={**user_agent_header, "Range": "bytes=0-0"},
+                    timeout=timeout,
+                    stream=True,
+                )
+                await response.close()
             if response.status_code in allowed_retry_codes:
                 raise _RetryableError(f"HTTP {response.status_code}")
             if not response.ok:

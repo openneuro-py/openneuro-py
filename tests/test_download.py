@@ -1142,6 +1142,7 @@ def _make_fake_client(
         def __init__(self):
             self.ok = True
             self.status_code = 200
+            self.headers = {"etag": '"d41d8cd98f00b204e9800998ecf8427e"'}
 
         async def iter_content(self, chunk_size=-1, decode_unicode=False):
             async def gen():
@@ -1311,6 +1312,28 @@ def test_head_non_retryable_status_code(tmp_path: Path):
         _download._DownloadError, match="HEAD request failed with HTTP 404"
     ):
         _run_download_file(tmp_path, mock_client)
+
+
+def test_head_403_falls_back_to_ranged_get(tmp_path: Path):
+    """A HEAD refused with 403 should fall back to a ranged GET (gh-385)."""
+    mock_client = _make_fake_client(
+        file_content=b"hello",
+        fail_head_n_times=99,
+        fail_head_status_code=403,
+    )
+    get = mock_client.get
+    ranges = []
+
+    async def spy_get(url, *, headers=None, timeout=None, stream=None):
+        ranges.append((headers or {}).get("Range"))
+        return await get(url, headers=headers, timeout=timeout, stream=stream)
+
+    mock_client.get = spy_get
+
+    _run_download_file(tmp_path, mock_client)
+
+    assert (tmp_path / "test.txt").read_bytes() == b"hello"
+    assert ranges == ["bytes=0-0", None]
 
 
 # -- _retrieve_and_write_to_disk with remote_file_size=None --
