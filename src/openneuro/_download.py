@@ -616,6 +616,13 @@ async def _attempt_download(
                     stream=True,
                 )
                 await response.close()
+                if response.status_code == 416:
+                    # The range is unsatisfiable for an empty object, so a
+                    # plain GET (whose body is empty anyway) is needed.
+                    response = await client.get(
+                        url, headers=user_agent_header, timeout=timeout, stream=True
+                    )
+                    await response.close()
             if response.status_code in allowed_retry_codes:
                 raise _RetryableError(f"HTTP {response.status_code}")
             if not response.ok:

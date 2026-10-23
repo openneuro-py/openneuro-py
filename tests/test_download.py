@@ -1314,10 +1314,20 @@ def test_head_non_retryable_status_code(tmp_path: Path):
         _run_download_file(tmp_path, mock_client)
 
 
-def test_head_403_falls_back_to_ranged_get(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("file_content", "expected_ranges"),
+    [
+        pytest.param(b"hello", ["bytes=0-0", None], id="nonempty"),
+        # S3 answers a ranged GET of an empty object with HTTP 416.
+        pytest.param(b"", ["bytes=0-0", None, None], id="empty"),
+    ],
+)
+def test_head_403_falls_back_to_ranged_get(
+    tmp_path: Path, file_content: bytes, expected_ranges: list[str | None]
+):
     """A HEAD refused with 403 should fall back to a ranged GET (gh-385)."""
     mock_client = _make_fake_client(
-        file_content=b"hello",
+        file_content=file_content,
         fail_head_n_times=99,
         fail_head_status_code=403,
     )
@@ -1325,15 +1335,22 @@ def test_head_403_falls_back_to_ranged_get(tmp_path: Path):
     ranges = []
 
     async def spy_get(url, *, headers=None, timeout=None, stream=None):
-        ranges.append((headers or {}).get("Range"))
+        range_ = (headers or {}).get("Range")
+        ranges.append(range_)
+        if range_ is not None and not file_content:
+            resp = AsyncMock()
+            resp.status_code = 416
+            resp.ok = False
+            resp.headers = {}
+            return resp
         return await get(url, headers=headers, timeout=timeout, stream=stream)
 
     mock_client.get = spy_get
 
-    _run_download_file(tmp_path, mock_client)
+    _run_download_file(tmp_path, mock_client, remote_file_size=len(file_content))
 
-    assert (tmp_path / "test.txt").read_bytes() == b"hello"
-    assert ranges == ["bytes=0-0", None]
+    assert (tmp_path / "test.txt").read_bytes() == file_content
+    assert ranges == expected_ranges
 
 
 # -- _retrieve_and_write_to_disk with remote_file_size=None --
